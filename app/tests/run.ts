@@ -1,0 +1,238 @@
+// Run with:  npm test
+import assert from "node:assert/strict";
+import { resolveCivilTime } from "../src/engine/vn-time.ts";
+import { computeNatal } from "../src/engine/core.ts";
+import { solarToLunar, lunarToSolar } from "../src/engine/lunar-vn.ts";
+import { SIGNS } from "../src/engine/constants.ts";
+import { vargaSign, vargaChart, charaKarakas, karakamsa, horaSplit } from "../src/engine/vargas.ts";
+import { compose, composeDay, makeCtx } from "../src/reading/compose.ts";
+import { shadbala, drikBala, beneficSet, SEVEN_IDS, REQUIRED_RUPAS } from "../src/engine/shadbala.ts";
+import { dashaOrigin, dashaMahas, dashaChildren, dashaChain, dashaReliability, levelTrust, LEVEL_NAME, TIME_WINDOW_MIN, type DNode } from "../src/engine/dasha5.ts";
+import { transitAt, taraOf, stayIn } from "../src/engine/transit.ts";
+import { buildParts, flatPages } from "../src/ui/pages.ts";
+
+let passed = 0, failed = 0;
+function test(name: string, fn: () => void) {
+  try { fn(); passed++; console.log("  ✓", name); }
+  catch (e) { failed++; console.log("  ✗", name, "\n   ", (e as Error).message); }
+}
+const HN = { name: "Hà Nội", lat: 21.0285, lon: 105.8542, country: "VN" as const };
+const SG = { name: "TP. Hồ Chí Minh", lat: 10.7769, lon: 106.7009, country: "VN" as const };
+const BMT = { name: "Buôn Ma Thuột", lat: 12.6667, lon: 108.05, country: "VN" as const };
+const off = (y: number, m: number, d: number, hh: number, mm: number, p: typeof HN) => resolveCivilTime(y, m, d, hh, mm, p).offsetSec / 3600;
+
+console.log("Vietnam civil time");
+test("2020 is UTC+7 everywhere", () => { assert.equal(off(2020, 6, 1, 12, 0, HN), 7); assert.equal(off(2020, 6, 1, 12, 0, SG), 7); });
+test("South Vietnam 1957 = +7, 1962 = +8, 1970 = +8, after 13/6/1975 = +7", () => {
+  assert.equal(off(1957, 5, 1, 9, 0, SG), 7); assert.equal(off(1962, 5, 1, 9, 0, SG), 8);
+  assert.equal(off(1970, 6, 15, 9, 0, SG), 8); assert.equal(off(1975, 7, 1, 9, 0, SG), 7);
+});
+test("North Vietnam 1970 = +7 while the South is +8", () => { assert.equal(off(1970, 6, 15, 9, 0, HN), 7); });
+test("Saigon clock jump 31/12/1959 23:00 -> 00:00 is flagged", () => {
+  assert.equal(resolveCivilTime(1959, 12, 31, 23, 30, SG).anomaly, "gap");
+  assert.equal(off(1960, 1, 1, 0, 30, SG), 8);
+});
+test("Japanese occupation 1945-04 = +9; 1944 = +8", () => { assert.equal(off(1945, 4, 10, 12, 0, SG), 9); assert.equal(off(1944, 6, 1, 12, 0, SG), 8); });
+test("UTC instant of 20/01/1998 10:45 in Buôn Ma Thuột", () => {
+  assert.equal(new Date(resolveCivilTime(1998, 1, 20, 10, 45, BMT).utcMs).toISOString(), "1998-01-20T03:45:00.000Z");
+});
+test("Abroad uses IANA (Houston, 1 Jul 2000, 12:00 = UTC-5)", () => {
+  const r = resolveCivilTime(2000, 7, 1, 12, 0, { name: "Houston", lat: 29.76, lon: -95.37, country: "OTHER", tz: "America/Chicago" });
+  assert.equal(r.offsetSec / 3600, -5);
+});
+test("Manual offset overrides the table", () => {
+  assert.equal(resolveCivilTime(1970, 6, 15, 9, 0, { ...SG, fixedOffsetMin: 420 }).offsetSec / 3600, 7);
+});
+
+console.log("Vietnamese lunar calendar (UTC+7)");
+test("Tết dates 1998, 2000, 2024, 2025, 2026", () => {
+  const tet: [number, [number, number]][] = [[1998, [28, 1]], [2000, [5, 2]], [2024, [10, 2]], [2025, [29, 1]], [2026, [17, 2]]];
+  for (const [y, [d, m]] of tet) {
+    const l = solarToLunar(d, m, y, 7);
+    assert.deepEqual([l.day, l.month, l.year, l.leap], [1, 1, y, false], `Tết ${y}`);
+  }
+});
+test("1968: Tết was 29 Jan in the North (UTC+7) and 30 Jan in the South/China (UTC+8)", () => {
+  const n = solarToLunar(29, 1, 1968, 7), s = solarToLunar(29, 1, 1968, 8);
+  assert.deepEqual([n.day, n.month], [1, 1]);
+  assert.deepEqual([s.day, s.month], [30, 12]);
+  const t8 = solarToLunar(30, 1, 1968, 8);
+  assert.deepEqual([t8.day, t8.month], [1, 1]);
+});
+
+console.log("Natal chart (the sample chart: 20/01/1998 10:45, Buôn Ma Thuột)");
+const t = resolveCivilTime(1998, 1, 20, 10, 45, BMT);
+const n = computeNatal(t.utcMs, BMT.lat, BMT.lon);
+test("Lagna is Pisces (Song Ngư), in Revati", () => { assert.equal(SIGNS[n.lagna.sign], "Song Ngư"); assert.equal(n.lagna.nak.name, "Revati"); });
+test("planets sit in the houses given by the reference reading", () => {
+  const h = (g: keyof typeof n.grahas) => n.grahas[g].house;
+  assert.deepEqual([h("saturn"), h("moon"), h("mercury"), h("sun"), h("venus"), h("mars"), h("jupiter"), h("ketu"), h("rahu")], [1, 7, 10, 11, 11, 12, 12, 12, 6]);
+  assert.equal(n.grahas.ketu.nak.name, "Shatabhisha");
+  assert.equal(n.grahas.venus.retro, true);
+});
+test("Sarvashtakavarga per house equals the reference values (9 of 9) and totals 337", () => {
+  const want: Record<number, number> = { 2: 23, 3: 31, 4: 25, 5: 28, 8: 29, 9: 37, 10: 34, 11: 26, 12: 24 };
+  for (const [k, v] of Object.entries(want)) assert.equal(n.houses[+k - 1].sav, v, `house ${k}`);
+  assert.equal(n.sav.reduce((a, b) => a + b, 0), 337);
+});
+test("Jupiter-Saturn exchange (Parivartana) is found", () => {
+  assert.ok(n.yogas.some((y) => y.id === "parivartana_jupiter_saturn"));
+});
+test("Vimshottari: born in Mars dasha, then Rahu 2002-2020, Jupiter 2020-2036", () => {
+  assert.equal(n.dasha[0].lord, "mars");
+  assert.equal(new Date(n.dasha[1].startMs).getUTCFullYear(), 2002);
+  assert.equal(n.dasha[1].lord, "rahu");
+  assert.equal(n.dasha[2].lord, "jupiter");
+});
+
+console.log("Divisional charts and Jaimini layer");
+test("D2/D3/D9/D10 sign rules at known longitudes", () => {
+  const want: [number, Record<number, number>][] = [
+    [0, { 2: 4, 3: 0, 9: 0, 10: 0 }],
+    [15, { 2: 3, 3: 4, 9: 4, 10: 5 }],
+    [30, { 2: 3, 3: 1, 9: 9, 10: 9 }],
+    [59.9, { 2: 4, 3: 9, 9: 5, 10: 6 }],
+  ];
+  for (const [lon, exp] of want) for (const k of [2, 3, 9, 10] as const) assert.equal(vargaSign(lon, k), exp[k], `D${k} at ${lon}`);
+});
+test("sample chart: D9 chart agrees with the engine's navamsa and D1 houses", () => {
+  const d9 = vargaChart(n, 9);
+  for (const id of ["sun", "moon", "saturn", "rahu"] as const) assert.equal(d9.planets[id].sign, n.grahas[id].navamsaSign);
+  assert.equal(d9.occupants.flat().length, 9);
+});
+test("sample chart: Moon is the Atmakaraka and Karakamsa follows its navamsa", () => {
+  const ks = charaKarakas(n);
+  assert.equal(ks[0].planet, "moon");
+  assert.equal(ks.length, 7);
+  const km = karakamsa(n);
+  assert.equal(km.sign, n.grahas.moon.navamsaSign);
+});
+test("hora split puts the seven planets in exactly two horas", () => {
+  const h = horaSplit(n);
+  assert.equal(h.sun.length + h.moon.length, 7);
+});
+
+const NOW0 = Date.UTC(2026, 10, 15);
+
+console.log("Shadbala & Dasha in five levels");
+test("Drik Bala reproduces the worked example in B.V. Raman's Graha and Bhava Balas to 0.03 virupa", () => {
+  const L = [180.9109, 311.2371, 229.4605, 181.5166, 84.0059, 171.1567, 124.3775];
+  const lons = {} as Record<(typeof SEVEN_IDS)[number], number>;
+  SEVEN_IDS.forEach((id, j) => (lons[id] = L[j]));
+  const d = drikBala(lons, beneficSet(lons).benefics, true);
+  const want = [15.86, -21.73, 0.95, 15.64, -16.04, 18.47, 7.21];
+  SEVEN_IDS.forEach((id, j) => assert.ok(Math.abs(d[id] - want[j]) < 0.03, `${id}: ${d[id].toFixed(3)} vs ${want[j]}`));
+});
+test("required strength in rupas is the classical table", () => {
+  assert.deepEqual(REQUIRED_RUPAS, { sun: 6.5, moon: 6, mars: 5, mercury: 7, jupiter: 6.5, venus: 5.5, saturn: 5 });
+});
+const sb = shadbala(n);
+test("sample chart: totals are the sum of the six strengths, ranks are 1..7, house ranks are 1..12", () => {
+  for (const id of SEVEN_IDS) {
+    const p = sb.planets[id];
+    const sum = p.sthana.total + p.dig + p.kala.total + p.cheshta + p.naisargika + p.drik;
+    assert.ok(Math.abs(sum - p.total) < 1e-6, id);
+  }
+  assert.deepEqual(SEVEN_IDS.map((id) => sb.planets[id].rank).sort(), [1, 2, 3, 4, 5, 6, 7]);
+  assert.deepEqual(sb.bhava.map((b) => b.rank).sort((a, b) => a - b), [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]);
+});
+
+const origin = dashaOrigin(n.grahas.moon.lon, n.utcMs);
+test("level names are the plain words used on the page", () => {
+  assert.deepEqual([1, 2, 3, 4, 5].map((l) => LEVEL_NAME[l as 1]), ["Đại vận", "Tiểu vận", "Chặng", "Nhịp", "Nhịp ngắn nhất"]);
+});
+test("the nine children of every period fill it exactly, down to the fifth level", () => {
+  const check = (node: DNode) => {
+    const kids = dashaChildren(node);
+    assert.equal(kids.length, 9);
+    assert.ok(Math.abs(kids[0].startMs - node.startMs) < 2);
+    assert.ok(Math.abs(kids[8].endMs - node.endMs) < 2);
+    for (let i = 1; i < 9; i++) assert.ok(Math.abs(kids[i].startMs - kids[i - 1].endMs) < 2);
+    if (node.level < 4) for (const k of kids) check(k);
+  };
+  const mahas = dashaMahas(origin, 10);
+  check(mahas[1]);
+});
+
+console.log("Reading v3.0: literary opening, 6-part overview synthesis, pure natal houses, D9/D10 cross-reference, consolidated Dasha & dual-lens Gochara");
+const NOW = NOW0;
+const full = compose(n, NOW, { name: "Minh Anh" });
+const blind = compose(n, NOW, { name: "Minh Anh", noTime: true });
+
+test("Mở lá số uses one complete sentence and no technical numbers", () => {
+  assert.deepEqual(full.letter.paragraphs, [full.letter.line]);
+  assert.match(full.letter.line, /^[^.!?0-9]+[.!?]$/u);
+});
+test("Tổng quan connects the anchors and respects missing birth time", () => {
+  assert.ok(!("cast" in full.overview));
+  assert.equal(full.overview.synthesis.paragraphs.length, 2);
+  assert.deepEqual(full.overview.synthesis.anchors.map(s => s.split(" ")[0]), ["Cung", "Mặt", "Mặt"]);
+  assert.ok(blind.overview.synthesis.anchors.every(s => !s.startsWith("Cung mọc ")));
+  assert.equal(full.overview.strength?.rows.length, 7);
+  assert.equal(full.overview.planets.length, 9);
+});
+
+test("part 3 (12 Nhà): strictly natal structure (NO 'now' or 'next' Dasha sections), dual axes (expressiveLevel & supportLevel), and 5 narrative pathways without adjacent duplicates", () => {
+  assert.equal(full.houses.length, 12);
+  for (let i = 0; i < full.houses.length; i++) {
+    const h = full.houses[i];
+    const ids = h.sections.map((s) => s.id);
+    assert.ok(!ids.includes("now") && !ids.includes("next"), `house ${h.n} must NOT contain Dasha timing sections`);
+    const order = ["open", "summary", "sign", "lord", "inside", "aspects", "support", "yoga", "turn"];
+    assert.deepEqual(ids.slice(0, 2), ["open", "summary"], `house ${h.n}`);
+    assert.equal(ids[ids.length - 1], "turn", `house ${h.n} ends with turn`);
+    assert.deepEqual(ids, order.filter((x) => ids.includes(x as (typeof ids)[number])), `house ${h.n}: layers in order`);
+    assert.deepEqual(h.sections.filter((s) => !s.fold).map((s) => s.id), ["open", "summary", "turn"], `house ${h.n} visible sections`);
+    assert.ok(["sôi động", "vừa phải", "yên tĩnh"].includes(h.expressiveLevel));
+    assert.ok(["thuận lợi", "pha trộn", "cần rèn giũa"].includes(h.supportLevel));
+    assert.ok(["strength_lead", "tension_contrast", "lord_bridge", "care_condition", "domain_steady"].includes(h.pathway));
+    if (i > 0) assert.notEqual(h.pathway, full.houses[i - 1].pathway, `house ${h.n} and ${h.n - 1} must not repeat the same opening pathway`);
+    assert.ok(h.words >= 280 && h.words <= 1400, `house ${h.n} has ${h.words} words`);
+  }
+});
+
+test("part 4 & 5: Rahu-Ketu axis, Jaimini Soul/Karakas, and D2/D9/D10 with D1 cross-references and why drawers", () => {
+  assert.match(full.lessons.axis.headline, /Rahu ở nhà \d+ · Ketu ở nhà \d+/);
+  assert.ok(full.lessons.soul);
+  assert.equal(full.lessons.soul!.karakas.length, 7);
+  assert.ok(full.vargas);
+  assert.deepEqual(full.vargas!.map((v) => v.n), [2, 9, 10]);
+  for (const v of full.vargas!) assert.ok(v.why && v.why.length >= 2, `D${v.n} has why list`);
+});
+
+test("part 6 (Đại vận & Gochara): consolidated 20-year house activation windows, D9 & Lagna-lord cross-references, and dual Gochara lenses (from Moon & from Lagna)", () => {
+  const T = full.timeline;
+  assert.ok(T.mahas.length >= 5 && T.mahas.length <= 9);
+  for (const m of T.mahas) {
+    assert.equal(m.antars.length, 9);
+    assert.ok(m.read.paragraphs.length >= 3);
+    assert.ok(Array.isArray(m.litHouses));
+  }
+  assert.equal(T.houseWindows.length, 12, "all 12 houses have consolidated 20-year activation windows in timeline");
+  for (const pl of full.sky.planets) {
+    assert.ok(pl.moonText.length > 40, `${pl.id} has moonText`);
+    assert.ok(pl.lagnaText && pl.lagnaText.length > 40, `${pl.id} has lagnaText`);
+    assert.ok(full.sky.why.length >= 4, "sky has why list");
+  }
+});
+
+test("part 7 & page map: month's message, 26 pages with birth time, no house numbers without birth time", () => {
+  const T = full.today;
+  assert.ok(T.paragraphs.length >= 2 && T.paragraphs.length <= 4);
+  const parts = buildParts({ reading: full, noTime: false } as never);
+  assert.deepEqual(parts.map((p) => p.id), ["overview", "houses", "lessons", "vargas", "time", "today"]);
+  assert.equal(flatPages(parts).length, 26);
+  assert.equal(blind.houses.length, 0);
+  assert.equal(blind.vargas, null);
+  const text = JSON.stringify({ o: blind.overview, l: blind.lessons, t: blind.timeline, ladder: blind.ladder, sky: blind.sky, today: blind.today });
+  assert.doesNotMatch(text, /\bnhà \d+\b/i);
+});
+
+test("composition is deterministic and free of unfilled placeholders", () => {
+  assert.deepEqual(compose(n, NOW, { name: "Minh Anh" }), full);
+  assert.doesNotMatch(JSON.stringify(full), /\{[a-z0-9]+\}|undefined|NaN/);
+  assert.doesNotMatch(JSON.stringify(blind), /\{[a-z0-9]+\}|undefined|NaN/);
+});
+
+console.log(`\n${passed} passed, ${failed} failed`);
+process.exit(failed ? 1 : 0);

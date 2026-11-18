@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="vi" data-skin="night">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#0a0e1f" />
+    <title>Life Atlas</title>
+    <meta name="description" content="Lá số Jyotish (chiêm tinh Vệ Đà) tính chính xác, giải thích bằng ngôn ngữ đời thường. Chạy hoàn toàn trên máy bạn." />
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='32' cy='32' r='30' fill='%230d1226' stroke='%23d4b57b' stroke-width='3'/%3E%3Ccircle cx='32' cy='32' r='5' fill='%23d4b57b'/%3E%3Cpath d='M32 6v10M32 48v10M6 32h10M48 32h10' stroke='%23d4b57b' stroke-width='3' stroke-linecap='round'/%3E%3C/svg%3E" />
+    <script>
+      // Restore the saved look before first paint so there is no flash.
+      try {
+        var t = localStorage.getItem("atlas-theme");
+        if (t === "night" || t === "parchment") document.documentElement.setAttribute("data-skin", t);
+      } catch (e) {}
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/ui/main.tsx"></script>
+  </body>
+</html>
