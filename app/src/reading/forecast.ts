@@ -22,7 +22,7 @@ import { nameOf, ddmmyyyy, joinVi } from "./util.ts";
 
 export type EventKind = "ingress" | "retro" | "direct" | "hit" | "eclipse" | "dasha" | "moon8";
 export interface ForecastEvent { ms: number; date: string; kind: EventKind; planet: GrahaId | null; title: string; text: string }
-export interface ForecastArea { house: number; title: string; tone: Tone; text: string }
+export interface ForecastArea { house: number; title: string; tone: Tone; text: string; planets: string }
 export interface ForecastMonth {
   month: number;
   label: string;
@@ -214,7 +214,8 @@ export function readForecast(ctx: Ctx): Forecast {
       const title = noTime ? `Cung thứ ${h} tính từ Mặt Trăng` : cap(area(h));
       const pl = [...new Set(N.plus)].slice(0, 2), mi = [...new Set(N.minus)].slice(0, 2);
       const text = `${pl.length ? `Tháng này ${pl.join(", và ")}` : ""}${pl.length && mi.length ? "; có điều " : mi.length ? "Tháng này " : ""}${mi.join(", và ")}. ${({ good: ["Đây là mảng dễ tiến triển trong tháng.", "Việc ở mảng này dễ trôi hơn thường lệ.", "Tháng này hợp để đẩy mảng này đi tiếp."], hard: ["Mảng này nên đi chậm và chuẩn bị kỹ.", "Ở mảng này, giữ nhịp quan trọng hơn mở rộng.", "Mảng này cần thêm thời gian và sự kiên nhẫn trong tháng."], mixed: ["Mảng này có cả lực đẩy lẫn lực cản, nên làm từng phần một.", "Ở mảng này, thuận và khó đan xen; chọn việc chính trước.", "Mảng này tiến được nếu bạn không ôm quá nhiều cùng lúc."] } as Record<Tone, string[]>)[tone][(h + m) % 3]}`;
-      return { house: h, title, tone, text };
+      const mid = looks[1].t;
+      return { house: h, title, tone, text, planets: N.who.filter((id) => houseFrom(ctx, mid, id) === h).map((id) => `${nameOf(id)} ở ${SIGNS[mid.grahas[id].sign]}`).join(" · ") };
     });
     // the central statement: the strongest new thing of the month
     const dashaEv = evs.find((e) => e.kind === "dasha");

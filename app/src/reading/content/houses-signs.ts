@@ -148,3 +148,19 @@ export const SIGN_FACULTY: Record<Faculty, string>[] = [
     pressure: "Khi áp lực, Song Ngư dễ trốn vào mơ mộng hoặc thu mình; thiền, âm nhạc, thiên nhiên và nhịp sinh hoạt đều là chỗ dựa.",
   },
 ];
+
+/** How an area shows up when it is tied to another one: a concrete example, said after "Chuyện X của bạn hay đi cùng chuyện Y: …". */
+export const AREA_EXAMPLE: string[] = [
+  "những gì bạn tự quyết cho bản thân thường ảnh hưởng trực tiếp đến nó",
+  "thu nhập và nếp nhà hay là lý do đứng sau nhiều lựa chọn ở đây",
+  "những kỹ năng bạn tự học, hoặc anh chị em, thường góp mặt ở đây",
+  "nơi ở và gia đình thường là bối cảnh của nó",
+  "niềm vui, tình yêu hoặc con cái hay là động lực ở đây",
+  "công việc hằng ngày và sức khỏe thường chi phối nhịp của nó",
+  "người bạn đời hoặc đối tác thường có tiếng nói lớn ở đây",
+  "những biến cố bất ngờ hay là bước ngoặt của nó",
+  "niềm tin, người thầy hoặc những chuyến đi xa hay mở đường cho nó",
+  "công việc và vị trí xã hội thường quyết định nhiều điều ở đây",
+  "bạn bè và các mối quan hệ rộng hay mang cơ hội đến cho nó",
+  "những khoảng lùi lại, chuyến đi xa hoặc khoản chi tiêu thường đi kèm nó",
+];

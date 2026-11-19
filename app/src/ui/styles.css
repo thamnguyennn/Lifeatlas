@@ -2,7 +2,7 @@
 
 :root {
   --font-body: "Be Vietnam Pro", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-  --font-display: "Noto Serif Display", "Be Vietnam Pro", Georgia, serif;
+  --font-display: "Be Vietnam Pro", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   --radius: 18px;
   --ease: cubic-bezier(0.2, 0.7, 0.2, 1);
 }
@@ -1298,3 +1298,8 @@ details[open] > :not(summary) { animation: swapIn .35s var(--ease) both; }
 .intro-gate p { max-width: 34ch; color: var(--text-dim); margin: 0; }
 .intro-gate .gate-sound { position: static; opacity: 1; transform: none; pointer-events: auto; font-size: 1.1rem; padding: .9rem 1.6rem; }
 .intro-gate .linkbtn { background: none; border: 0; color: var(--text-faint); text-decoration: underline; min-height: 44px; }
+
+.keyfacts { list-style: none; padding: 0; margin: .6rem 0 0; display: flex; flex-wrap: wrap; gap: .35rem .5rem; }
+.keyfacts li { font-size: .82rem; color: var(--text-faint); padding: .2rem .6rem; border-radius: 999px; border: 1px solid var(--line-soft); background: var(--surface); }
+.keyfacts b { color: var(--text-dim); font-weight: 600; }
+.keyline { font-size: .84rem !important; color: var(--text-faint) !important; margin: -.2rem 0 .7rem !important; letter-spacing: .01em; }

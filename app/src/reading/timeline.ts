@@ -13,7 +13,7 @@ import type { Ctx } from "./ctx.ts";
 import { isBenefic, ownedHouses, stateOf, type Tone } from "./shared.ts";
 import { lightWindows } from "./story.ts";
 import type { HouseWindowSummary, LadderReading, MahaRow, PeriodRead, Timeline, Trust } from "./types.ts";
-import { HOUSE_TAG } from "./content/houses-signs.ts";
+import { HOUSE_TAG, AREA_EXAMPLE } from "./content/houses-signs.ts";
 import { PLANETS } from "./content/planets.ts";
 import { CHAPTER, DASHA_LIT, DASHA_STAGE } from "./content/chapters.ts";
 import { LADDER_INTRO, TRUST_NOTE, TRUST_SUMMARY, OVERLAP, OVERLAP_EFFECT, OVERLAP_NONE, BLEND_HEAD, BLEND_PRAT } from "./content/dasha-deep.ts";
@@ -265,7 +265,7 @@ function mahaRead(ctx: Ctx, lord: GrahaId): { theme: string; plus: string; minus
   const plusT = plus.length ? `${cap(plus.slice(0, 3).join("; "))}.` : "Không có thuận lợi nào nổi bật hơn mức bình thường; giai đoạn đi theo công sức bạn đặt vào.";
   const minusT = minus.length ? `${cap(minus.slice(0, 3).join("; "))}. ${ch.trap}` : ch.trap;
   let links = "";
-  if (areas.length >= 2) links = `${ch.scene} Chuyện ${AREA(areas[0])} và chuyện ${AREA(areas[1])} đi cùng nhau trong giai đoạn này: thay đổi ở bên này thường kéo theo việc sắp xếp lại bên kia.`;
+  if (areas.length >= 2) links = `${ch.scene} Trong giai đoạn này, chuyện ${AREA(areas[0])} hay đi cùng chuyện ${AREA(areas[1])}: ${AREA_EXAMPLE[areas[1] - 1]}.`;
   else links = ch.scene;
   return { theme: `${themeBase}${focus}`, plus: plusT, minus: minusT, links };
 }

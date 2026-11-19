@@ -7,7 +7,7 @@ import { DiamondChart, ChartLegend, rasiData } from "./DiamondChart.tsx";
 import { HouseTiles, SavBars } from "./Houses.tsx";
 import { Gloss } from "./Gloss.tsx";
 import { Glyph, SignGlyph } from "./Glyph.tsx";
-import { GRAHA_VI, signIndex, type GrahaId } from "../engine/constants.ts";
+import { GRAHA_VI, signIndex, SIGNS as SIGNS_VI, type GrahaId } from "../engine/constants.ts";
 import { firstSentence } from "../reading/util.ts";
 import { TONE_SHORT } from "./format.ts";
 
@@ -144,6 +144,7 @@ export function AxisPage({ prepared }: { prepared: Prepared }) {
       <p className="faint reveal"><Gloss text={a.intro} /></p>
       <div className="axis-head card reveal">
         <p className="eyebrow">{a.headline}</p>
+        <p className="keyline">Rahu: {a.factors[1].rahu}, {a.factors[3].rahu} · Ketu: {a.factors[1].ketu}, {a.factors[3].ketu}</p>
         {a.axis.map((p, i) => <p key={i} className={i === 0 ? "axis-lesson" : undefined}><Gloss text={p} /></p>)}
       </div>
       <div className="axis-grid">
@@ -205,6 +206,7 @@ export function VargaPage({ prepared, n }: { prepared: Prepared; n: VargaReading
       <p className="eyebrow reveal">Biểu đồ chuyên sâu</p>
       <h2 className={`reveal varga-title vt-${v.n}`}><Glyph name={VARGA_KEY[v.n]} size={34} className={`pg c-${VARGA_KEY[v.n]}`} /> {v.code} · {v.name}</h2>
       <p className="lead reveal">{v.question}</p>
+      <p className="keyline reveal">Cung mọc {v.code}: {SIGNS_VI[v.chart.lagnaSign]}</p>
       <div className="varga">
         <div className="varga-side card reveal">
           <DiamondChart data={{ lagnaSign: v.chart.lagnaSign, planets: v.chart.planets, label: `Lá số ${v.code} (${v.name})` }} />

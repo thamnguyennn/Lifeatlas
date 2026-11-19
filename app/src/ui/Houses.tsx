@@ -79,6 +79,12 @@ export function HousePage({ h, onYoga, printing = false }: { h: HouseReading; on
           <p className="eyebrow">Nhà {h.n}</p>
           <h2>{h.tag.charAt(0).toUpperCase() + h.tag.slice(1)}</h2>
           <p className="hp-ask">{h.ask}</p>
+          <ul className="keyfacts">
+            <li>Cung <b>{h.signName}</b></li>
+            <li>Chủ nhà <b>{h.lordName}</b> ở nhà {h.lordHouse}</li>
+            {h.occupants.length > 0 && <li>Trong nhà: <b>{h.occupants.join(", ")}</b></li>}
+            <li>Điểm hỗ trợ <b>{h.sav}</b> (trung bình 28)</li>
+          </ul>
         </div>
         <ul className="hp-chips">
           <li><span className={`chip tone-${h.tone}`}>{h.supportLevel === "thuận lợi" ? "Nhiều thuận lợi" : h.supportLevel === "cần rèn giũa" ? "Cần xây dựng từng bước" : "Có thuận, có khó"}</span></li>

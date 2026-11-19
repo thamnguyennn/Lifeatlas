@@ -69,6 +69,7 @@ function Block({ b, prepared }: { b: OverviewBlock; prepared: Prepared }) {
         </div>
       </header>
       {(b.id === "keys" || b.id === "elements") && <BlockIcons b={b} />}
+      {b.facts && b.id !== "elements" && <p className="keyline">{b.facts}</p>}
       <Paras list={b.paragraphs} />
       {b.id === "pillars" && r.overview.strength && (
         <details className="params">

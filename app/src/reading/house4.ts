@@ -13,7 +13,7 @@
 import { SIGNS, FRIENDS, ENEMIES, type GrahaId } from "../engine/constants.ts";
 import type { Ctx } from "./ctx.ts";
 import { effectiveYoga, isGood, type Facts, type HouseFact, type PlanetFact } from "./facts.ts";
-import { HOUSE_TAG } from "./content/houses-signs.ts";
+import { HOUSE_TAG, AREA_EXAMPLE } from "./content/houses-signs.ts";
 import { DIGNITY_VI } from "./shared.ts";
 import { nameOf, joinVi } from "./util.ts";
 import type { ExpressiveLevel, HousePathway, SupportLevel } from "./types.ts";
@@ -98,7 +98,7 @@ function plainLink(hf: HouseFact, it = ""): string {
   if (p === 8) return `${S} hay có những thay đổi bất ngờ trước khi đi vào nếp`;
   if (p === 12) return `${S} hay gắn với khoảng cách, những lúc phải lùi lại hoặc những khoản chi tiêu`;
   if ([5, 9].includes(p)) return `${S} thường được may mắn hoặc người tốt nâng đỡ, nhất là qua chuyện ${to}`;
-  if ([4, 7, 10].includes(p)) return `${S} gắn với chuyện ${to} và thường hiện rõ trong đời sống của bạn`;
+  if ([4, 7, 10].includes(p)) return `${S} gắn với chuyện ${to}, và thường hiện rõ trong đời sống của bạn`;
   if (p === 11) return `${S} dễ mang lại kết quả cụ thể và hay gắn với bạn bè, các mối quan hệ rộng`;
   if (p === 2) return `${S} gắn với tiền bạc, lời nói và gia đình`;
   return `${S} lớn dần theo sự chủ động và công sức của bạn`;
@@ -199,7 +199,7 @@ function yogaMeaning(id: string): string {
   if (id.startsWith("viparita")) return "khó khăn ở đây thường chuyển thành sức bền";
   if (id === "gajakesari") return "bạn dễ có uy tín nhờ sự hiểu biết";
   if (id === "budhaditya") return "bạn có trí óc sáng và khả năng trình bày";
-  if (id.startsWith("parivartana")) return "mảng này gắn chặt với một mảng khác của đời bạn, bên này đổi thì bên kia cũng đổi";
+  if (id.startsWith("parivartana")) return "mảng này gắn chặt với một mảng khác trong đời bạn";
   if (id.startsWith("kemadruma")) return "bạn thường quen tự lo cho mình hơn là trông vào người khác";
   if (id.startsWith("amala")) return "bạn dễ có tiếng tốt nhờ cách làm việc tử tế";
   if (id.startsWith("neecha")) return "một điểm yếu ban đầu có thể trở thành sức mạnh sau một chặng";
@@ -269,7 +269,7 @@ export function narrateHouse4(ctx: Ctx, F: Facts, hf: HouseFact, recent: HousePa
   const p3: string[] = [];
   if (!usedAdds && adds.length) p3.push(`Trong chuyện ${t}, ${adds.join("; ")}${risks.length ? `; có điều, bạn cũng ${risks.join("; ")}` : ""}.`);
   else if (!usedAdds && risks.length) p3.push(`Điều cần để ý ở chuyện ${t} là bạn ${risks.join("; ")}.`);
-  if (ties.length) p3.push(`Chuyện ${t} cũng hay gắn với chuyện ${area(ties[0])}: thay đổi ở bên này thường kéo theo bên kia.`);
+  if (ties.length) p3.push(`Chuyện ${t} của bạn hay đi cùng chuyện ${area(ties[0])}: ${AREA_EXAMPLE[ties[0] - 1]}.`);
   if (!usedYoga && yogas.length) p3.push(`Chuyện ${t} còn có một điểm đặc biệt: ${yogas[0]}.`);
   if (p3.length) paras.push(p3.join(" "));
   if (!usedPractice) paras.push(`${baseGood && !baseBad ? `Nhìn chung, chuyện ${t} có nhiều điều kiện thuận. ` : baseBad && !baseGood ? `Nhìn chung, chuyện ${t} ít được nâng đỡ sẵn hơn các mảng khác. ` : ""}${practice}`);

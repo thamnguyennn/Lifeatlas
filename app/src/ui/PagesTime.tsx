@@ -287,7 +287,7 @@ export function NowPage({ prepared, day, dayMs, onDay }: { prepared: Prepared; d
 // ------------------------------------------------------------------ explore more
 const ICON: Record<string, string> = { compat: "∞", love: "♡", marriage: "◎", talent: "✦", career: "◆", money: "◈", leader: "▲", study: "✧", health: "☼", family: "⌂", dharma: "☸", inner: "☯" };
 
-function TopicView({ t, onBack }: { t: { id: string; title: string; ask: string; lead: string; points: { title: string; text: string }[]; why: string[]; needsTime: boolean }; onBack: () => void }) {
+function TopicView({ t, onBack }: { t: { id: string; title: string; ask: string; lead: string; basis?: string; points: { title: string; text: string }[]; why: string[]; needsTime: boolean }; onBack: () => void }) {
   return (
     <article className="topic-view swap-in">
       <button type="button" className="btn ghost back" onClick={onBack}>← Tất cả chủ đề</button>
@@ -295,6 +295,7 @@ function TopicView({ t, onBack }: { t: { id: string; title: string; ask: string;
       <h3 className="topic-title">{t.title}</h3>
       <p className="topic-ask">{t.ask}</p>
       <p className="central"><Gloss text={t.lead} /></p>
+      {t.basis && <p className="keyline">Dựa trên: {t.basis}</p>}
       <div className="facets">
         {t.points.map((p) => <section key={p.title} className="card facet"><h4>{p.title}</h4><p><Gloss text={p.text} /></p></section>)}
       </div>
@@ -395,6 +396,7 @@ export function ForecastPage({ prepared }: { prepared: Prepared }) {
             {m.areas.map((a) => (
               <section key={a.house} className={`card area tone-${a.tone}`}>
                 <h4>{a.title}</h4>
+                {a.planets && <p className="keyline">{a.planets}</p>}
                 <p><Gloss text={a.text} /></p>
               </section>
             ))}

@@ -20,6 +20,8 @@ export interface ExploreTopic {
   points: ExploreFacet[];
   why: string[];
   needsTime: boolean;
+  /** A short list of the main factors, shown in small print. */
+  basis?: string;
 }
 export interface ExploreGroup { id: string; title: string; intro: string; topics: ExploreTopic[] }
 
@@ -294,6 +296,13 @@ export function readExplore(ctx: Ctx): ExploreGroup[] {
     dharma: facetTopic(ctx, F, "dharma", "Dharma: giá trị và định hướng sống", "Điều gì cho cuộc đời bạn một hướng đi?", DHARMA, (b) => `Định hướng sống của bạn được nuôi bằng ${low(b[0].title)}${b[1] ? ` và ${low(b[1].title)}` : ""}.`),
     inner: innerTopic(ctx, F),
   };
+  const basisOf = (t: ExploreTopic) => {
+    const txt = t.why.join(" ");
+    const pl = [...new Set(txt.match(/(Sao (Hỏa|Thủy|Mộc|Kim|Thổ)|Mặt Trời|Mặt Trăng|Rahu|Ketu)/g) ?? [])].slice(0, 4);
+    const hs = [...new Set((txt.match(/Nhà \d+/g) ?? []).map((x) => x.toLowerCase()))].slice(0, 3);
+    return [...pl, ...hs].join(", ");
+  };
+  for (const t of Object.values(T)) t.basis = basisOf(t);
   return GROUPS.map((g) => ({ id: g.id, title: g.title, intro: g.intro, topics: g.ids.map((id) => T[id]) }));
 }
 

@@ -9,7 +9,7 @@ import { buildFacts, isGood, HOUSE_SHORT, type Facts, type PlanetFact } from "./
 import { LAGNA_SIGN, MOON_PHASE_AT_BIRTH, NAKSHATRA_TEXT } from "./content/lagna-nakshatra.ts";
 import { SUN_SIGN, MOON_SIGN, MOON_NAK_LEAD, SUN_DIGNITY, ELEMENT_OF, ELEMENT_VI, ELEMENT_LINES, ELEMENT_BALANCED, KEY_LINK, type Element } from "./content/overview.ts";
 import { conjOf } from "./content/conjunctions.ts";
-import { HOUSE_TAG } from "./content/houses-signs.ts";
+import { HOUSE_TAG, AREA_EXAMPLE } from "./content/houses-signs.ts";
 import { PLANETS } from "./content/planets.ts";
 import { DIGNITY_VI, planetFlags } from "./shared.ts";
 import { isSeven } from "../engine/shadbala.ts";
@@ -341,6 +341,7 @@ function keysBlock(ctx: Ctx, f: Facts): OverviewBlock {
   const signs = [...(ctx.noTime ? [] : [{ label: "Cung mọc", sign: n.lagna.sign }]), { label: "Mặt Trời", sign: sun.sign }, ...(ctx.uncertainMoon ? [] : [{ label: "Mặt Trăng", sign: moon.sign }])];
   return {
     id: "keys", title: "Cung mọc, Mặt Trời và Mặt Trăng", role: "cách bạn bước vào đời, điều bạn muốn khẳng định và điều lòng bạn cần", paragraphs: paras, meta: { signs },
+    facts: [ctx.noTime ? "" : `Chủ cung mọc: ${nameOf(SIGN_LORD[n.lagna.sign])} ở nhà ${f.planets[SIGN_LORD[n.lagna.sign]].house}`, ctx.uncertainMoon ? "" : `Mặt Trăng ở chòm sao ${nakName(moon.g.nak.name)}`].filter(Boolean).join(" · "),
     why: [...(ctx.noTime ? [] : lagnaBlock(ctx, f).why), ...sunBlock(ctx, f).why, ...moonBlock(ctx, f).why].filter((x, i, a) => a.indexOf(x) === i),
   };
 }
@@ -399,7 +400,7 @@ function moonCycleBlock(ctx: Ctx, f: Facts): OverviewBlock {
   if (dark) paras.push(help ? "Lúc ấy trăng còn mỏng, nhưng những yếu tố khác trong lá số giữ cho tâm trí bạn khá vững." : "Lúc ấy trăng còn mỏng, nên cảm xúc của bạn dễ chịu ảnh hưởng của mệt mỏi và hoàn cảnh; giấc ngủ và những khoảng nghỉ quan trọng với bạn hơn với nhiều người.");
   else paras.push("Lúc ấy trăng đã khá sáng, một điều kiện thuận cho sự ổn định của tâm trí.");
   return {
-    id: "moonCycle", title: "Chu kỳ trăng", paragraphs: paras, meta: { elong: e },
+    id: "moonCycle", title: "Chu kỳ trăng", paragraphs: paras, meta: { elong: e }, facts: `Tithi ${tithi}/30 · ${bright ? "Shukla Paksha (trăng tròn dần)" : "Krishna Paksha (trăng khuyết dần)"}`,
     why: [`Khoảng cách Mặt Trăng–Mặt Trời ${e.toFixed(1)}°, tithi thứ ${tithi}/30, ${bright ? "Shukla Paksha" : "Krishna Paksha"} (${phaseName(e).toLowerCase()}).`,
       `Paksha Bala: Mặt Trăng cách Mặt Trời ${Math.min(e, 360 - e).toFixed(0)}° (${dark ? "dưới 72°, ánh sáng ít" : "trên 72°, đủ sáng"}).`,
       help ? "Có yếu tố bù: Mặt Trăng được Sao Mộc nhìn hoặc đi cùng, hoặc ở cung mạnh." : ""].filter(Boolean),
@@ -433,6 +434,7 @@ function pillarsBlock(ctx: Ctx, f: Facts): OverviewBlock {
   if (weak) paras.push(`Điều cần nhiều thời gian hơn để chín là ${CAPACITY[weak.id]}.`);
   return {
     id: "pillars", title: "Hành tinh trụ cột nâng đỡ", paragraphs: paras, meta: { planets: pillars },
+    facts: pillars.map((id) => `${nameOf(id)}: ${DIGNITY_VI[f.planets[id].dignity].toLowerCase()}${f.planets[id].sb ? `, sức mạnh ${Math.round(f.planets[id].sb!.ratio * 100)}%` : ""}`).join(" · "),
     why: [
       ...seven.map((id) => { const p = f.planets[id]; return `${nameOf(id)}: ${DIGNITY_VI[p.dignity]}${p.sb ? `, Shadbala ${Math.round(p.sb.ratio * 100)}%` : ""}${p.g.digBala ? ", Dig Bala" : ""}${p.g.vargottama ? ", Vargottama" : ""}${p.g.combust ? ", cháy sáng" : ""}${!ctx.noTime && p.lorded.length ? `, cai quản nhà ${p.lorded.join(", ")}` : ""}.`; }),
       "Chọn trụ cột theo phẩm vị, Shadbala, vai trò chức năng (yogakaraka, chủ cung mọc) và việc tham gia yoga thuận; không theo thứ hạng Shadbala đơn thuần.",
@@ -485,11 +487,12 @@ function focusBlock(ctx: Ctx, f: Facts): { block: OverviewBlock; share: Overview
   });
   const L = f.planets[SIGN_LORD[f.n.lagna.sign]];
   const ex = f.houses.find((h) => h.lordHouse !== h.n && f.houses[h.lordHouse - 1].lordHouse === h.n && h.n < h.lordHouse);
-  if (ex) paras.push(`Chuyện ${area(ex.n)} và chuyện ${area(ex.lordHouse)} gắn chặt với nhau trong đời bạn: bên này đổi thì bên kia cũng đổi theo.`);
+  if (ex) paras.push(`Chuyện ${area(ex.n)} của bạn hay đi cùng chuyện ${area(ex.lordHouse)}: ${AREA_EXAMPLE[ex.lordHouse - 1]}.`);
   void L;
   return {
     block: {
       id: "focus", title: "Những lĩnh vực nổi bật trong lá số", paragraphs: paras,
+      facts: lead.map((x) => `${x.a.title}: ${planetsIn(x.a.houses).map(nameOf).join(", ") || "không có hành tinh"}`).join(" · "),
       why: [
         ...FOCUS_AREAS.map((a, i) => `${a.title} (nhà ${a.houses.join(", ")}): ${Math.round((byArea[i] / total) * 100)}% trọng lượng, ${planetsIn(a.houses).length ? joinVi(planetsIn(a.houses).map(nameOf)) : "không có hành tinh"}.`),
         "Trọng lượng: mỗi hành tinh 1 (Rahu, Ketu 0,6; Mặt Trời, Mặt Trăng +0,4; hành tinh đứng vững +0,4), chủ cung mọc +0,6 ở nhà nó đứng, mỗi góc chiếu vào nhà +0,25 (tối đa 3).",
