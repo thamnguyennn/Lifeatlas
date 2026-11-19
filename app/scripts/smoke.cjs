@@ -68,8 +68,7 @@ async function fill(pg, d, m, y, hh, mm, place) {
   pg.on("pageerror", (e) => errs.push(`[intro pageerror] ${e}`));
   await pg.goto(URL); await pg.waitForTimeout(1200);
   ok((await pg.locator(".intro canvas").count()) === 1, "intro shows on first visit");
-  await pg.click(".gate-sound"); await pg.waitForTimeout(1500);
-  ok((await pg.locator(".intro-bar button[aria-label='Tắt tiếng']").count()) === 1, "intro sound switches on");
+  ok((await pg.locator(".intro-bar button[aria-label='Bật tiếng']").count()) === 0, "intro has no sound controls");
   await b.close();
   console.log(notes.join("\n")); console.log(errs.length ? "ERRORS:\n" + errs.slice(0, 20).join("\n") : "no console errors");
   process.exit(errs.length || notes.some((n) => n.startsWith("FAIL")) ? 1 : 0);

@@ -1,7 +1,5 @@
 import { Component, useCallback, useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { createFilm, FILM_END, type FilmLayout } from "./intro-film.ts";
-import { IntroAudio } from "./intro-audio.ts";
-import { IntroVoice } from "./intro-voice.ts";
 import { prefersReducedMotion } from "./hooks.ts";
 
 // The opening film, shown before the birth form on a first visit. It can be skipped at any moment, replayed from the footer,
@@ -68,28 +66,15 @@ function Caption({ text, out }: { text: string; out: boolean }) {
   );
 }
 
-const Speaker = ({ on }: { on: boolean }) => (
-  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-    <path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z" />
-    {on ? <path d="M15.5 9a4.5 4.5 0 0 1 0 6M18 6.5a8 8 0 0 1 0 11" /> : <path d="M16 9.5l5 5M21 9.5l-5 5" />}
-  </svg>
-);
 
 function Film({ onExit, onClosing }: { onExit: (k: IntroExit) => void; onClosing: () => void }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const barRef = useRef<HTMLDivElement>(null);
   const skipRef = useRef<HTMLButtonElement>(null);
-  const audio = useRef<IntroAudio>(null as unknown as IntroAudio);
-  if (!audio.current) audio.current = new IntroAudio();
-  const voice = useRef<IntroVoice>(null as unknown as IntroVoice);
-  if (!voice.current) voice.current = new IntroVoice();
-  const [gate, setGate] = useState(true);
-  const gateRef = useRef(true);
-  const [voiceNote, setVoiceNote] = useState(false);
+  const gateRef = useRef(false);
   const clock = useRef(0);
   const [phase, setPhase] = useState({ cue: -1, out: false, end: 0 });
   const [lay, setLay] = useState<FilmLayout>({ ringX: 0, ringY: 0, ringR: 0, short: false });
-  const [muted, setMuted] = useState(true);
   const [caps, setCaps] = useState(true);
   const [closing, setClosing] = useState(false);
   const reduced = useRef(prefersReducedMotion()).current;
@@ -100,7 +85,6 @@ function Film({ onExit, onClosing }: { onExit: (k: IntroExit) => void; onClosing
     exited.current = true;
     markSeen();
     setClosing(true); onClosing();
-    audio.current.dispose(); voice.current.dispose();
     window.setTimeout(() => onExit(k), k === "error" ? 0 : 1100);
   }, [onExit, onClosing]);
 
@@ -134,9 +118,6 @@ function Film({ onExit, onClosing }: { onExit: (k: IntroExit) => void; onClosing
       if (!document.hidden && !gateRef.current) clock.current += dt;
       const t = filmTime(clock.current);
       try { film.frame(t); } catch { leave("error"); return; }
-      audio.current.tick(t);
-      voice.current.tick(t, clock.current);
-      audio.current.duck(voice.current.speaking);
       if (barRef.current) barRef.current.style.transform = `scaleX(${Math.min(1, t / FILM_END)})`;
       let cue = -1, out = false;
       for (let i = 0; i < CUES.length; i++) if (t >= CUES[i].a && t < CUES[i].b + 0.6) { cue = i; out = t >= CUES[i].b; }
@@ -146,45 +127,19 @@ function Film({ onExit, onClosing }: { onExit: (k: IntroExit) => void; onClosing
       raf = requestAnimationFrame(loop);
     };
     raf = requestAnimationFrame(loop);
-    const onVis = () => { if (document.hidden) { audio.current.pause(); voice.current.pause(); } else { last = performance.now(); audio.current.resume(); voice.current.resume(); } };
+    const onVis = () => { if (!document.hidden) last = performance.now(); };
     window.addEventListener("resize", size);
     document.addEventListener("visibilitychange", onVis);
-    const a = audio.current, v = voice.current;
-    return () => { cancelAnimationFrame(raf); window.removeEventListener("resize", size); document.removeEventListener("visibilitychange", onVis); a.dispose(); v.dispose(); };
+    return () => { cancelAnimationFrame(raf); window.removeEventListener("resize", size); document.removeEventListener("visibilitychange", onVis); };
   }, [reduced, leave]);
 
-  const begin = (withSound: boolean) => {
-    gateRef.current = false; setGate(false);
-    if (withSound) { setMuted(false); audio.current.setMuted(false, 0); voice.current.setMuted(false, 0, clock.current); window.setTimeout(() => setVoiceNote(voice.current.status === "none"), 1500); }
-    skipRef.current?.focus({ preventScroll: true });
-  };
-  const toggleSound = () => {
-    const m = !muted; setMuted(m);
-    const t = filmTime(clock.current);
-    audio.current.setMuted(m, t);
-    voice.current.setMuted(m, t, clock.current);
-    // after the voices have had a moment to load: tell the person when this device has no Vietnamese voice
-    if (!m) window.setTimeout(() => setVoiceNote(voice.current.status === "none"), 1500); else setVoiceNote(false);
-  };
   const style = { ["--ringX" as string]: `${lay.ringX}px`, ["--ringY" as string]: `${lay.ringY}px`, ["--ringR" as string]: `${lay.ringR}px` } as CSSProperties;
   const end = reduced ? 5 : phase.end;
 
   return (
     <div className={`intro${closing ? " closing" : ""}${reduced ? " still" : ""}${lay.short ? " short" : ""}`} role="dialog" aria-modal="true" aria-label="Đoạn mở đầu của Life Atlas" style={style}>
       <canvas ref={canvasRef} aria-hidden="true" />
-      {gate && !reduced && (
-        <div className="intro-gate">
-          <p>Đoạn phim mở đầu dài khoảng 50 giây, có nhạc nền, hiệu ứng âm thanh và lời dẫn.</p>
-          <button type="button" className="ie-cta on gate-sound" autoFocus onClick={() => begin(true)}>▶ Xem với âm thanh</button>
-          <button type="button" className="linkbtn" onClick={() => begin(false)}>Xem không có tiếng</button>
-        </div>
-      )}
       <div className="intro-bar">
-        {!reduced && (audio.current.available || voice.current.available) && (
-          <button type="button" className="intro-btn" onClick={toggleSound} aria-pressed={!muted} aria-label={muted ? "Bật tiếng" : "Tắt tiếng"}>
-            <Speaker on={!muted} /><span className="lbl">{muted ? "Bật tiếng" : "Tắt tiếng"}</span>
-          </button>
-        )}
         {!reduced && (
           <button type="button" className="intro-btn" onClick={() => setCaps(!caps)} aria-pressed={caps} aria-label={caps ? "Tắt phụ đề" : "Bật phụ đề"}>
             <span className="cc" aria-hidden="true">CC</span><span className="lbl">{caps ? "Phụ đề: bật" : "Phụ đề: tắt"}</span>
@@ -200,7 +155,6 @@ function Film({ onExit, onClosing }: { onExit: (k: IntroExit) => void; onClosing
           {[0, 2, 4, 6, 8].map((i) => <p key={i}>{CUES[i].text} {CUES[i + 1].text.replace(/^…/, "")}</p>)}
         </div>
       )}
-      {!reduced && !muted && voiceNote && <p className="intro-note" role="status">Thiết bị này chưa có giọng đọc tiếng Việt tự nhiên, nên đoạn phim chạy với phụ đề, nhạc nền và hiệu ứng âm thanh.</p>}
       {!reduced && caps && phase.cue >= 0 && <div className="intro-caps" aria-live="polite"><Caption key={phase.cue} text={CUES[phase.cue].text} out={phase.out} /></div>}
 
       <div className="intro-end" aria-hidden={end === 0}>

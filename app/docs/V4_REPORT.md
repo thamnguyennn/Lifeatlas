@@ -43,11 +43,7 @@
 - `housenarr.ts`, `deep.ts` và các test, lint cũ.
 
 ## Chưa làm được / hạn chế (nêu rõ)
-- **Giọng thuyết minh nam trầm tự nhiên chưa có.** Môi trường này không có công cụ tạo giọng nói chất lượng cao: dịch vụ TTS bên ngoài bị chặn mạng, và giọng máy cục bộ nghe như robot. Đoạn phim hiện:
-  - phát file `public/voiceover.mp3` nếu có (lời đọc nằm trong `VOICE_LINES`);
-  - nếu không có file, chỉ dùng giọng tiếng Việt "tự nhiên" (neural/online) của trình duyệt nếu thiết bị có;
-  - nếu không có giọng tự nhiên, chạy phụ đề cùng nhạc nền và hiệu ứng tổng hợp bằng Web Audio, đồng bộ theo cảnh và tự hạ nhạc khi có lời.
-  Cần một bản thu thật (hoặc file từ dịch vụ TTS bạn chọn) để đạt yêu cầu này.
+- **Âm thanh của đoạn phim mở đầu đã được bỏ hẳn** theo yêu cầu: đoạn phim chạy với hình ảnh và phụ đề, không có nhạc, hiệu ứng hay giọng đọc.
 - **Ashtakoota:** Yoni và Vashya được chấm gọn; sáu koota còn lại theo bảng cổ điển.
 - **Mức Vedha:** tính theo bảng Phaladeepika, gồm cả Rahu/Ketu theo Sao Thổ (một số trường phái không tính các điểm nút).
 - **Sức khỏe:** chỉ đọc biểu tượng truyền thống, không chẩn đoán.

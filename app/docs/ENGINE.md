@@ -40,4 +40,4 @@
   - ngoại lệ Vedha.
 - `npm run lint:reading`: 12 lá số. Kiểm tra câu trùng trong cùng chương và giữa các chương, cách mở đầu các nhà, cụm từ bị cấm, số nhà trong văn xuôi, mục "Vì sao" rỗng, và lá số không có giờ sinh.
 - `node --experimental-strip-types scripts/scenarios.ts`: 11 tình huống bắt buộc, kết quả ở `docs/TEST_SCENARIOS.md`.
-- `node scripts/smoke.cjs`: trình duyệt thật trên desktop và điện thoại. Đi hết 24 trang, kiểm tra 6 biểu đồ kim cương, 12 tab tháng, 12 thẻ khám phá, trang hòa hợp, nút âm thanh, không lỗi console và không tràn ngang.
+- `node scripts/smoke.cjs`: trình duyệt thật trên desktop và điện thoại. Đi hết 24 trang, kiểm tra 6 biểu đồ kim cương, 12 tab tháng, 12 thẻ khám phá, trang hòa hợp, không lỗi console và không tràn ngang.

@@ -15,6 +15,5 @@
 - Các test sẵn có từ trước: SAV đúng với bài đọc tham chiếu (9/9 nhà, tổng 337), Drik Bala đúng với ví dụ của B.V. Raman (sai số 0,03 virupa), giờ Việt Nam lịch sử, lịch âm Tết.
 
 ## Hạn chế còn tồn tại
-- Giọng thuyết minh tự nhiên chưa có (xem V4_REPORT.md).
 - Đọc liên tục như người không biết chiêm tinh: phần này mình tự đọc trên các bản trích (dump) của nhiều lá số. Văn bản vẫn là văn sinh theo quy tắc, nên một số câu ở các lá số khác nhau còn có cấu trúc giống nhau; linter chỉ bảo đảm không trùng trong cùng một lá số.
 - Chưa đối chiếu Shadbala và D-chart với phần mềm thương mại (Jagannatha Hora). Kiểm tra hiện có là quy tắc chia cung đã biết và ví dụ của Raman.
