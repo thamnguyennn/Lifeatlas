@@ -86,6 +86,37 @@ function lordLink(hf: HouseFact): { text: string; w: number } {
 
 const SIGN_STYLE = ["nhanh và thẳng", "chậm mà chắc", "linh hoạt, nhiều hướng", "giàu cảm xúc, thiên về che chở", "muốn được thấy và tự hào về nó", "kỹ lưỡng, thực tế", "cân nhắc, coi trọng sự công bằng", "kín, sâu và dứt khoát", "rộng mở, theo lý tưởng", "nghiêm túc, có kế hoạch", "độc lập, khác lối quen", "mềm mại, giàu trực giác"];
 
+/** Where the house leads, said as a plain fact of life. */
+function plainLink(hf: HouseFact, it = ""): string {
+  const n = hf.n, p = hf.lordHouse, to = area(p);
+  const t = area(n);
+  const S = it || `chuyện ${t}`;
+  if (p === n) return `${S} khá tự chủ, ít phụ thuộc vào hoàn cảnh bên ngoài`;
+  if (p === 1) return `${S} gắn chặt với chính con người bạn: bạn tự quyết và tự gánh lấy nó`;
+  if ([6, 8, 12].includes(p) && [6, 8, 12].includes(n)) return `những khó khăn ở mảng này thường tự gỡ được theo thời gian và để lại cho bạn sức bền`;
+  if (p === 6) return `${S} thường phải đi qua cạnh tranh, áp lực hoặc nhiều việc nặng rồi mới ổn định`;
+  if (p === 8) return `${S} hay có những thay đổi bất ngờ trước khi đi vào nếp`;
+  if (p === 12) return `${S} hay gắn với khoảng cách, những lúc phải lùi lại hoặc những khoản chi tiêu`;
+  if ([5, 9].includes(p)) return `${S} thường được may mắn hoặc người tốt nâng đỡ, nhất là qua chuyện ${to}`;
+  if ([4, 7, 10].includes(p)) return `${S} gắn với chuyện ${to} và thường hiện rõ trong đời sống của bạn`;
+  if (p === 11) return `${S} dễ mang lại kết quả cụ thể và hay gắn với bạn bè, các mối quan hệ rộng`;
+  if (p === 2) return `${S} gắn với tiền bạc, lời nói và gia đình`;
+  return `${S} lớn dần theo sự chủ động và công sức của bạn`;
+}
+
+/** What a planet does to any area, said as a clause about the person (no planet name). */
+const DOES: Record<GrahaId, { does: string; risk: string }> = {
+  sun: { does: "bạn muốn được ghi nhận và làm việc theo ý mình", risk: "dễ cứng nhắc hoặc nặng cái tôi" },
+  moon: { does: "bạn đặt nhiều cảm xúc và sự quan tâm vào chuyện này", risk: "dễ lên xuống theo tâm trạng" },
+  mars: { does: "bạn dám làm, quyết liệt và hành động nhanh", risk: "dễ vội vàng và va chạm" },
+  mercury: { does: "bạn linh hoạt, tính toán giỏi và trao đổi khéo", risk: "dễ lo nghĩ và phân tán" },
+  jupiter: { does: "bạn có cái nhìn rộng và thường gặp người nâng đỡ", risk: "dễ kỳ vọng quá mức" },
+  venus: { does: "bạn xử lý chuyện này bằng sự hòa nhã và gu thẩm mỹ", risk: "dễ chiều theo cảm giác dễ chịu" },
+  saturn: { does: "bạn nghiêm túc, bền bỉ, đi chậm mà chắc", risk: "dễ thấy chậm trễ và nặng gánh" },
+  rahu: { does: "bạn bị cuốn về những điều mới và khác thường", risk: "dễ không yên hoặc kỳ vọng quá xa" },
+  ketu: { does: "bạn khá tách biệt, sống bằng trực giác và ít bám víu", risk: "dễ thờ ơ hoặc khó thấy đủ" },
+};
+
 const NATURE_GOOD: GrahaId[] = ["jupiter", "venus", "mercury", "moon"];
 const UPACHAYA = [3, 6, 10, 11];
 const rel = (a: GrahaId, b: GrahaId) => (a === b ? 1 : FRIENDS[a]?.includes(b) ? 1 : ENEMIES[a]?.includes(b) ? -1 : 0);
@@ -161,18 +192,18 @@ function evidence(ctx: Ctx, F: Facts, hf: HouseFact): Ev[] {
 }
 
 function yogaMeaning(id: string): string {
-  const maha: Record<string, string> = { mahapurusha_ruchaka: "sức quyết đoán và khả năng chỉ huy", mahapurusha_bhadra: "trí óc sắc và khả năng trình bày", mahapurusha_hamsa: "uy tín về hiểu biết và cách sống tử tế", mahapurusha_malavya: "gu thẩm mỹ, sự duyên dáng và khả năng làm người khác thấy dễ chịu", mahapurusha_shasha: "kỷ luật và khả năng tổ chức bền bỉ" };
-  if (maha[id]) return `một hành tinh mạnh đứng ở trụ cột, thường đi với ${maha[id]}`;
-  if (id.startsWith("raja")) return "chủ của một trụ cột và một vùng phúc phần gặp nhau, thường đi với vị thế và sự ghi nhận";
-  if (id.startsWith("dhana")) return "các chủ nhà liên quan đến tiền bạc liên kết với nhau, có xu hướng giúp tích lũy";
-  if (id.startsWith("viparita") || id === "sarala" || id === "harsha" || id === "vimala") return "chủ của một nhà khó đi vào nhà khó khác, khó khăn có xu hướng chuyển thành sức bền";
-  if (id === "gajakesari") return "Mặt Trăng và Sao Mộc ở thế trụ cột với nhau, thường đi với uy tín và sự hiểu biết";
-  if (id === "budhaditya") return "Mặt Trời và Sao Thủy cùng cung, thường đi với trí óc sáng và khả năng trình bày";
-  if (id.startsWith("parivartana")) return "hai chủ nhà đổi chỗ cho nhau, nên hai mảng đời này kéo theo nhau";
-  if (id.startsWith("kemadruma")) return "Mặt Trăng thiếu hành tinh đứng kề, thường đi với cảm giác phải tự lo";
-  if (id.startsWith("amala")) return "một hành tinh lành đứng ở nhà nghề nghiệp, thường đi với danh tiếng tốt";
-  if (id.startsWith("neecha")) return "một hành tinh suy được cứu, nên điểm yếu có thể trở thành sức mạnh sau một chặng";
-  return "một tổ hợp cổ điển đi qua mảng này, làm đậm thêm đặc điểm của nó";
+  const maha: Record<string, string> = { mahapurusha_ruchaka: "bạn có sức quyết đoán và khả năng chỉ huy hơn hẳn người thường", mahapurusha_bhadra: "bạn có trí óc sắc và khả năng trình bày rất rõ ràng", mahapurusha_hamsa: "bạn dễ được tin cậy nhờ hiểu biết và cách sống tử tế", mahapurusha_malavya: "bạn có gu thẩm mỹ, sự duyên dáng và khả năng làm người khác thấy dễ chịu", mahapurusha_shasha: "bạn có kỷ luật và khả năng tổ chức bền bỉ" };
+  if (maha[id]) return maha[id];
+  if (id.startsWith("raja")) return "đây là dấu hiệu của vị thế và sự ghi nhận";
+  if (id.startsWith("dhana")) return "nó hỗ trợ khả năng tích lũy của bạn";
+  if (id.startsWith("viparita")) return "khó khăn ở đây thường chuyển thành sức bền";
+  if (id === "gajakesari") return "bạn dễ có uy tín nhờ sự hiểu biết";
+  if (id === "budhaditya") return "bạn có trí óc sáng và khả năng trình bày";
+  if (id.startsWith("parivartana")) return "mảng này gắn chặt với một mảng khác của đời bạn, bên này đổi thì bên kia cũng đổi";
+  if (id.startsWith("kemadruma")) return "bạn thường quen tự lo cho mình hơn là trông vào người khác";
+  if (id.startsWith("amala")) return "bạn dễ có tiếng tốt nhờ cách làm việc tử tế";
+  if (id.startsWith("neecha")) return "một điểm yếu ban đầu có thể trở thành sức mạnh sau một chặng";
+  return "những đặc điểm của mảng này được làm đậm thêm";
 }
 
 export const PATH_LABEL4: Record<HousePathway, string> = {
@@ -207,41 +238,43 @@ export function narrateHouse4(ctx: Ctx, F: Facts, hf: HouseFact, recent: HousePa
   const path = cands.find((c) => c !== last) ?? cands[0];
 
   const seed = n * 3 + hf.sign;
-  const used = new Set<string>();
-  const say = (e: Ev) => { used.add(e.key); return (e.plus ?? e.minus)!; };
-  const lord = ev.find((e) => e.key === "lordPlace")!;
-  const grade = ev.find((e) => e.key === "lordGrade");
+  // ---- plain-language composition: no planet names, no technical terms (those stay in `why`)
+  const lk = plainLink(hf);
+  const grade = hf.lord_.grade;
+  const hardLink = [6, 8, 12].includes(hf.lordHouse) && ![6, 8, 12].includes(n);
+  const gradeTail = grade === "weak" ? (hardLink ? ", nên mảng này cần nhiều kiên nhẫn" : ", dù kết quả thường đến chậm hơn mong đợi") : grade === "strong" ? (hardLink ? ", nhưng bạn có đủ sức để vượt qua" : ", và đây là một mối liên kết bền") : "";
+  const inside = ev.filter((e) => e.group === "inside" || e.group === "look");
+  const adds = [...new Set(inside.filter((e) => e.w > 0).map((e) => DOES[e.key.split("-")[1] as GrahaId].does))].slice(0, 2);
+  const risks = [...new Set(inside.filter((e) => e.w <= 0).map((e) => DOES[e.key.split("-")[1] as GrahaId].risk))].slice(0, 2);
+  const ties = [...new Set(hf.occupants.flatMap((id) => F.planets[id].lorded.filter((h) => h !== n)).filter((h) => h !== n))].slice(0, 2);
+  const yogas = hf.yogas.filter(effectiveYoga).slice(0, 1).map((y) => yogaMeaning(y.id));
+  const baseGood = ev.some((e) => e.group === "base" && e.key !== "karaka" && e.w > 0 && !e.key.startsWith("karaka"));
+  const baseBad = ev.some((e) => e.group === "base" && e.w < 0 && !e.key.startsWith("karaka"));
+  const two = (xs: string[]) => (xs.length > 1 ? `${xs[0]}, cùng với ${xs[1]}` : xs[0] ?? "");
+  const practice = PRACTICE[n - 1][sum >= 0 ? "plus" : "minus"];
 
-  let central: string;
+  let central: string, usedPractice = false, usedLink = false, usedAdds = false, usedYoga = false;
   switch (path) {
-    case "contrast": central = `Chuyện ${topic} ở bạn có cả chỗ dựa lẫn điều phải xử lý: ${say(plus[0])}, trong khi ${say(minus[0])}.`; break;
-    case "yoga": { const y = plus.find((e) => e.group === "yoga")!; central = `Điều đáng chú ý nhất ở mảng ${t} là ${say(y).replace(/^([^:]+):/, "$1:")}.`; break; }
-    case "strength": central = pick([`Chuyện ${topic} là một trong những mảng có điều kiện tốt trong lá số của bạn, trước hết vì ${say(plus[0])}.`, `Ở mảng ${t}, lá số cho bạn nhiều điều kiện thuận, chủ yếu vì ${say(plus[0])}.`], seed); break;
-    case "occupant": { const o = ev.find((e) => e.group === "inside")!; central = `Mảng ${t} mang dấu ấn rõ nhất của hành tinh đứng trong nó: ${say(o)}.`; break; }
-    case "care": central = `Chuyện ${topic} là nơi bạn phải tự xây nhiều hơn là được cho sẵn, vì ${say(minus[0])}.`; break;
-    case "quiet": central = `Chuyện ${topic} không phải trung tâm của lá số; mảng này vận hành khá lặng lẽ, theo hướng mà hành tinh giữ chìa khóa của nó dẫn tới.`; break;
-    case "bridge": central = `Muốn hiểu chuyện ${topic} ở bạn, hãy nhìn vào nơi nó được dẫn tới: ${say(lord)}.`; break;
-    default: central = PRACTICE[n - 1][sum >= 0 ? "plus" : "minus"]; used.add("practice");
+    case "strength": case "life": central = practice; usedPractice = true; break;
+    case "care": central = PRACTICE[n - 1].minus; usedPractice = true; break;
+    case "contrast": central = `Chuyện ${t} ở bạn có cả thuận lợi lẫn những điều phải tự xoay xở${adds[0] && risks[0] ? `: ${adds[0]}, có điều ${risks[0]}` : ""}.`; usedAdds = true; break;
+    case "yoga": central = yogas.length ? `Chuyện ${t} có một điểm sáng riêng: ${yogas[0]}.` : practice; usedYoga = true; break;
+    case "occupant": central = adds[0] ? `Trong chuyện ${t}, ${adds[0]}${adds[1] ? `; ${adds[1]}` : ""}${risks[0] ? `, có điều ${risks[0]}` : ""}.` : `Chuyện ${t} là nơi bạn ${risks[0]}, nên cần để ý nhiều hơn các mảng khác.`; usedAdds = true; break;
+    case "quiet": central = `Chuyện ${t} không phải tâm điểm trong đời bạn; nó diễn ra khá lặng lẽ, theo nhịp của những mảng khác.`; break;
+    default: central = `${cap(lk)}${gradeTail}.`; usedLink = true;
   }
   const paras: string[] = [central];
-
-  const p2: string[] = [`Cung ${SIGNS[hf.sign]} đặt lên mảng này, nên bạn tiếp cận chuyện ${t} theo kiểu ${SIGN_STYLE[hf.sign]}.`];
-  if (!used.has(lord.key)) p2.push(`${cap(say(lord))}.`);
-  if (grade && !used.has(grade.key)) p2.push(`${cap(say(grade))}.`);
-  paras.push(p2.join(" "));
-
-  const rest = ev.filter((e) => (e.group === "inside" || e.group === "look") && !used.has(e.key)).sort((a, b) => Math.abs(b.w) - Math.abs(a.w)).slice(0, 3);
-  if (rest.length) {
-    const pos = rest.filter((e) => e.w > 0), neg = rest.filter((e) => e.w <= 0);
-    const JOIN = ["", "Thêm vào đó, ", "Cũng trong mảng này, "];
-    const out: string[] = pos.map((e, i) => `${JOIN[i] ?? ""}${i ? say(e) : cap(say(e))}.`);
-    neg.forEach((e, i) => out.push(`${pos.length && i === 0 ? "Ngược lại, " : ""}${pos.length && i === 0 ? say(e) : cap(say(e))}.`));
-    paras.push(out.join(" "));
-  }
-  const base = ev.filter((e) => (e.group === "base" || e.group === "yoga") && !used.has(e.key)).slice(0, 2);
-  if (base.length) paras.push(base.map((e) => `${cap(say(e))}.`).join(" "));
-  if (P >= 1 && M >= 1 && path !== "contrast") paras.push(`Hai hướng này không triệt tiêu nhau: phần thuận cho bạn chỗ đứng trong chuyện ${t}, còn phần khó quyết định cái giá và nhịp độ, nên kết quả thường đến qua một chặng điều chỉnh.`);
-  if (!used.has("practice")) paras.push(PRACTICE[n - 1][sum >= 0 ? "plus" : "minus"]);
+  const OPEN = [`Bạn tiếp cận mảng này theo cách ${SIGN_STYLE[hf.sign]}`, `Ở đây, cách làm của bạn thường ${SIGN_STYLE[hf.sign]}`, `Ở mảng này, bạn có xu hướng hành xử ${SIGN_STYLE[hf.sign]}`];
+  paras.push(`${OPEN[seed % OPEN.length]}.${usedLink ? "" : ` ${plainLink(hf, `Chuyện ${t}`)}${gradeTail}.`}`);
+  const p3: string[] = [];
+  if (!usedAdds && adds.length) p3.push(`Trong chuyện ${t}, ${adds.join("; ")}${risks.length ? `; có điều, bạn cũng ${risks.join("; ")}` : ""}.`);
+  else if (!usedAdds && risks.length) p3.push(`Điều cần để ý ở chuyện ${t} là bạn ${risks.join("; ")}.`);
+  if (ties.length) p3.push(`Chuyện ${t} cũng hay gắn với chuyện ${area(ties[0])}: thay đổi ở bên này thường kéo theo bên kia.`);
+  if (!usedYoga && yogas.length) p3.push(`Chuyện ${t} còn có một điểm đặc biệt: ${yogas[0]}.`);
+  if (p3.length) paras.push(p3.join(" "));
+  if (!usedPractice) paras.push(`${baseGood && !baseBad ? `Nhìn chung, chuyện ${t} có nhiều điều kiện thuận. ` : baseBad && !baseGood ? `Nhìn chung, chuyện ${t} ít được nâng đỡ sẵn hơn các mảng khác. ` : ""}${practice}`);
+  else if (baseBad && sum > 0) paras.push(`Dù vậy, chuyện ${t} ít được nâng đỡ sẵn hơn các mảng khác, nên những điều tốt ở đây cần được giữ bằng sự đều đặn.`);
+  void plus; void minus; void pick;
 
   const title = path === "quiet" ? "Một mảng vận hành lặng lẽ" : support === "thuận lợi" ? "Nhiều điều kiện thuận" : support === "cần rèn giũa" ? "Cần xây dựng từng bước" : "Có thuận, có khó";
   const why = [

@@ -140,27 +140,20 @@ const MOON_IN: string[] = [
 
 interface Trait { key: string; s: number; kind: "gift" | "pull" | "tension"; clause: string }
 
+// gift and pull traits are predicates that follow "Bạn là người …"; tension traits are full clauses that follow "dù …"
 const PILLAR_CLAUSE: Record<string, string> = {
-  sun: "ý chí của bạn khó bị bẻ cong, kể cả khi bạn chọn im lặng",
-  moon: "lòng bạn có sức bền hơn vẻ ngoài của nó",
-  mars: "khi đã quyết, bạn có sức đi đến cùng",
-  mercury: "trí óc là công cụ đáng tin nhất của bạn",
-  jupiter: "bạn thường nhìn ra ý nghĩa ở những nơi người khác chỉ thấy rắc rối",
-  venus: "bạn có con mắt nhận ra cái đẹp và cái vừa đủ",
-  saturn: "sự bền bỉ của bạn thường đi xa hơn những khởi đầu ồn ào",
+  sun: "có ý chí riêng và khó bị lay chuyển", moon: "nhạy cảm nhưng bền lòng hơn vẻ ngoài", mars: "đã quyết thì làm đến cùng",
+  mercury: "nghĩ nhanh, nói rõ và học gì cũng mau", jupiter: "biết nhìn ra ý nghĩa ngay cả trong những lúc khó khăn",
+  venus: "tinh tế, có gu và biết giữ hòa khí", saturn: "bền bỉ, làm chậm mà chắc",
 };
 const ELEMENT_CLAUSE: Record<Element, string> = {
-  fire: "bạn sống bằng nhiệt và thường hành động trước khi kịp nghi ngờ mình",
-  earth: "bạn tin vào những gì làm ra được và giữ được qua thời gian",
-  air: "bạn hiểu thế giới qua câu hỏi, trò chuyện và những mối liên hệ",
-  water: "bạn cảm nhận đời sống trước khi giải thích nó",
+  fire: "sống bằng nhiệt huyết và hành động nhanh", earth: "thực tế và tin vào những gì làm ra được",
+  air: "hiểu đời qua trò chuyện và những câu hỏi", water: "cảm nhận trước rồi mới lý giải",
 };
 const AREA_CLAUSE: Record<string, string> = {
-  self: "đời bạn hay quay về câu hỏi mình là ai và mình thuộc về đâu",
-  learn: "việc học, sáng tạo và niềm tin là nơi bạn tìm thấy mình rõ nhất",
-  bond: "những người đồng hành là tấm gương lớn nhất để bạn hiểu mình",
-  work: "bạn hiểu mình nhiều qua việc mình làm và những gì mình góp vào",
-  depth: "phần quan trọng nhất của bạn diễn ra ở nơi ít ai nhìn thấy",
+  self: "luôn muốn hiểu rõ mình là ai và mình thuộc về đâu", learn: "tìm thấy mình rõ nhất trong việc học, sáng tạo và niềm tin",
+  bond: "hiểu mình nhiều nhất qua những người đồng hành", work: "thấy mình có giá trị khi được làm việc và đóng góp",
+  depth: "sống sâu hơn nhiều so với những gì người khác nhìn thấy",
 };
 
 function traits(ctx: Ctx, f: Facts): Trait[] {
@@ -179,12 +172,12 @@ function traits(ctx: Ctx, f: Facts): Trait[] {
     const ex = FOCUS_AREAS.map((a, i) => ({ a, e: byArea[i] / total - a.houses.length / 12 })).sort((x, y) => y.e - x.e)[0];
     if (ex.e >= 0.12) out.push({ key: "area", s: 1.5 + ex.e * 4, kind: "pull", clause: AREA_CLAUSE[ex.a.id] });
     const L = f.planets[SIGN_LORD[n.lagna.sign]];
-    if (L.house && [6, 8, 12].includes(L.house)) out.push({ key: "ll", s: 1.6, kind: "tension", clause: "những gì bạn có thường đến sau một chặng tự rèn mà người ngoài ít thấy" });
-    else if (L.house && [1, 5, 9].includes(L.house) && isGood(L)) out.push({ key: "ll", s: 1.3, kind: "gift", clause: "bạn thường được đỡ khi đi đúng con đường của mình" });
+    if (L.house && [6, 8, 12].includes(L.house)) out.push({ key: "ll", s: 1.6, kind: "tension", clause: "những gì có được thường đến sau một chặng tự rèn mà ít ai thấy" });
+    else if (L.house && [1, 5, 9].includes(L.house) && isGood(L)) out.push({ key: "ll", s: 1.3, kind: "gift", clause: "đi đúng con đường của mình thì thường được nâng đỡ" });
     if (!ctx.uncertainMoon) {
       const eL = ELEMENT_OF(n.lagna.sign), eM = ELEMENT_OF(n.grahas.moon.sign);
       const apart = mod(n.grahas.moon.sign - n.lagna.sign, 12) + 1;
-      if (eL !== eM && [6, 8, 12].includes(apart)) out.push({ key: "lm", s: 1.7, kind: "tension", clause: "điều người khác thấy ở bạn và điều bạn cần bên trong không hoàn toàn giống nhau" });
+      if (eL !== eM && [6, 8, 12].includes(apart)) out.push({ key: "lm", s: 1.7, kind: "tension", clause: "điều bạn cần trong lòng không hẳn giống với hình ảnh bạn tạo ra" });
     }
   }
   const m = f.planets.moon;
@@ -195,16 +188,13 @@ function traits(ctx: Ctx, f: Facts): Trait[] {
 
 export function headline(ctx: Ctx, f: Facts): string {
   const t = traits(ctx, f);
-  const seed = ctx.n.lagna.sign * 7 + ctx.n.grahas.moon.nak.index;
-  const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
-  if (!t.length) return "Lá số của bạn không dồn sức về một phía nào, nên điều làm nên bạn nằm ở cách bạn chọn đặt tâm sức vào đâu.";
-  const [a, b] = [t[0], t.find((x) => x.key !== t[0].key && x.clause !== t[0].clause)];
-  if (!b) return `${cap(a.clause)}.`;
-  if (a.kind === "tension" || b.kind === "tension") {
-    const [g, h] = a.kind === "tension" ? [b, a] : [a, b];
-    return pick([`${cap(g.clause)}, dù ${h.clause}.`, `${cap(g.clause)}, nhưng ${h.clause}.`], seed);
-  }
-  return pick([`${cap(a.clause)}, và ${b.clause}.`, `${cap(a.clause)}; đồng thời, ${b.clause}.`], seed);
+  if (!t.length) return "Bạn là người không dồn hết sức về một phía, và điều làm nên bạn nằm ở cách bạn chọn đặt tâm sức vào đâu.";
+  const gifts = t.filter((x) => x.kind !== "tension"), tens = t.filter((x) => x.kind === "tension");
+  const a = gifts[0], b = gifts.find((x) => x !== a), h = tens[0];
+  if (!a) return `Bạn là người sống khá kín đáo, dù ${h.clause}.`;
+  if (h && (!b || h.s >= b.s)) return `Bạn là người ${a.clause}, dù ${h.clause}.`;
+  if (b) return `Bạn là người ${a.clause}, và ${b.clause}.`;
+  return `Bạn là người ${a.clause}.`;
 }
 
 // ------------------------------------------------------------------ the rising sign, the Sun, the Moon
@@ -294,12 +284,12 @@ function sunMoonLine(ctx: Ctx, f: Facts): { text: string; why: string } | null {
   const same = n.grahas.moon.sign === n.grahas.sun.sign;
   const d = mod(n.grahas.moon.sign - n.grahas.sun.sign, 12) + 1;
   let text: string;
-  if (same && gap < 12) text = "Mặt Trăng đứng rất sát Mặt Trời. Ý chí và cảm xúc vì thế dễ chụm về một hướng, nhưng Mặt Trăng ở gần Mặt Trời cũng là Mặt Trăng còn tối: bạn có thể khó tách điều mình thật sự cần ra khỏi điều mình thấy phải làm.";
-  else if (same) text = `Mặt Trời và Mặt Trăng cùng một cung nhưng cách nhau khoảng ${Math.round(gap)} độ, nên điều bạn muốn và điều bạn cần được làm từ cùng một chất liệu; điều đó không có nghĩa là chúng luôn đồng thuận, chỉ là khi giằng co, chúng giằng co về cùng một chuyện.`;
-  else if (d === 7) text = "Mặt Trăng đứng đối diện Mặt Trời. Bạn thường thấy rõ cả hai phía của một việc, và cũng hay bị kéo giữa điều mình muốn khẳng định với điều lòng mình cần.";
-  else if (d === 6 || d === 8) text = "Mặt Trời và Mặt Trăng đứng ở thế cách xa nhau trong vòng cung, nên điều bạn muốn thể hiện và điều bạn cần để yên lòng không tự gặp nhau; bạn thường phải chủ động nối hai đầu ấy.";
-  else if (d === 5 || d === 9) text = "Mặt Trời và Mặt Trăng đứng ở thế tam hợp, nên ý chí và cảm xúc của bạn có xu hướng nuôi nhau hơn là cản nhau.";
-  else text = "Mặt Trời và Mặt Trăng không đứng ở thế đặc biệt với nhau, nên mối quan hệ giữa ý chí và cảm xúc ở bạn phụ thuộc nhiều vào hoàn cảnh hơn là có sẵn một nhịp.";
+  if (same && gap < 12) text = "Ý chí và cảm xúc của bạn thường chụm về một hướng; có điều, bạn đôi khi khó tách điều mình thật sự cần ra khỏi điều mình thấy phải làm.";
+  else if (same) text = "Điều bạn muốn và điều bạn cần đến từ cùng một chất liệu, nên khi giằng co, bạn thường giằng co về cùng một chuyện.";
+  else if (d === 7) text = "Bạn thường thấy rõ cả hai phía của một việc, và cũng hay bị kéo giữa điều mình muốn khẳng định với điều lòng mình cần.";
+  else if (d === 6 || d === 8) text = "Điều bạn muốn thể hiện và điều bạn cần để yên lòng không tự gặp nhau, nên bạn thường phải chủ động dung hòa hai phía ấy.";
+  else if (d === 5 || d === 9) text = "Ý chí và cảm xúc của bạn có xu hướng nâng đỡ nhau hơn là cản nhau.";
+  else text = "";
   return { text, why: `Mặt Trăng cách Mặt Trời ${gap.toFixed(1)}°; tính theo cung, Mặt Trăng ở cung thứ ${d} từ Mặt Trời.` };
 }
 
@@ -333,15 +323,16 @@ function keysBlock(ctx: Ctx, f: Facts): OverviewBlock {
   const heart = ctx.uncertainMoon ? "" : `bên trong, bạn ${HEART[moon.sign]}`;
   if (!ctx.noTime) {
     const lag = n.lagna.sign;
-    paras.push(`Bạn bước vào đời theo cách của một người ${FACE[lag]}; bạn ${self}${heart ? `, còn ${heart}` : ""}.`);
+    paras.push(`Bạn bước vào đời như một người ${FACE[lag]}. Bạn ${self}${heart ? `, còn ${heart}` : ""}.`);
     const rLS = elRel(ELEMENT_OF(lag), ELEMENT_OF(sun.sign));
     const sm = sunMoonLine(ctx, f);
     const link = rLS === "same" ? "Vẻ ngoài và điều bạn muốn khẳng định đi cùng một hướng" : rLS === "friend" ? "Cách bạn bước vào việc thường mở đường cho điều bạn muốn khẳng định" : "Ấn tượng đầu tiên bạn tạo ra có thể khác với điều bạn thật sự muốn được nhận ra";
-    paras.push(`${link}. ${sm && !sm.text.startsWith("Mặt Trời và Mặt Trăng không đứng") ? sm.text : ""}`.trim());
+    paras.push(`${link}. ${sm ? sm.text : ""}`.trim());
     const L = SIGN_LORD[lag], p = f.planets[L];
-    const where = p.house === 1 ? "nằm ngay trong cung mọc, nên sức sống và hướng đi của bạn tụ về chính bản thân" : `đi về vùng ${area(p.house!)}, nên đó là nơi bạn đặt nhiều tâm sức`;
-    const cond = p.grade === "strong" ? "Hành tinh này đứng rất vững, nên điểm tựa ấy đáng tin." : p.grade === "good" ? "Hành tinh này đứng khá vững." : p.grade === "weak" ? "Hành tinh này đang ở thế yếu, nên kết quả ở đó thường đến chậm và cần nhiều công sức." : "";
-    paras.push(`${nameOf(L)}, hành tinh cai quản cung mọc, ${where}. ${cond} Mặt Trăng ở chòm sao ${nakName(moon.g.nak.name)} thêm cho cảm xúc của bạn một nét riêng: ${lowerFirst(NAKSHATRA_TEXT[moon.g.nak.index].split(": ").slice(1).join(": ") || NAKSHATRA_TEXT[moon.g.nak.index])}`.replace(/\s+/g, " "));
+    const where = p.house === 1 ? "Phần lớn tâm sức của bạn dồn vào chính mình: sức khỏe, hình ảnh và con đường riêng" : `Phần lớn tâm sức của bạn đổ vào chuyện ${area(p.house!)}`;
+    const cond = p.grade === "weak" ? ", dù ở đó kết quả thường đến chậm và cần nhiều công sức" : p.grade === "strong" ? ", và đó cũng là nơi bạn có nhiều điểm tựa nhất" : "";
+    const nak = NAKSHATRA_TEXT[moon.g.nak.index].split(": ").slice(1).join(": ");
+    paras.push(`${where}${cond}.${nak ? ` Về cảm xúc, ${nak}` : ""}`);
   } else {
     paras.push(`Bạn ${self}${heart ? `, còn ${heart}` : ""}.`);
     const sm = sunMoonLine(ctx, f);
@@ -384,7 +375,7 @@ function elementsBlock(ctx: Ctx, f: Facts): OverviewBlock {
     paras.push(EL_MORE[top[0]]);
     if (counts[top[1]] === counts[top[0]]) paras.push(EL_MORE[top[1]].replace(/ đậm nhất:/, " cũng đậm không kém:"));
     const low = top.filter((e) => counts[e] <= Math.max(0, counts[top[0]] - 3)).slice(-1)[0];
-    if (low) paras.push(`${EL_LOW[low]}. Ít hành tinh ở một nguyên tố không có nghĩa là bạn thiếu phẩm chất đó; nó chỉ ít khi là phản xạ đầu tiên.`);
+    if (low) paras.push(`${EL_LOW[low]}.`);
   }
   return {
     id: "elements", title: "Bốn nguyên tố: Lửa, Đất, Khí, Nước", paragraphs: paras, meta: { elements: counts },
@@ -405,8 +396,8 @@ function moonCycleBlock(ctx: Ctx, f: Facts): OverviewBlock {
   const paras: string[] = [];
   const pos = tithi === 15 ? "đúng ngày rằm" : tithi === 30 ? "đúng ngày trăng non" : `ngày thứ ${k} của nửa tháng trăng ${bright ? "đang tròn dần" : "đang khuyết dần"}`;
   paras.push(`Bạn sinh vào ${pos}. ${bright ? "Trăng đang lớn thường đi với nhu cầu hướng ra ngoài: muốn thử, muốn mở rộng, muốn được đáp lại." : "Trăng đang khuyết thường đi với nhu cầu lắng lại: chắt lọc, giữ cho mình những gì thật sự cần."}`);
-  if (dark) paras.push(help ? "Mặt Trăng lúc ấy còn gần Mặt Trời nên ánh sáng chưa nhiều, nhưng vị thế của nó trong cung hoặc sự nâng đỡ từ Sao Mộc bù lại phần lớn, nên tâm trí bạn không thiếu chỗ tựa." : "Mặt Trăng lúc ấy còn gần Mặt Trời nên ánh sáng chưa nhiều. Jyotish xem đó là một Mặt Trăng nhạy: cảm xúc của bạn dễ chịu ảnh hưởng của mệt mỏi và hoàn cảnh, nên giấc ngủ và nhịp nghỉ có ý nghĩa nhiều hơn với bạn so với người khác.");
-  else paras.push("Mặt Trăng lúc ấy đã đủ xa Mặt Trời để có nhiều ánh sáng, một điều kiện Jyotish coi là thuận cho sự ổn định của tâm trí; phần còn lại tùy vào vị trí và những hành tinh đi cùng nó.");
+  if (dark) paras.push(help ? "Lúc ấy trăng còn mỏng, nhưng những yếu tố khác trong lá số giữ cho tâm trí bạn khá vững." : "Lúc ấy trăng còn mỏng, nên cảm xúc của bạn dễ chịu ảnh hưởng của mệt mỏi và hoàn cảnh; giấc ngủ và những khoảng nghỉ quan trọng với bạn hơn với nhiều người.");
+  else paras.push("Lúc ấy trăng đã khá sáng, một điều kiện thuận cho sự ổn định của tâm trí.");
   return {
     id: "moonCycle", title: "Chu kỳ trăng", paragraphs: paras, meta: { elong: e },
     why: [`Khoảng cách Mặt Trăng–Mặt Trời ${e.toFixed(1)}°, tithi thứ ${tithi}/30, ${bright ? "Shukla Paksha" : "Krishna Paksha"} (${phaseName(e).toLowerCase()}).`,
@@ -430,20 +421,16 @@ function pillarsBlock(ctx: Ctx, f: Facts): OverviewBlock {
   const weight = (id: GrahaId) => { const p = f.planets[id]; let w = p.score; if (p.role === "yogakaraka") w += 0.8; if (p.role === "lagna") w += 0.5; if (f.n.yogas.some((y) => y.grahas.includes(id) && y.strength !== "weak" && y.tone === "good")) w += 0.4; return w; };
   const pillars = seven.filter((id) => isGood(f.planets[id])).sort((a, b) => weight(b) - weight(a)).slice(0, 2);
   const paras: string[] = [];
-  if (!pillars.length) paras.push("Không hành tinh nào trong lá số của bạn nổi trội hẳn. Sức được chia khá đều, nên không có một năng lực nào được dựng sẵn để dựa vào; điều bạn phát triển được thường đến từ việc chọn và luyện một hướng cụ thể.");
+  if (!pillars.length) paras.push("Lá số của bạn không có một điểm tựa nào nổi trội hẳn; sức được chia khá đều, nên điều bạn phát triển được thường đến từ việc chọn và luyện một hướng cụ thể.");
   let saidAmb = 0;
   pillars.forEach((id, i) => {
     const p = f.planets[id];
-    const yk = p.role === "yogakaraka" ? " Với cung mọc của bạn, nó còn cai quản cùng lúc một nhà trụ cột và một nhà phúc phần, nên sức của nó dễ chuyển thành kết quả." : "";
-    const ambiguous = !ctx.noTime && p.role === "dusthana" ? (saidAmb++ === 0 ? " Cần nói rõ: nó mạnh nhưng cũng cai quản những mảng nhiều thử thách, nên sức mạnh ấy thường lộ ra khi bạn phải xử lý khó khăn hơn là khi mọi thứ suôn sẻ." : " Hành tinh này cũng mạnh theo cách ấy: sức của nó hiện rõ nhất khi gặp việc khó.") : "";
-    const why = p.dignity === "exalted" ? "đứng ở vị trí mạnh nhất của nó" : p.dignity === "own" || p.dignity === "moolatrikona" ? "đứng trong cung nhà của chính nó" : p.g.digBala ? "đứng đúng phương vị hợp nhất với nó" : p.g.vargottama ? "giữ nguyên vị trí ở lá số D9" : "được nâng đỡ tốt";
-    const via = p.house ? `, và thường phát huy qua chuyện ${area(p.house)}` : "";
-    paras.push(i === 0
-      ? `${nameOf(id)} ${why}, nên ${CAPACITY[id]} là năng lực có nền rõ nhất trong lá số${via}.${yk}${ambiguous}`
-      : `Bên cạnh đó, ${nameOf(id)} ${why}, góp thêm ${CAPACITY[id]}${via}.${yk}${ambiguous}`);
+    const via = p.house ? `, và nó thể hiện rõ nhất qua chuyện ${area(p.house)}` : "";
+    const hard = !ctx.noTime && p.role === "dusthana" && saidAmb++ === 0 ? " Năng lực này thường lộ ra rõ nhất khi bạn phải xử lý việc khó." : "";
+    paras.push(i === 0 ? `Điểm tựa lớn nhất của bạn là ${CAPACITY[id]}${via}.${hard}` : `Kế đó là ${CAPACITY[id]}${via}.${hard}`);
   });
   const weak = seven.map((id) => f.planets[id]).filter((p) => p.grade === "weak").sort((a, b) => a.score - b.score)[0];
-  if (weak) paras.push(`Ngược lại, ${nameOf(weak.id)} đang ở thế yếu, nên ${CAPACITY[weak.id]} ở bạn thường cần thời gian và hoàn cảnh phù hợp mới thể hiện hết.`);
+  if (weak) paras.push(`Điều cần nhiều thời gian hơn để chín là ${CAPACITY[weak.id]}.`);
   return {
     id: "pillars", title: "Hành tinh trụ cột nâng đỡ", paragraphs: paras, meta: { planets: pillars },
     why: [
@@ -489,20 +476,17 @@ function focusBlock(ctx: Ctx, f: Facts): { block: OverviewBlock; share: Overview
   const lead = scored.filter((s) => s.excess >= 0.08).slice(0, 2);
   const planetsIn = (hs: number[]) => GRAHAS.filter((id) => hs.includes(f.planets[id].house!));
   const paras: string[] = [];
-  if (!lead.length) paras.push("Các hành tinh của bạn trải khá đều, không dồn về một vùng nào. Đời bạn vì thế ít xoay quanh một chủ đề duy nhất; trọng tâm thường đổi theo từng giai đoạn.");
+  if (!lead.length) paras.push("Lá số của bạn trải khá đều qua nhiều mảng đời sống, không dồn về một vùng nào; trọng tâm thường đổi theo từng giai đoạn.");
   lead.forEach((s, k) => {
     const ids = planetsIn(s.a.houses);
     const strongHere = ids.filter((id) => isSeven(id) && isGood(f.planets[id]));
-    const bb = f.houses.filter((h) => s.a.houses.includes(h.n) && h.tier === "top").length;
-    const quality = strongHere.length ? `, và vì ${joinVi(strongHere.map(nameOf))} ${strongHere.length > 1 ? "đều" : ""} đứng vững ở đây nên vùng này có sức nặng chứ không chỉ đông`.replace("  ", " ") : bb ? ", và sức mạnh nhà ở đây cũng cao" : ", dù các hành tinh ở đây không đặc biệt mạnh nên vùng này đông việc hơn là dễ việc";
-    paras.push(`${k === 0 ? "Vùng nổi bật nhất" : "Vùng thứ hai"} là ${s.a.title.toLowerCase()}: ${s.a.says}${ids.length ? `. ${joinVi(ids.map(nameOf))} tập trung ở đây` : ""}${quality}.`);
+    const tail = strongHere.length >= 2 ? ", và đây cũng là nơi bạn có nhiều điểm mạnh" : strongHere.length ? ", và bạn có điểm mạnh ở đây" : ", dù ở đây việc thường nhiều hơn thuận lợi";
+    paras.push(k === 0 ? `Cuộc sống của bạn xoay nhiều nhất quanh ${s.a.says}${tail}.` : `Kế đó là ${s.a.says}.`);
   });
-  // links between areas: the lord of the rising sign, and lords placed in each other's houses
   const L = f.planets[SIGN_LORD[f.n.lagna.sign]];
   const ex = f.houses.find((h) => h.lordHouse !== h.n && f.houses[h.lordHouse - 1].lordHouse === h.n && h.n < h.lordHouse);
-  if (ex) paras.push(`Có một sợi dây nối riêng giữa ${area(ex.n)} và ${area(ex.lordHouse)}: chủ của hai vùng này đổi chỗ cho nhau, nên chuyện bên này thường kéo theo chuyện bên kia.`);
-  else if (L.house && L.house !== 1 && lead.length && !lead[0].a.houses.includes(L.house)) paras.push(`Hành tinh cai quản cung mọc lại đi về ${area(L.house)}, nên ngoài những vùng trên, chuyện này cũng thường xuyên đòi bạn có mặt.`);
-  paras.push("Một vùng ít hành tinh không có nghĩa là mảng ấy kém; nó chỉ ít khi là trung tâm, và đi theo hành tinh cai quản nó.");
+  if (ex) paras.push(`Chuyện ${area(ex.n)} và chuyện ${area(ex.lordHouse)} gắn chặt với nhau trong đời bạn: bên này đổi thì bên kia cũng đổi theo.`);
+  void L;
   return {
     block: {
       id: "focus", title: "Những lĩnh vực nổi bật trong lá số", paragraphs: paras,

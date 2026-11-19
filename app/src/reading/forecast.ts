@@ -50,9 +50,9 @@ const NATAL_NAME = (id: GrahaId | "lagna") => (id === "lagna" ? "điểm mọc" 
 const area = (h: number) => HOUSE_TAG[h - 1];
 
 const MEANING: Record<GrahaId, string> = {
-  jupiter: "mở ra cơ hội, hiểu biết và người nâng đỡ", saturn: "đòi kỷ luật, kiên nhẫn và trách nhiệm", rahu: "kéo về phía điều mới và khát vọng lớn hơn",
-  ketu: "đẩy bạn bớt bám víu và chọn lọc lại", mars: "tiếp sức bật nhưng cũng dễ làm nóng chuyện", sun: "đưa chuyện ấy ra ánh sáng, cần bạn có mặt",
-  venus: "làm mềm và dễ chịu hơn", mercury: "đưa nhiều trao đổi, giấy tờ và tính toán", moon: "",
+  jupiter: "có thêm cơ hội và người nâng đỡ", saturn: "đòi hỏi kỷ luật và sự kiên nhẫn", rahu: "có điều mới lạ cuốn hút bạn",
+  ketu: "bạn muốn bớt bám víu và chọn lọc lại", mars: "có thêm sức bật nhưng cũng dễ nóng vội", sun: "chuyện này được đưa ra ánh sáng và cần bạn có mặt",
+  venus: "mọi thứ mềm mại và dễ chịu hơn", mercury: "có nhiều trao đổi, giấy tờ và tính toán", moon: "",
 };
 
 /** Vedha (Phaladeepika): good house from the Moon → the house whose occupant cancels it. */
@@ -92,7 +92,7 @@ export function yearCalendar(ctx: Ctx, year = YEAR): ForecastEvent[] {
     const [t, nat] = k.split("|") as [GrahaId, GrahaId | "lagna"];
     if (r.orb > 1.5 || (nat === "lagna" && ctx.noTime)) return;
     out.push({ ms: r.ms, date: ddmmyyyy(r.ms), kind: "hit", planet: t, title: `${nameOf(t)} ${r.kind === "trùng" ? "đi qua" : "đối diện"} ${NATAL_NAME(nat)} gốc`,
-      text: `${nameOf(t)} ${r.kind === "trùng" ? "đi qua đúng vị trí" : "đứng đối diện vị trí"} của ${nat === "lagna" ? "điểm mọc" : `${nameOf(nat)} lúc bạn sinh`} (sai lệch ${r.orb.toFixed(1)}°); nó ${MEANING[t]}, và những tuần quanh ngày này là lúc điều đó rõ nhất.` });
+      text: `Vài tuần quanh ngày này là lúc ${MEANING[t]} rõ nhất trong năm.` });
   };
   for (let ms = start; ms < end; ms += DAY) {
     const t = transitAt(n, ms);
@@ -103,12 +103,12 @@ export function yearCalendar(ctx: Ctx, year = YEAR): ForecastEvent[] {
           const h = ctx.noTime ? null : b.fromLagna;
           const at = refine(ms - DAY, ms, (x) => gl(x, id).sign !== a.sign);
           out.push({ ms: at, date: ddmmyyyy(at), kind: "ingress", planet: id, title: `${nameOf(id)} sang ${SIGNS[b.sign]}`,
-            text: `${nameOf(id)} chuyển sang ${SIGNS[b.sign]}${id === "rahu" ? ` (Ketu sang ${SIGNS[t.grahas.ketu.sign]})` : ""}${h ? `, đi vào vùng ${area(h)} của lá số` : ""}, cung thứ ${b.fromMoon} tính từ Mặt Trăng của bạn.` });
+            text: h ? `Từ đây, chuyện ${area(h)} được chú ý nhiều hơn: ${MEANING[id]}.` : `Từ đây, ${MEANING[id]}.` });
         }
         if (id !== "rahu" && id !== "ketu" && id !== "sun" && a.retro !== b.retro)
           { const at = refine(ms - DAY, ms, (x) => gl(x, id).retro !== a.retro);
           out.push({ ms: at, date: ddmmyyyy(at), kind: b.retro ? "retro" : "direct", planet: id, title: `${nameOf(id)} ${b.retro ? "bắt đầu đi lùi" : "đi thẳng trở lại"}`,
-            text: b.retro ? `${nameOf(id)} bắt đầu đi lùi ở ${SIGNS[b.sign]}: việc thuộc về nó hợp để xem lại, sửa, hoàn thiện hơn là khởi sự mới.` : `${nameOf(id)} đi thẳng trở lại ở ${SIGNS[b.sign]}: việc từng chậm lại bắt đầu có đà.` }); }
+            text: b.retro ? "Hợp để xem lại, sửa và hoàn thiện những việc đang làm hơn là khởi sự việc mới." : "Những việc từng chậm lại bắt đầu có đà trở lại." }); }
       }
       // eclipses: new or full moon close to the nodes
       const e0 = mod(prev.grahas.moon.lon - prev.grahas.sun.lon, 360), e1 = mod(t.grahas.moon.lon - t.grahas.sun.lon, 360);
@@ -122,7 +122,7 @@ export function yearCalendar(ctx: Ctx, year = YEAR): ForecastEvent[] {
           const sign = mo.sign, h = ctx.noTime ? null : mod(sign - n.lagna.sign, 12) + 1;
           const penumbral = fullMoon && near >= 11.5;
           out.push({ ms: at, date: ddmmyyyy(at), kind: "eclipse", planet: null, title: newMoon ? `Nhật thực ở ${SIGNS[sky.grahas.find((g) => g.id === "sun")!.sign]}` : `Nguyệt thực${penumbral ? " nửa tối" : ""} ở ${SIGNS[sign]}`,
-            text: `${newMoon ? "Nhật thực" : "Nguyệt thực"} rơi vào ${h ? `vùng ${area(h)}` : `cung thứ ${mod(sign - n.grahas.moon.sign, 12) + 1} tính từ Mặt Trăng`}. Truyền thống xem thực là lúc nên bớt khởi sự việc lớn và quan sát nhiều hơn; ảnh hưởng rõ hơn khi nó chạm cung của Mặt Trăng hay cung mọc.` });
+            text: `${h ? `Rơi vào chuyện ${area(h)}. ` : ""}Truyền thống xem đây là lúc nên quan sát nhiều hơn và tránh khởi sự việc lớn.` });
         }
       }
     }
@@ -171,10 +171,10 @@ function monthAreas(ctx: Ctx, looks: Look[], chain: DNode[]): { scores: number[]
       if (!N.who.includes(id)) N.who.push(id);
       const good = GOCHAR_GOOD[id].includes(g.fromMoon), v = good ? vedhaBy(mid, id) : null;
       if (houseFrom(ctx, mid, id) !== h) continue;
-      if (good && !v) N.plus.push(`${nameOf(id)} ${MEANING[id]}${g.bindus !== null && g.bindus >= 5 ? ", và vị trí này được nhiều điểm hỗ trợ trong lá số của bạn" : ""}`);
-      else if (good && v) N.minus.push(`${nameOf(id)} lẽ ra thuận nhưng bị ${nameOf(v)} chắn (Vedha), nên kết quả không trọn`);
-      else if (["jupiter", "venus", "mercury"].includes(id)) N.plus.push(`${nameOf(id)} ${MEANING[id]}, dù tính từ Mặt Trăng đây không phải vị trí mạnh nhất của nó`);
-      else N.minus.push(`${nameOf(id)} ${MEANING[id]}${g.bindus !== null && g.bindus <= 3 ? ", và vị trí này ít điểm hỗ trợ trong lá số của bạn" : ""}`);
+      if (good && !v) N.plus.push(MEANING[id]);
+      else if (good && v) N.minus.push("một thuận lợi bị chặn bớt nên kết quả không trọn");
+      else if (["jupiter", "venus", "mercury"].includes(id)) N.plus.push(MEANING[id]);
+      else N.minus.push(MEANING[id]);
     }
   }
   // the full aspects of the slow planets also put weight on a house
@@ -212,8 +212,8 @@ export function readForecast(ctx: Ctx): Forecast {
       const N = notes.get(h)!;
       const tone: Tone = N.plus.length > N.minus.length ? "good" : N.minus.length > N.plus.length ? "hard" : "mixed";
       const title = noTime ? `Cung thứ ${h} tính từ Mặt Trăng` : cap(area(h));
-      const bits = [...N.plus.slice(0, 2), ...N.minus.slice(0, 2)];
-      const text = `${cap(bits[0])}${bits[1] ? `; ${bits.slice(1).join("; ")}` : ""}. ${({ good: ["Đây là mảng dễ tiến triển trong tháng.", "Việc ở mảng này dễ trôi hơn thường lệ.", "Tháng này hợp để đẩy mảng này đi tiếp."], hard: ["Mảng này nên đi chậm và chuẩn bị kỹ.", "Ở mảng này, giữ nhịp quan trọng hơn mở rộng.", "Mảng này cần thêm thời gian và sự kiên nhẫn trong tháng."], mixed: ["Mảng này có cả lực đẩy lẫn lực cản, nên làm từng phần một.", "Ở mảng này, thuận và khó đan xen; chọn việc chính trước.", "Mảng này tiến được nếu bạn không ôm quá nhiều cùng lúc."] } as Record<Tone, string[]>)[tone][(h + m) % 3]}`;
+      const pl = [...new Set(N.plus)].slice(0, 2), mi = [...new Set(N.minus)].slice(0, 2);
+      const text = `${pl.length ? `Tháng này ${pl.join(", và ")}` : ""}${pl.length && mi.length ? "; có điều " : mi.length ? "Tháng này " : ""}${mi.join(", và ")}. ${({ good: ["Đây là mảng dễ tiến triển trong tháng.", "Việc ở mảng này dễ trôi hơn thường lệ.", "Tháng này hợp để đẩy mảng này đi tiếp."], hard: ["Mảng này nên đi chậm và chuẩn bị kỹ.", "Ở mảng này, giữ nhịp quan trọng hơn mở rộng.", "Mảng này cần thêm thời gian và sự kiên nhẫn trong tháng."], mixed: ["Mảng này có cả lực đẩy lẫn lực cản, nên làm từng phần một.", "Ở mảng này, thuận và khó đan xen; chọn việc chính trước.", "Mảng này tiến được nếu bạn không ôm quá nhiều cùng lúc."] } as Record<Tone, string[]>)[tone][(h + m) % 3]}`;
       return { house: h, title, tone, text };
     });
     // the central statement: the strongest new thing of the month
@@ -223,20 +223,20 @@ export function readForecast(ctx: Ctx): Forecast {
     const hit = evs.find((e) => e.kind === "hit");
     const lead = areas[0];
     let central: string;
-    if (dashaEv) central = `${dashaEv.title} ngày ${dashaEv.date.slice(0, 5)} là thay đổi lớn nhất của tháng: nhịp bên trong của giai đoạn đổi theo ${nameOf(dashaEv.planet!)}, nên những gì nổi lên trong tháng nên được đọc như phần mở đầu của chặng mới.`;
-    else if (slowIn) central = `${slowIn.title} (${slowIn.date.slice(0, 5)}) đổi nền của nhiều tháng tới${noTime ? "" : `: trọng tâm dịch về chuyện ${area(houseFrom(ctx, looks[2].t, slowIn.planet!))}`}.`;
-    else if (hit) central = `Điểm nhấn của tháng là lúc ${hit.title.toLowerCase()} (quanh ${hit.date.slice(0, 5)}); ${hit.text.split("; nó ")[1] ?? ""}`.replace(/; $/, ".");
-    else if (ecl) central = `${ecl.title} (${ecl.date.slice(0, 5)}) là mốc cần để ý; phần còn lại của tháng ${lead ? `xoay quanh chuyện ${noTime ? lead.title.toLowerCase() : area(lead.house)}` : "khá yên"}.`;
+    if (dashaEv) central = `Từ ${dashaEv.date.slice(0, 5)}, bạn bước sang một ${dashaEv.title.includes("đại vận") ? "giai đoạn lớn" : "giai đoạn nhỏ"} mới, nên những gì nổi lên trong tháng nên được xem như phần mở đầu của chặng mới.`;
+    else if (slowIn) central = noTime ? `Từ ${slowIn.date.slice(0, 5)}, nền của nhiều tháng tới thay đổi: ${MEANING[slowIn.planet!]}.` : `Từ ${slowIn.date.slice(0, 5)}, chuyện ${area(houseFrom(ctx, looks[2].t, slowIn.planet!))} trở thành trọng tâm của nhiều tháng tới: ${MEANING[slowIn.planet!]}.`;
+    else if (hit) central = `Điểm nhấn của tháng rơi vào khoảng ${hit.date.slice(0, 5)}: ${MEANING[hit.planet!]}.`;
+    else if (ecl) central = `Quanh ngày ${ecl.date.slice(0, 5)} có ${ecl.title.toLowerCase().split(" ở ")[0]}, một lúc nên chậm lại và quan sát; phần còn lại của tháng ${lead ? `xoay quanh chuyện ${noTime ? lead.title.toLowerCase() : area(lead.house)}` : "khá yên"}.`;
     else if (lead) central = `Tháng này sức nặng dồn về chuyện ${noTime ? lead.title.toLowerCase() : area(lead.house)}, ${lead.tone === "good" ? "với nhiều điều kiện thuận" : lead.tone === "hard" ? "với nhiều đòi hỏi hơn là thuận lợi" : "vừa có lực đẩy vừa có lực cản"}.`;
     else central = "Tháng này bầu trời không có thay đổi lớn nào chạm vào lá số của bạn; một tháng hợp để giữ nhịp.";
     // what changed since last month
     const signs: Record<string, number> = {}; for (const id of MOVERS) signs[id] = mid.grahas[id].sign;
     const change: string[] = [];
     if (prevSigns) {
-      for (const id of ["jupiter", "saturn", "rahu", "mars", "venus", "mercury"] as GrahaId[]) if (signs[id] !== prevSigns[id]) change.push(`${nameOf(id)} đã sang ${SIGNS[signs[id]]}${noTime ? "" : ` (vùng ${area(mid.grahas[id].fromLagna)})`}.`);
-      if (prevAntar && antar.lord !== prevAntar) change.push(`Tiểu vận đã đổi sang ${nameOf(antar.lord)}.`);
+      for (const id of ["jupiter", "saturn", "rahu", "mars", "venus", "mercury"] as GrahaId[]) if (signs[id] !== prevSigns[id]) change.push(noTime ? `${cap(MEANING[id])}.` : `Chuyện ${area(mid.grahas[id].fromLagna)}: ${MEANING[id]}.`);
+      if (prevAntar && antar.lord !== prevAntar) change.push(`Bạn đã sang một giai đoạn nhỏ mới (tiểu vận ${nameOf(antar.lord)}).`);
       const newTop = areas.map((a) => a.house).filter((h) => !prevTop.includes(h));
-      if (newTop.length && !noTime) change.push(`Mảng mới được chú ý: ${joinVi(newTop.map(area))}.`);
+      if (newTop.length && !noTime) change.push(`Mảng mới được chú ý: chuyện ${joinVi(newTop.map(area))}.`);
       if (!change.length) change.push("Không có thay đổi lớn so với tháng trước; các xu hướng của tháng trước vẫn tiếp tục.");
     }
     prevSigns = signs; prevAntar = antar.lord; prevTop = areas.map((a) => a.house);
@@ -267,8 +267,7 @@ export function readForecast(ctx: Ctx): Forecast {
   return {
     year: YEAR,
     intro: [
-      "Mỗi tháng được tính từ lịch bầu trời thật của năm 2027 đặt lên lá số của bạn và đại vận, tiểu vận đang chạy. Mình chỉ nói về những mảng thật sự được nhấn mạnh trong tháng ấy, nên có tháng chỉ có một hai mảng.",
-      "Không có ngày nào được gọi là may hay rủi. Các mốc là những thay đổi thiên văn có thật; con số nằm trong mục “Vì sao mình nói điều này?”.",
+      "Mỗi tháng nói về những mảng đời được nhấn mạnh nhất trong tháng ấy, dựa trên chuyển động thật của bầu trời năm 2027 và giai đoạn đời bạn đang đi qua.",
     ],
     key, months,
     method: [

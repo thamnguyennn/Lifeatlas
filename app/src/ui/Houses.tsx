@@ -39,7 +39,7 @@ export function HouseTiles({ houses, onPick }: { houses: HouseReading[]; onPick:
             <small>{h.ask}</small>
             <span className="ht-meta">
               <span className={`chip tone-${h.tone}`}>{h.supportLevel}</span>
-              <span className="chip exp-chip">Biểu hiện: {h.expressiveLevel}</span>
+              
             </span>
           </span>
         </button>
@@ -81,8 +81,7 @@ export function HousePage({ h, onYoga, printing = false }: { h: HouseReading; on
           <p className="hp-ask">{h.ask}</p>
         </div>
         <ul className="hp-chips">
-          <li><span className={`chip tone-${h.tone}`}>Độ hỗ trợ: {h.supportLevel}</span></li>
-          <li><span className="chip exp-chip">Mức biểu hiện: {h.expressiveLevel}</span></li>
+          <li><span className={`chip tone-${h.tone}`}>{h.supportLevel === "thuận lợi" ? "Nhiều thuận lợi" : h.supportLevel === "cần rèn giũa" ? "Cần xây dựng từng bước" : "Có thuận, có khó"}</span></li>
         </ul>
       </header>
       <div className="hp-body card prose">
@@ -94,18 +93,6 @@ export function HousePage({ h, onYoga, printing = false }: { h: HouseReading; on
           <ul className="why">{h.why.length ? h.why.map((w, i) => <li key={i}>{w}</li>) : <li>Không có yếu tố nào cộng hoặc trừ điểm.</li>}</ul>
           {layers.map((s) => <SectionView key={s.id} s={s} onYoga={onYoga} />)}
         </div>
-      </details>
-      <details className="params">
-        <summary>Xem số liệu của nhà này</summary>
-        <dl className="factlist">
-          <div><dt>Cung</dt><dd>{h.signName}</dd></div>
-          <div><dt>Hành tinh cai quản</dt><dd>{h.lordName}, đang ở nhà {h.lordHouse}</dd></div>
-          <div><dt>Độ hỗ trợ</dt><dd>{h.supportLevel} ({toneLabel(h.n, h.tone)})</dd></div>
-          <div><dt>Mức biểu hiện</dt><dd>{h.expressiveLevel}</dd></div>
-          <div><dt>Điểm hỗ trợ (SAV)</dt><dd>{h.sav}</dd></div>
-          {h.rank !== null && <div><dt>Độ vững (Bhava Bala)</dt><dd>thứ {h.rank} trong 12 nhà</dd></div>}
-        </dl>
-        <dl className="factlist">{h.facts.map((f) => <div key={f.label}><dt>{f.label}</dt><dd>{f.value}</dd></div>)}</dl>
       </details>
     </article>
   );

@@ -83,7 +83,6 @@ export function HouseMapPage({ prepared, selected, onPick }: { prepared: Prepare
     <>
       <p className="eyebrow reveal">Mười hai lĩnh vực đời sống</p>
       <h2 className="reveal">12 nhà – 12 khía cạnh cuộc sống</h2>
-      <div className="map-intro reveal"><p className="lead"><Gloss text={r.houseMap.intro[0]} /></p></div>
       <div className="map-grid one">
         <div className="card ov-chart reveal">
           <div className="chart-head"><h3>Lá số của bạn</h3></div>
@@ -96,10 +95,6 @@ export function HouseMapPage({ prepared, selected, onPick }: { prepared: Prepare
         </div>
       </div>
       <HouseTiles houses={r.houses} onPick={onPick} />
-      <details className="params reveal">
-        <summary>Xem điểm SAV của 12 nhà</summary>
-        <SavBars houses={r.houses} onPick={onPick} />
-      </details>
     </>
   );
 }
@@ -145,7 +140,7 @@ export function AxisPage({ prepared }: { prepared: Prepared }) {
   return (
     <>
       <p className="eyebrow reveal">Bài học kiếp này</p>
-      <h2 className="reveal">Rahu và Ketu: điều bạn đã thạo và điều bạn đến để học</h2>
+      <h2 className="reveal">Rahu và Ketu: điều bạn đã quen và điều bạn đang hướng tới</h2>
       <p className="faint reveal"><Gloss text={a.intro} /></p>
       <div className="axis-head card reveal">
         <p className="eyebrow">{a.headline}</p>
@@ -164,7 +159,7 @@ export function AxisPage({ prepared }: { prepared: Prepared }) {
       {a.bridge.length > 0 && <div className="summary reveal"><strong>Cách nối hai đầu lại</strong>{a.bridge.map((p, i) => <p key={i}>{p}</p>)}</div>}
       {a.ask && <p className="p-ask reveal"><span>Một câu hỏi để mang theo</span>{a.ask}</p>}
       <details className="params reveal">
-        <summary>Vì sao mình nói điều này? Mười hai câu hỏi về Rahu và Ketu</summary>
+        <summary>Vì sao mình nói điều này?</summary>
         <div className="factor-table" role="table" aria-label="Mười hai câu hỏi về Rahu và Ketu">
           <div className="ft-row ft-head" role="row"><span>Yếu tố</span><span>Rahu</span><span>Ketu</span></div>
           {a.factors.map((f) => (
@@ -210,12 +205,10 @@ export function VargaPage({ prepared, n }: { prepared: Prepared; n: VargaReading
       <p className="eyebrow reveal">Biểu đồ chuyên sâu</p>
       <h2 className={`reveal varga-title vt-${v.n}`}><Glyph name={VARGA_KEY[v.n]} size={34} className={`pg c-${VARGA_KEY[v.n]}`} /> {v.code} · {v.name}</h2>
       <p className="lead reveal">{v.question}</p>
-      <p className="faint reveal">{v.about}</p>
       <div className="varga">
         <div className="varga-side card reveal">
           <DiamondChart data={{ lagnaSign: v.chart.lagnaSign, planets: v.chart.planets, label: `Lá số ${v.code} (${v.name})` }} />
           <ChartLegend />
-          {v.hora && <HoraBoxes hora={v.hora} />}
         </div>
         <div className="varga-text card prose reveal">
           <h3 className="central-h">Nhận định chung</h3>
@@ -236,7 +229,6 @@ export function VargaPage({ prepared, n }: { prepared: Prepared; n: VargaReading
               <ul className="why">{v.why.map((w, i) => <li key={i}>{w}</li>)}</ul>
             </details>
           )}
-          <details className="params"><summary>Xem cách chia lá số này</summary><p className="faint small">{v.how}</p></details>
         </div>
       </div>
     </>

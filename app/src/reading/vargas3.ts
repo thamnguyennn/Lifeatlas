@@ -247,18 +247,84 @@ const TOPIC_OF: Record<VargaN, { house: number; word: string }> = {
 };
 
 function judge(x: Ctx3): string {
-  const T = TOPIC_OF[x.n], hf = x.F.houses[T.house - 1], L = hf.lord, d = shift(x, L), code = `D${x.n}`;
+  const T = TOPIC_OF[x.n], hf = x.F.houses[T.house - 1], L = hf.lord, d = shift(x, L);
   const d1 = hf.tier === "top" ? "good" : hf.tier === "low" ? "low" : x.c.tones[T.house - 1] === "good" ? "good" : x.c.tones[T.house - 1] === "hard" ? "low" : "mid";
-  const nm = nameOf(L);
-  if (d1 === "good" && d >= 1) return `Ở lá số chính, chuyện ${T.word} đã có điều kiện tốt, và ${code} xác nhận điều đó: ${nm}, hành tinh giữ chìa khóa của mảng này, còn mạnh hơn ở tầng sâu, nên đây là mảng bạn có thể tin cậy theo thời gian.`;
-  if (d1 === "good" && d <= -1) return `Ở lá số chính, chuyện ${T.word} có điều kiện tốt, nhưng ${code} cho thấy ${nm} yếu đi ở tầng sâu hơn: điều kiện bên ngoài thuận, còn khả năng giữ nó bền lâu cần được rèn.`;
-  if (d1 === "low" && d >= 1) return `Ở lá số chính, chuyện ${T.word} không thật thuận, nhưng ${code} cho thấy ${nm} vững hơn ở tầng sâu: mảng này thường cải thiện rõ theo thời gian và công sức.`;
-  if (d1 === "low" && d <= -1) return `Cả lá số chính lẫn ${code} đều cho thấy chuyện ${T.word} cần được xây từng bước; điểm tựa có sẵn không nhiều, nên kế hoạch và sự kiên nhẫn quan trọng hơn may mắn.`;
-  const base = d1 === "good" ? "điều kiện khá thuận" : d1 === "low" ? "điều kiện cần nhiều công sức" : "có thuận có khó";
-  if (d >= 1) return `Ở lá số chính, chuyện ${T.word} ${base === "có thuận có khó" ? "có thuận có khó" : `có ${base}`}; ${code} cho thấy ${nm}, hành tinh giữ chìa khóa của mảng này, khỏe hơn ở tầng sâu, nên phần này có xu hướng vững lên theo năm tháng.`;
-  if (d <= -1) return `Ở lá số chính, chuyện ${T.word} ${base === "có thuận có khó" ? "có thuận có khó" : `có ${base}`}; ${code} cho thấy ${nm}, hành tinh giữ chìa khóa của mảng này, yếu đi ở tầng sâu, nên điều có được cần được giữ bằng công sức đều đặn.`;
-  return `${code} giữ gần nguyên bức tranh của lá số chính về chuyện ${T.word}: ${base}, và ${nm}, hành tinh giữ chìa khóa của mảng này, không đổi sức giữa hai tầng.`;
+  if (d1 === "good" && d >= 1) return `Chuyện ${T.word} của bạn đã có nền tốt, và ở tầng sâu nó còn vững hơn, nên đây là mảng bạn có thể tin cậy theo thời gian.`;
+  if (d1 === "good" && d <= -1) return `Bề ngoài, chuyện ${T.word} của bạn khá thuận, nhưng ở tầng sâu nó mỏng hơn: những gì có được cần được giữ bằng sự đều đặn thì mới bền.`;
+  if (d1 === "low" && d >= 1) return `Lúc đầu, chuyện ${T.word} có thể không suôn sẻ, nhưng ở tầng sâu nó vững hơn vẻ ngoài, nên mảng này thường tốt dần theo thời gian và công sức.`;
+  if (d1 === "low" && d <= -1) return `Chuyện ${T.word} là mảng bạn cần xây từng bước; điểm tựa có sẵn không nhiều, nên kế hoạch và sự kiên nhẫn quan trọng hơn may mắn.`;
+  if (d >= 1) return `Chuyện ${T.word} của bạn có thuận có khó, nhưng ở tầng sâu nó vững hơn, nên có xu hướng tốt lên theo năm tháng.`;
+  if (d <= -1) return `Chuyện ${T.word} của bạn có thuận có khó, và ở tầng sâu nó cần được chăm thêm, nên điều có được nên được giữ bằng công sức đều đặn.`;
+  return `Chuyện ${T.word} của bạn ${d1 === "good" ? "khá thuận" : d1 === "low" ? "cần nhiều công sức" : "có thuận có khó"}, và tầng sâu cũng cho thấy đúng như vậy: điều bạn thấy bây giờ là điều sẽ kéo dài.`;
 }
+
+// ------------------------------------------------------------------ the points, said plainly (the planets and signs stay in `why`)
+
+const PW: Record<string, string> = { sun: "ý chí", moon: "đời sống cảm xúc", mars: "sức bật", mercury: "trí óc", jupiter: "niềm tin và sự hiểu biết", venus: "đời sống tình cảm", saturn: "sự kỷ luật", rahu: "khát vọng", ketu: "trực giác" };
+const ELP: Record<string, Record<number, string>> = {};
+const elOf = (sign: number) => ["fire", "earth", "air", "water"][sign % 4];
+
+function moveLine(x: Ctx3, id: GrahaId, topic: string): string | null {
+  const d = shift(x, id);
+  if (d >= 1) return `${cap(PW[id])} của bạn mạnh lên ở tầng sâu này, nên với ${topic} nó thường lộ rõ dần theo năm tháng.`;
+  if (d <= -1) return `${cap(PW[id])} của bạn ở tầng sâu này yếu hơn vẻ ngoài, nên với ${topic} cần được giữ bằng sự đều đặn.`;
+  return null;
+}
+const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+const first = (s: string) => s.split(/(?<=\.)\s/)[0];
+
+function lordLine(x: Ctx3, id: GrahaId, up: string, down: string): string | null {
+  const d = shift(x, id);
+  return d >= 1 ? up : d <= -1 ? down : null;
+}
+
+function plainPoints(x: Ctx3): VargaPoint[] {
+  const v = x.n, vc = x.vc, F = x.F, P: VargaPoint[] = [];
+  const add = (title: string, text: string | null) => { if (text) P.push({ title, paragraphs: [text] }); };
+  const seven: GrahaId[] = ["sun", "moon", "mars", "mercury", "jupiter", "venus", "saturn"];
+  const best = seven.filter((id) => shift(x, id) >= 2).sort((a, b) => shift(x, b) - shift(x, a))[0];
+  const lagEl = elOf(vc.lagnaSign);
+  if (v === 2) {
+    const sun = seven.filter((id) => vSign(x, id) === 4).length, moon = 7 - sun;
+    add("Cách bạn tạo nguồn lực", sun >= 5 ? "Bạn có xu hướng tạo ra tiền bằng sự chủ động của chính mình: tự làm, tự quyết và tự chịu trách nhiệm." : moon >= 5 ? "Bạn có xu hướng tạo ra tiền qua các mối quan hệ: trao đổi, hợp tác và sự tin cậy của người khác." : "Bạn tạo ra tiền theo cả hai cách, vừa tự làm vừa nhờ các mối quan hệ, nên hợp với việc có nhiều nguồn thu song song.");
+    const w = [F.houses[1].lord, F.houses[10].lord];
+    add("Kiếm và giữ", vSign(x, w[0]) === vSign(x, w[1]) ? "Cách bạn kiếm tiền và cách bạn giữ tiền khá nhất quán, nên khi đã có nguồn thu ổn định, việc tích lũy thường không quá khó." : "Cách bạn kiếm tiền và cách bạn giữ tiền khác nhau khá rõ, nên việc tích lũy cần một kế hoạch riêng, không thể chỉ trông vào thu nhập.");
+    const fit = seven.filter((id) => (vSign(x, id) === 4 && ["sun", "mars", "jupiter"].includes(id)) || (vSign(x, id) === 3 && ["moon", "venus", "saturn"].includes(id))).length;
+    add("Mức thuận tay", fit >= 3 ? "Nhiều phẩm chất của bạn đặt đúng chỗ trong chuyện tiền bạc, nên việc làm ra tiền khá thuận tay." : fit === 0 ? "Bạn khó kiếm tiền theo một công thức có sẵn và thường phải tự tìm lối riêng; điều đó tốn thời gian hơn nhưng lại hợp với bạn hơn." : "Chuyện tiền bạc của bạn có phần thuận tay, có phần phải tự mày mò.");
+  }
+  if (v === 3) {
+    add("Sức bật và lòng can đảm", moveLine(x, "mars", "những việc cần tự đứng ra làm") ?? "Sức bật của bạn khá ổn định: không bùng lên đột ngột, nhưng cũng ít khi bỏ cuộc giữa chừng.");
+    if (x.read) add("Cách bạn đối diện khó khăn", ({ fire: "Bạn vượt qua nỗi sợ bằng cách bắt tay vào làm; thường hết sợ ngay sau khi đã bắt đầu.", earth: "Dũng khí của bạn bền: không phô ra, nhưng đã quyết là đi đến cùng.", air: "Dũng khí của bạn nằm ở lời nói và cách nghĩ: bạn dám hỏi, dám nghĩ khác.", water: "Bạn có thể dè dặt khi chỉ vì mình, nhưng sẵn sàng đứng ra vì người mình thương." } as Record<string, string>)[lagEl]);
+    add("Anh chị em và người cùng trang lứa", lordLine(x, F.houses[2].lord, "Quan hệ với anh chị em và người cùng trang lứa có xu hướng gắn bó hơn theo thời gian.", "Quan hệ với anh chị em có thể có khoảng cách; sự gắn bó cần được bạn chủ động vun đắp.") ?? "Quan hệ với anh chị em và người cùng trang lứa khá đúng như bạn vẫn thấy: không nhiều bất ngờ.");
+  }
+  if (v === 4) {
+    add("Cảm giác có chỗ để về", lordLine(x, F.houses[3].lord, "Cảm giác có chỗ để về của bạn vững dần theo tuổi.", "Cảm giác yên ổn về nơi ở là thứ bạn phải tự tay dựng, không đến sẵn từ hoàn cảnh.") ?? "Cảm giác có chỗ để về của bạn khá ổn định, ít thay đổi theo hoàn cảnh.");
+    add("Tài sản và sự ổn định", lordLine(x, "venus", "Tài sản và tiện nghi của bạn có xu hướng tích dần qua thời gian.", "Tài sản và tiện nghi cần được giữ cẩn thận; mua bán vội dễ thiệt.") ?? lordLine(x, "mars", "Chuyện đất đai, nhà cửa của bạn có xu hướng vững dần.", "Chuyện đất đai, nhà cửa nên được cân nhắc kỹ trước khi quyết.") ?? "Tài sản và tiện nghi của bạn đi theo nhịp đều: không có bước nhảy lớn, cũng ít khi hao hụt đột ngột.");
+    if (x.read) add("Kiểu ổn định hợp với bạn", ({ fire: "Bạn thấy yên khi được tự quyết chuyện chỗ ở và có thể thay đổi khi cần.", earth: "Bạn thấy yên khi có tài sản thật, chạm được và giữ được lâu.", air: "Bạn thấy yên khi nơi ở gần người, gần thông tin và các mối quan hệ.", water: "Bạn thấy yên khi nơi ở là chỗ gắn bó về tình cảm, có người thân ở gần." } as Record<string, string>)[lagEl]);
+  }
+  if (v === 7) {
+    if (x.read) add("Cách bạn nuôi dưỡng", ({ fire: "Bạn nuôi dạy bằng cách làm gương và khuyến khích người nhỏ hơn dám thử.", earth: "Bạn nuôi dạy bằng nề nếp và sự lo trước cho một tương lai vững vàng.", air: "Bạn nuôi dạy bằng trò chuyện, giảng giải và để người nhỏ hơn hiểu vì sao.", water: "Bạn nuôi dạy bằng sự gần gũi và nhạy với tâm trạng của người nhỏ hơn." } as Record<string, string>)[lagEl]);
+    add("Sự che chở cho thế hệ sau", moveLine(x, "jupiter", "việc chăm sóc và dạy dỗ thế hệ sau") ?? "Khả năng che chở và dạy dỗ của bạn khá đều: không nổi bật hẳn, nhưng đáng tin.");
+    add("Trách nhiệm với con cái", lordLine(x, F.houses[4].lord, "Sự gắn bó và trách nhiệm của bạn với con cái hoặc người mình dìu dắt lớn dần theo tuổi.", "Chuyện con cái hoặc thế hệ sau có thể là nơi bạn lo nghĩ nhiều; sự kiên nhẫn giúp bạn nhiều hơn là kiểm soát.") ?? "Trách nhiệm của bạn với con cái hoặc người mình dìu dắt khá ổn định, ít thay đổi theo thời gian.");
+  }
+  if (v === 9) {
+    if (x.read) add("Điều bạn cần trong hôn nhân", D9_SEVENTH[vHouseSign(x, 7)]);
+    else add("Đời sống tình cảm", moveLine(x, "venus", "chuyện cam kết lâu dài"));
+    if (x.read) add("Bạn khi trưởng thành", D9_LAGNA[vc.lagnaSign]);
+    const vg = seven.filter((id) => x.c.n.grahas[id].vargottama);
+    add("Những phẩm chất bền theo thời gian", vg.length ? `${cap(joinVi(vg.map((id) => PW[id])))} của bạn giữ nguyên từ lớp ngoài vào tới tầng sâu, nên ${vg.length > 1 ? "đó là những phẩm chất" : "đó là phẩm chất"} rất bền, ít đổi theo tuổi tác.` : best ? moveLine(x, best, "chặng trưởng thành") : null);
+  }
+  if (v === 10) {
+    if (x.read) add("Cách bạn làm việc", D10_LAGNA[vc.lagnaSign]);
+    const L10 = F.houses[9].lord;
+    add("Hướng phát triển của nghề", `${x.read ? first(D10_LORD_IN[vHouse(x, L10)! - 1]) + " " : ""}${lordLine(x, L10, "Vị trí nghề nghiệp của bạn có xu hướng vững dần và được ghi nhận rõ hơn theo năm tháng.", "Vị trí nghề nghiệp cần được giữ bằng kỹ năng thật và sự bền bỉ.") ?? "Hướng nghề của bạn khá nhất quán: điều bạn thấy mình hợp bây giờ thường cũng là điều hợp về lâu dài."}`);
+    if (best && best !== L10) add("Điểm mạnh chín dần", moveLine(x, best, "nghề nghiệp"));
+    if (P.length < 2) add("Nhịp phát triển", "Con đường nghề của bạn đi theo nhịp đều: tiến bộ đến từ việc tích lũy kỹ năng hơn là những bước nhảy bất ngờ.");
+  }
+  if (P.length < 2) P.push({ title: "Nhịp theo thời gian", paragraphs: ["Ở tầng sâu, mảng này giữ gần nguyên như bạn vẫn thấy: không có thay đổi lớn theo tuổi tác."] });
+  return P.slice(0, 3);
+}
+void ELP;
 
 // ------------------------------------------------------------------ assembling
 
@@ -277,8 +343,8 @@ export function readVargas(ctx: Ctx): VargaReading[] {
     out.push({
       n: v, ...meta, trust,
       about: [2, 3, 4, 7].includes(v) ? body.summary[0] : meta.how.split(". ")[0] + ".",
-      summary: [judge(x), ...(v === 9 ? body.summary : []), ...(x.read || v === 2 ? [] : [`Vì cung mọc của ${meta.code} có thể đổi trong sai số giờ sinh, mình chỉ đối chiếu sức của các hành tinh giữa hai tầng, không đọc theo nhà.`])],
-      points: body.points, why: [...body.why, `Chủ nhà ${TOPIC_OF[v].house} (D1): ${nameOf(F.houses[TOPIC_OF[v].house - 1].lord)}, D1 ${vc.planets[F.houses[TOPIC_OF[v].house - 1].lord].d1Dignity} → ${meta.code} ${vc.planets[F.houses[TOPIC_OF[v].house - 1].lord].dignity}.`],
+      summary: [judge(x)],
+      points: plainPoints(x), why: [...body.why, `Chủ nhà ${TOPIC_OF[v].house} (D1): ${nameOf(F.houses[TOPIC_OF[v].house - 1].lord)}, D1 ${vc.planets[F.houses[TOPIC_OF[v].house - 1].lord].d1Dignity} → ${meta.code} ${vc.planets[F.houses[TOPIC_OF[v].house - 1].lord].dignity}.`],
       chart: { lagnaSign: vc.lagnaSign, planets },
       ...(v === 2 ? { hora: (body as ReturnType<typeof d2>).hora } : {}),
     });

@@ -148,9 +148,9 @@ export const DASHA_WATCH = "Điều dễ vấp: {watch}. Việc nên làm: {doin
 
 /** The overall colour of the period and which way it goes, as one line each. Trend is worked out when the reader opens the period. */
 export const DASHA_TONE_LINE: Record<"good" | "mixed" | "hard", string> = {
-  good: "Nhìn từ vị trí các sao trong lá số của bạn, giai đoạn này nhiều thuận lợi.",
-  mixed: "Nhìn từ vị trí các sao trong lá số của bạn, giai đoạn này có thuận có khó.",
-  hard: "Nhìn từ vị trí các sao trong lá số của bạn, giai đoạn này nhiều khó khăn hơn, nên cần kiên nhẫn.",
+  good: "Nhìn chung, đây là khoảng thời gian nhiều thuận lợi.",
+  mixed: "Nhìn chung, khoảng thời gian này có thuận có khó.",
+  hard: "Nhìn chung, khoảng thời gian này đòi nhiều kiên nhẫn hơn.",
 };
 
 export const DASHA_TREND: Record<"up" | "flat" | "down", string> = {

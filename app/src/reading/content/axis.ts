@@ -11,7 +11,7 @@
 export interface AxisText { lesson: string; pull: string; ketu: string; rahu: string; bridge: string; ask: string }
 
 export const AXIS_INTRO =
-  "Rahu và Ketu không phải hành tinh có thân hình mà là hai điểm giao của quỹ đạo Mặt Trăng với đường đi của Mặt Trời, luôn đứng đối diện nhau. Jyotish đọc chúng như một cái trục: Rahu chỉ về phía bạn bị cuốn hút, muốn với tới và thường chưa thạo; Ketu chỉ về phía bạn dễ dàng, quen thuộc, và cũng dễ thấy nhàm hoặc muốn rời đi. Truyền thống có nói đến nghiệp và kiếp trước; ở đây mình dùng hình ảnh ấy như một cách gọi tên khuynh hướng, không như một sự thật đã định.";
+  "Rahu chỉ về phía bạn bị cuốn hút và muốn với tới, dù chưa thạo. Ketu chỉ về phía bạn đã quen tay, dễ dàng, nhưng cũng dễ thấy nhàm. Hai phía ấy luôn đối nhau, và đời bạn thường đi qua lại giữa chúng.";
 
 export const AXIS: AxisText[] = [
   { // Rahu 1, Ketu 7

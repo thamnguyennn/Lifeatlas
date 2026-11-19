@@ -233,57 +233,63 @@ function mahaRead(ctx: Ctx, lord: GrahaId): { theme: string; plus: string; minus
   const areas = areasOf(ctx, lord);
   const pos = ctx.noTime ? null : g.house;
   const themeBase = firstSentence(ch.asks);
-  const focus = areas.length ? ` Trong lá số của bạn, giai đoạn này đặt ${areaList(areas.slice(0, 3))} vào trọng tâm${pos ? `, và phần lớn diễn ra qua chuyện ${AREA(pos)}` : ""}.` : ` ${nm} đang ở cung ${SIGNS[g.sign]}, nên màu của cung này dẫn nhịp chính.`;
+  const focus = areas.length ? ` Với bạn, giai đoạn này đặt ${areaList(areas.slice(0, 3))} vào trọng tâm.` : "";
   const plus: string[] = [], minus: string[] = [];
   const dig = g.dignity;
-  if (dig === "exalted" || dig === "own" || dig === "moolatrikona") plus.push(`${nm} đang ở vị trí mạnh trong cung, nên những gì giai đoạn này mở ra có sức để thành`);
-  if (dig === "debilitated") minus.push(`${nm} đang ở cung suy, nên kết quả thường đến chậm và đòi nhiều điều chỉnh`);
-  if (dig === "enemy") minus.push(`${nm} đứng trong cung của một hành tinh không thân, nên nhịp của giai đoạn hay bị cản`);
-  if (g.combust && lord !== "sun") minus.push(`${nm} bị Mặt Trời che khuất, nên những gì nó đại diện dễ bị lấn át bởi áp lực bên ngoài`);
+  if (dig === "exalted" || dig === "own" || dig === "moolatrikona") plus.push("những gì giai đoạn này mở ra có đủ sức để thành hiện thực");
+  if (dig === "debilitated") minus.push("kết quả thường đến chậm và đòi nhiều lần điều chỉnh");
+  if (dig === "enemy") minus.push("nhịp của giai đoạn hay bị cản bởi hoàn cảnh");
+  if (g.combust && lord !== "sun") minus.push("những mong muốn riêng dễ bị lấn át bởi áp lực bên ngoài");
   if (!ctx.noTime) {
     const LL = SIGN_LORD[n.lagna.sign];
-    if (lord === LL) plus.push("đây là giai đoạn của chính hành tinh cai quản cung mọc, nên bạn có nhiều quyền tự quyết hơn thường lệ");
-    else { const fg = friendGrade(ctx, LL, lord); if (fg === "great" || fg === "friend") plus.push(`${nm} hợp với hành tinh cai quản cung mọc, nên hướng đi của giai đoạn khá thuận với con người bạn`); else if (fg === "great_enemy") minus.push(`${nm} không hợp với hành tinh cai quản cung mọc, nên điều giai đoạn đòi hỏi có lúc ngược với mong muốn tự nhiên của bạn`); }
-    if (KENDRA.includes(g.house) || TRIKONA.includes(g.house)) plus.push(`${nm} đứng ở một ${TRIKONA.includes(g.house) ? "vùng phúc phần" : "trụ cột"} của lá số, nên giai đoạn có chỗ đứng vững`);
-    if (DUSTHANA.includes(g.house)) minus.push(`${nm} đứng ở chuyện ${AREA(g.house)}, một vùng nhiều thử thách, nên giai đoạn hay đi qua những việc khó nói hoặc tốn sức`);
+    if (lord === LL) plus.push("đây là giai đoạn bạn có nhiều quyền tự quyết hơn thường lệ");
+    else { const fg = friendGrade(ctx, LL, lord); if (fg === "great" || fg === "friend") plus.push("hướng đi của giai đoạn khá thuận với con người bạn"); else if (fg === "great_enemy") minus.push("điều giai đoạn đòi hỏi có lúc ngược với mong muốn tự nhiên của bạn"); }
+    if (KENDRA.includes(g.house) || TRIKONA.includes(g.house)) plus.push(TRIKONA.includes(g.house) ? "giai đoạn thường có may mắn và người tốt đi kèm" : "giai đoạn có chỗ đứng vững và thường hiện rõ trong đời sống");
+    if (DUSTHANA.includes(g.house)) minus.push(`giai đoạn hay đi qua chuyện ${AREA(g.house)}, nên có những việc khó nói hoặc tốn sức`);
     const owned = ownedHouses(n, lord);
-    if (owned.some((h) => [5, 9].includes(h)) && owned.some((h) => [4, 7, 10].includes(h))) plus.push(`${nm} cai quản cùng lúc một trụ cột và một vùng phúc phần, một vị thế truyền thống coi là rất thuận cho giai đoạn của nó`);
-    if (owned.some((h) => DUSTHANA.includes(h)) && !owned.some((h) => [1, 5, 9].includes(h))) minus.push(`${nm} cũng cai quản ${areaList(owned.filter((h) => DUSTHANA.includes(h)))}, nên những chuyện ấy thường đi kèm trong giai đoạn`);
+    if (owned.some((h) => [5, 9].includes(h)) && owned.some((h) => [4, 7, 10].includes(h))) plus.push("đây là một trong những giai đoạn được truyền thống xem là thuận nhất trong lá số của bạn");
+    if (owned.some((h) => DUSTHANA.includes(h)) && !owned.some((h) => [1, 5, 9].includes(h))) minus.push(`${areaList(owned.filter((h) => DUSTHANA.includes(h)))} cũng thường đi kèm trong giai đoạn`);
   }
   const ids: GrahaId[] = ["sun", "moon", "mars", "mercury", "jupiter", "venus", "saturn"];
   const looks = ids.filter((x) => x !== lord && aspectOffsets(x).includes(mod(g.sign - SIGN_OF(ctx, x), 12) + 1));
-  if (looks.includes("jupiter")) plus.push("Sao Mộc nhìn vào hành tinh chủ vận, thêm sự che chở và người giúp đỡ");
-  if (looks.includes("saturn") && lord !== "saturn") minus.push("Sao Thổ nhìn vào hành tinh chủ vận, nên giai đoạn thêm phần nặng nề và chậm");
+  if (looks.includes("jupiter")) plus.push("bạn có thêm sự che chở và người giúp đỡ");
+  if (looks.includes("saturn") && lord !== "saturn") minus.push("giai đoạn có phần nặng nề và chậm");
   const yg = n.yogas.filter((y) => y.grahas.includes(lord) && y.strength !== "weak");
-  for (const y of yg.slice(0, 2)) (y.tone === "good" ? plus : minus).push(`${nm} tham gia ${y.name}, nên đây là lúc tổ hợp ấy có dịp thể hiện`);
+  for (const y of yg.slice(0, 2)) (y.tone === "good" ? plus : minus).push(y.tone === "good" ? "những điểm mạnh đặc biệt trong lá số có dịp thể hiện" : "một điểm khó trong lá số dễ lộ ra");
   if (!ctx.noTime) {
     const d9 = vargaChart(n, 9).planets[lord];
-    if (d9.dignity === "exalted" || d9.dignity === "own" || g.vargottama) plus.push(`ở D9 ${nm} vẫn vững, nên những gì đạt được trong giai đoạn này có xu hướng bền`);
-    else if (d9.dignity === "debilitated") minus.push(`ở D9 ${nm} yếu đi, nên điều đạt được cần được chăm để giữ lâu`);
+    if (d9.dignity === "exalted" || d9.dignity === "own" || g.vargottama) plus.push("những gì đạt được trong giai đoạn này có xu hướng bền");
+    else if (d9.dignity === "debilitated") minus.push("điều đạt được cần được chăm để giữ lâu");
   }
   const cap = (x: string) => x.charAt(0).toUpperCase() + x.slice(1);
-  const plusT = plus.length ? plus.slice(0, 3).map((x) => `${cap(x)}.`).join(" ") : "Không có điều kiện thuận nào nổi bật hơn mức bình thường; giai đoạn đi theo công sức bạn đặt vào.";
-  const minusT = minus.length ? `${minus.slice(0, 3).map((x) => `${cap(x)}.`).join(" ")} ${ch.trap}` : `Không có yếu tố trái chiều nổi bật. ${ch.trap}`;
+  const plusT = plus.length ? `${cap(plus.slice(0, 3).join("; "))}.` : "Không có thuận lợi nào nổi bật hơn mức bình thường; giai đoạn đi theo công sức bạn đặt vào.";
+  const minusT = minus.length ? `${cap(minus.slice(0, 3).join("; "))}. ${ch.trap}` : ch.trap;
   let links = "";
-  if (areas.length >= 2) links = `Chuyện ${AREA(areas[0])} và chuyện ${AREA(areas[1])} đi cùng nhau trong giai đoạn này: thay đổi ở bên này thường kéo theo việc sắp xếp lại bên kia${areas[2] ? `, và chuyện ${AREA(areas[2])} cũng được kéo vào` : ""}. ${ch.scene}`;
+  if (areas.length >= 2) links = `${ch.scene} Chuyện ${AREA(areas[0])} và chuyện ${AREA(areas[1])} đi cùng nhau trong giai đoạn này: thay đổi ở bên này thường kéo theo việc sắp xếp lại bên kia.`;
   else links = ch.scene;
   return { theme: `${themeBase}${focus}`, plus: plusT, minus: minusT, links };
 }
 
+const PAIR_PLAIN: Record<string, string> = {
+  same: "", best: "Giai đoạn nhỏ này nâng đỡ giai đoạn lớn: công sức bỏ ra thường có kết quả và có thêm thu nhập hoặc tiến bộ.",
+  good: "Giai đoạn nhỏ này khá hợp với giai đoạn lớn, nên mọi việc thường trôi chảy hơn.", dharma: "Giai đoạn nhỏ này mang lại sự hài lòng và thường có người tốt giúp đỡ.",
+  facing: "Giai đoạn nhỏ này đặt bạn trước một người hoặc một lựa chọn quan trọng; nhiều việc cần thương lượng.", limited: "Giai đoạn nhỏ này hạn chế hơn: kết quả có nhưng không nhiều, và hay đi kèm chi tiêu.",
+  limited12: "Giai đoạn nhỏ này hạn chế hơn: kết quả có nhưng không nhiều, và hay đi kèm chi tiêu.", hard: "Giai đoạn nhỏ này dễ có va chạm, áp lực hoặc việc phải giải quyết gấp.",
+  hard8: "Giai đoạn nhỏ này dễ có thay đổi bất ngờ; nên giữ nhịp an toàn hơn là mạo hiểm.",
+};
 function antarRead(ctx: Ctx, maha: GrahaId, lord: GrahaId, tone: Tone): string[] {
   const out: string[] = [];
-  const pair = pairText(ctx, maha, lord);
-  if (maha === lord) out.push(`Đây là tiểu vận đầu tiên, khi chính ${nameOf(lord)} giữ cả hai tầng: chủ đề của đại vận hiện ra rõ nhất và thuần nhất trong khoảng này.`);
-  else if (pair.length) out.push(pair.join(" "));
+  if (maha === lord) out.push("Đây là đoạn mở đầu của giai đoạn lớn, khi chủ đề của nó hiện ra rõ và thuần nhất.");
+  else {
+    const fg = friendGrade(ctx, maha, lord);
+    out.push(`${PAIR_PLAIN[pairClass(ctx, maha, lord)]}${fg === "great" || fg === "friend" ? " Hai giai đoạn hiểu nhau, nên việc của giai đoạn lớn được đẩy đi tiếp." : fg === "enemy" || fg === "great_enemy" ? " Hai giai đoạn không hợp nhau lắm, nên có lúc bạn bị kéo về hai hướng." : ""}`.trim());
+  }
   const A = areasOf(ctx, maha), B = areasOf(ctx, lord);
   if (A.length && B.length && maha !== lord) {
-    const common = B.filter((h) => A.includes(h));
-    const fresh = B.filter((h) => !A.includes(h));
-    const bits: string[] = [];
-    if (common.length) bits.push(`Cả hai hành tinh cùng chạm vào ${areaList(common.slice(0, 2))}, nên đây là mảng nổi bật nhất của khoảng thời gian này`);
-    if (fresh.length) bits.push(`${common.length ? "điều mới" : "Điều mới"} so với bối cảnh đại vận là ${areaList(fresh.slice(0, 2))} được đưa lên`);
-    if (bits.length) out.push(`${bits.join("; ")}.`);
-  } else if (maha !== lord) out.push(`${DASHA_PLANET[lord].about}`);
+    const common = B.filter((h) => A.includes(h)), fresh = B.filter((h) => !A.includes(h));
+    if (common.length) out.push(`Chuyện ${AREA(common[0])} là mảng nổi bật nhất của khoảng thời gian này.`);
+    if (fresh.length) out.push(`Điều mới so với trước là ${areaList(fresh.slice(0, 2))} được đưa lên.`);
+  }
   out.push(`${DASHA_TONE_LINE[tone]} ${fill(DASHA_WATCH, { watch: DASHA_PLANET[lord].watch, doing: DASHA_PLANET[lord].doing })}`);
   return out;
 }

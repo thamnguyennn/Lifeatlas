@@ -28,6 +28,8 @@ export interface NodesReading {
   factors: NodeFactor[];
 }
 
+const plainNak = (t: string) => t.replace(/^(Rahu|Ketu) ở chòm sao [^ ]+( [A-Z][a-z]+)? (cho thấy|mang theo) /, (_m, _a, _b, v) => (v === "cho thấy" ? "" : "Bạn mang theo ")).replace(/^./, (c) => c.toUpperCase());
+const plainWith = (t: string) => t.replace(/^[^:]+ cùng cung với (Rahu|Ketu): /, "").replace(/^./, (c) => c.toUpperCase());
 const nak = (name: string) => NAKSHATRA_VI[name] ?? name;
 const gradeWord = (p: PlanetFact) => (p.grade === "strong" ? "rất vững" : p.grade === "good" ? "khá vững" : p.grade === "weak" ? "còn yếu" : "ở mức vừa");
 
@@ -83,13 +85,18 @@ export function readNodes(ctx: Ctx): NodesReading {
     const a = nameOf(dR.id), b = nameOf(dK.id);
     const sameSign = dR.sign === dK.sign;
     const dist = noTime ? 0 : mod(dK.house! - dR.house!, 12) + 1;
+    const plainRel = sameSign ? "Khát vọng và sở trường của bạn gặp nhau trực tiếp, nên điều bạn muốn với tới và điều bạn vốn giỏi dễ hòa vào một."
+      : [6, 8].includes(dist) ? "Khát vọng và sở trường của bạn hiếm khi trùng đường, nên bạn hay phải cân nhắc giữa điều mới và điều quen."
+      : [1, 5, 9].includes(dist) ? "Khát vọng và sở trường của bạn đi khá cùng hướng, nên điều quen tay có thể trở thành bệ đỡ cho điều mới."
+      : g === "enemy" || g === "great_enemy" ? "Khát vọng và sở trường của bạn hay kéo về hai phía." : "Khát vọng và sở trường của bạn cùng làm việc mà ít cản nhau.";
+    void a; void b;
     const rel = sameSign ? `${a} và ${b} đứng cùng một cung, nên khát vọng và sở trường của bạn gặp nhau trực tiếp`
       : [6, 8].includes(dist) ? `${a} và ${b} đứng ở thế 6/8 so với nhau, nên khát vọng và sở trường của bạn hiếm khi trùng đường và hay phải thương lượng`
       : [1, 5, 9].includes(dist) ? `${a} và ${b} đứng ở thế tam hợp, nên khát vọng và sở trường của bạn đi cùng một hướng khá thuận`
       : g === "friend" ? `${a} và ${b} là hai hành tinh thân nhau, nên khát vọng và sở trường của bạn hiểu nhau`
       : g === "enemy" ? `${a} và ${b} không ưa nhau, nên khát vọng và sở trường của bạn hay kéo bạn về hai phía`
       : `${a} và ${b} ở thế trung lập, nên khát vọng và sở trường của bạn cùng làm việc mà ít cản nhau`;
-    link = `Hai đầu của trục có hai người cầm lái: ${a} dẫn Rahu, ${b} dẫn Ketu. ${rel[0].toUpperCase()}${rel.slice(1)}.`;
+    link = plainRel;
   }
 
   const axis: string[] = [];
@@ -99,17 +106,15 @@ export function readNodes(ctx: Ctx): NodesReading {
 
   const rahuP: string[] = [];
   if (A) rahuP.push(A.rahu);
-  rahuP.push(`Rahu ở cung ${SIGNS[R.sign]}, nên điều bạn khao khát ${RAHU_SIGN[R.sign]}`);
-  rahuP.push(steer(F, "rahu", noTime));
-  rahuP.push(`${NAK[R.g.nak.index].quest} ${lordOfNakshatra(F, "rahu", noTime)}`);
-  rahuP.push(...companions(F, "rahu"), ...received(F, "rahu"));
+  rahuP.push(`Điều bạn khao khát ${RAHU_SIGN[R.sign].replace(/^mang kiểu /, "thường là ")}`);
+  rahuP.push(plainNak(NAK[R.g.nak.index].quest));
+  rahuP.push(...companions(F, "rahu").map(plainWith));
 
   const ketuP: string[] = [];
   if (A) ketuP.push(A.ketu);
-  ketuP.push(`Ketu ở cung ${SIGNS[K.sign]}, nên cái bạn đã thạo ${KETU_SIGN[K.sign]}`);
-  ketuP.push(steer(F, "ketu", noTime));
-  ketuP.push(`${NAK[K.g.nak.index].memory} ${lordOfNakshatra(F, "ketu", noTime)}`);
-  ketuP.push(...companions(F, "ketu"), ...received(F, "ketu"));
+  ketuP.push(`Điều bạn vốn thạo ${KETU_SIGN[K.sign].replace(/^mang kiểu /, "thường là kiểu ")}`);
+  ketuP.push(plainNak(NAK[K.g.nak.index].memory));
+  ketuP.push(...companions(F, "ketu").map(plainWith));
 
   // the twelve factors, kept for the folded table
   const origin = dashaOrigin(n.grahas.moon.lon, n.utcMs);

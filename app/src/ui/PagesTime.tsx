@@ -145,7 +145,6 @@ export function ChaptersPage({ prepared, now }: { prepared: Prepared; now: numbe
     <>
       <p className="eyebrow reveal">Đại vận và tiểu vận</p>
       <h2 className="reveal">Các giai đoạn đời của bạn</h2>
-      <p className="faint reveal"><Gloss text={t.intro} /></p>
       {curM && (
         <div className="now-card card reveal" role="group" aria-label="Giai đoạn hiện tại">
           <div><small>Đại vận hiện tại</small><b>{curM.name}</b><span>{curM.from} – {curM.to}</span></div>
