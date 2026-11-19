@@ -18,20 +18,10 @@ export function readingToText(p: Prepared): string {
 
   out.push(values.name ? `LÁ SỐ JYOTISH CỦA ${values.name.toUpperCase()}` : "LÁ SỐ JYOTISH");
   out.push(birthSubtitle(p));
-  title("Mở lá số");
-  para(r.letter.line);
   title("Tổng quan");
-  paras(r.overview.synthesis.paragraphs);
-  sub("Các cung trong lời đọc này");
-  paras(r.overview.synthesis.anchors);
-  for (const c of r.overview.common) { sub(c.title); paras(c.paragraphs); }
-  if (r.overview.strength) {
-    sub("Sức mạnh của bảy hành tinh");
-    para(r.overview.strength.intro);
-    para(r.overview.strength.rows.map((x) => `${x.name} ${x.pct}% (${x.band})`).join("; "));
-    para(r.overview.strength.best);
-    para(r.overview.strength.worst);
-  }
+  out.push(r.letter.greeting, "");
+  para(r.letter.line);
+  for (const b of r.overview.blocks) { sub(b.title); paras(b.paragraphs); }
 
   if (!noTime && r.houseMap) {
     title("12 khía cạnh của cuộc sống");
@@ -48,45 +38,24 @@ export function readingToText(p: Prepared): string {
     }
   }
 
-  title("Yoga");
-  para(r.yogas.intro);
-  for (const y of r.yogas.list) {
-    out.push(`${y.name} (${TONE_SHORT[y.tone]}${y.strength ? `, ${y.strength}` : ""})`);
-    out.push(y.text);
-    if (y.detail) out.push(y.detail);
-    out.push("");
-  }
-
   title("Bài học kiếp này");
-  const a = r.lessons.axis;
+  const a = r.nodes;
   sub(`Rahu và Ketu · ${a.headline}`);
   para(a.intro);
-  if (a.lesson) para(a.lesson);
-  if (a.pull) para(a.pull);
+  paras(a.axis);
   sub(a.ketu.title); paras(a.ketu.paragraphs);
   sub(a.rahu.title); paras(a.rahu.paragraphs);
-  if (a.bridge) para(a.bridge);
+  paras(a.bridge);
   ask("Một câu hỏi", a.ask);
-  if (r.lessons.soul) {
-    const s = r.lessons.soul;
-    sub("Hành tinh của linh hồn");
-    para(s.intro);
-    sub(s.ak.title); paras(s.ak.paragraphs); ask("Một câu hỏi", s.ak.ask);
-    sub(s.karakamsa.title); paras(s.karakamsa.paragraphs);
-    for (const k of s.karakas) { sub(`${k.sa}: ${k.meaning} · ${k.planet}`); paras(k.paragraphs); }
-  }
 
   if (!noTime && r.vargas) {
     title("Biểu đồ chuyên sâu");
     for (const v of r.vargas) {
       sub(`${v.code} · ${v.name}`);
-      para(v.lead);
-      paras(v.paragraphs);
-      if (v.houses) {
-        sub(v.housesTitle ?? ""); para(v.housesIntro ?? "");
-        for (const h of v.houses) { sub(`Nhà ${h.house} · ${h.sign} · ${h.topic}`); para(h.text); paras(h.notes); }
-      }
-      if (v.note) para(v.note);
+      para(v.question); paras(v.summary);
+      for (const pt of v.points) { sub(pt.title); paras(pt.paragraphs); }
+      para(v.trust.note);
+      if (v.why.length) { sub("Vì sao mình nói điều này?"); paras(v.why); }
     }
   }
 
@@ -122,10 +91,11 @@ export function readingToText(p: Prepared): string {
   out.push(r.sky.day.title, ""); paras(r.sky.day.paragraphs);
   for (const h of r.sky.hits) para(`${h.title}. ${h.text}`);
 
-  title(`Lời nhắn tháng này (${r.today.monthLabel})`);
-  out.push(r.today.title, "");
-  paras(r.today.paragraphs);
-  ask("Một câu hỏi để mang theo", r.today.ask);
+  title(`Dự đoán ${r.forecast.year}`);
+  paras(r.forecast.intro);
+  for (const e of r.forecast.key) para(`${e.date} · ${e.title}. ${e.text}`);
+  for (const mo of r.forecast.months) { sub(`${mo.label} · ${mo.headline}`); paras(mo.paragraphs); }
+  para(r.forecast.trustNote);
 
   title("Tra cứu: các hành tinh");
   for (const g of r.overview.planets) {

@@ -7,7 +7,8 @@ import { isSeven, type PlanetStrength } from "../engine/shadbala.ts";
 import type { HouseInfo, Natal } from "../engine/types.ts";
 import type { Ctx } from "./ctx.ts";
 import { conditionSentences, importance, lordState } from "./shared.ts";
-import { houseStory, PATHWAY_LABELS } from "./story.ts";
+import { narrateHouse, PATH_LABEL } from "./housenarr.ts";
+import { buildFacts } from "./facts.ts";
 import type { HousePathway, HouseReading, Section, SectionBlock } from "./types.ts";
 import { yogaDetail, yogaKey } from "./yogapage.ts";
 import { HOUSES, HOUSE_FACULTIES, HOUSE_TAG, SIGN_FACULTY } from "./content/houses-signs.ts";
@@ -59,7 +60,7 @@ export function strengthLines(ctx: Ctx, id: GrahaId, skipDig = false): string[] 
 export type Told = Map<GrahaId, number>;
 
 const noted = new WeakMap<Told, Set<string>>();
-const lastPathway = new WeakMap<Told, HousePathway>();
+const lastPaths = new WeakMap<Told, HousePathway[]>();
 
 function firstTime(told: Told, key: string): boolean {
   let s = noted.get(told);
@@ -112,32 +113,22 @@ export function readHousePage(ctx: Ctx, h: HouseInfo, told: Told = new Map()): H
   const dust = DUSTHANA.includes(h.n);
   const bh = ctx.sb?.bhava[idx];
 
-  const prevPath = lastPathway.get(told) ?? null;
-  const story = houseStory(ctx, h, prevPath);
-  lastPathway.set(told, story.pathway);
-  const pathwayLabel = PATHWAY_LABELS[story.pathway];
+  const F = buildFacts(ctx);
+  const hf = F.houses[idx];
+  const recent = lastPaths.get(told) ?? [];
+  const narr = narrateHouse(ctx, hf, recent);
+  lastPaths.set(told, [...recent, narr.path]);
+  const pathwayLabel = PATH_LABEL[narr.path];
+  const story = { pathway: narr.path, expressiveLevel: narr.expressive, supportLevel: narr.support, used: narr.used };
 
   const sections: Section[] = [];
 
   sections.push({ id: "open", title: T.open, paragraphs: [HOUSE_OPEN[idx]] });
 
-  const strength: Strength = bh ? (bh.rank <= 4 ? "strong" : bh.rank <= 8 ? "mid" : "weak") : "mid";
-  const supportKey: Support = bandKey;
-  const verdictLine = tone === "mixed" ? "" : MIRROR[idx][tone].scene;
-  const hc = HOUSE_CLASSIC[h.n - 1];
-  const classicHouse = fill(HOUSE_CLASSIC_LINE[tone], { up: hc.up, down: hc.down });
-  const ASPECT_ORDER: GrahaId[] = ["jupiter", "venus", "mercury", "moon", "saturn", "mars", "sun", "rahu", "ketu"];
   const aspectBlocksAll = aspectBlocks(n, h);
-  const aspectLines = [...h.aspectedBy]
-    .sort((a, b) => ASPECT_ORDER.indexOf(a) - ASPECT_ORDER.indexOf(b)).slice(0, 2)
-    .map((g) => aspectBlocksAll.find((bl) => bl.label.startsWith(`${nameOf(g)},`))?.paragraphs[0])
-    .filter((x): x is string => !!x);
-  const supportLine = dust ? fill(SUPPORT_SUMMARY_DUST[supportKey], { dH }) : fill(SUPPORT_SUMMARY[strength][supportKey], { dH });
-  const summaryAtoms = [verdictLine, ...story.used, ...aspectLines, supportLine];
-  sections.push({
-    id: "summary", title: LORD_IN_TITLE[h.n]?.[lp - 1] ?? T.summary,
-    paragraphs: [verdictLine, ...story.paragraphs, [...aspectLines, supportLine].join(" "), classicHouse].filter(Boolean),
-  });
+  // The story: how this house reads in this chart, in two to four connected paragraphs. The layers below it are the evidence.
+  const summaryAtoms = [...narr.used];
+  sections.push({ id: "summary", title: narr.title, paragraphs: narr.paragraphs });
 
   sections.push({
     id: "sign", title: T.sign(sign), fold: true,
@@ -199,7 +190,7 @@ export function readHousePage(ctx: Ctx, h: HouseInfo, told: Told = new Map()): H
   sections.push({ id: "support", title: T.support, fold: true, paragraphs: supportParas });
 
   // yogas that pass through the house
-  const ys = n.yogas.filter((y) => y.houses.includes(h.n)).sort((a, b) => importance(b) - importance(a)).slice(0, 2);
+  const ys = [...hf.yogas].sort((a, b) => importance(b) - importance(a)).slice(0, 2);
   const yogaIds = ys.map((y) => y.id);
   if (ys.length) {
     sections.push({
@@ -218,8 +209,6 @@ export function readHousePage(ctx: Ctx, h: HouseInfo, told: Told = new Map()): H
     });
   }
 
-  // Actionable self-observation & grounding turn (natal structure only — no Dasha/Antardasha here per Section II.2)
-  sections.push({ id: "turn", title: T.turn, paragraphs: [MIRROR[idx][tone].turn] });
 
   // Drop from the folded layers what the summary has already said, and any layer that is left empty.
   const said = new Set(summaryAtoms);
@@ -250,8 +239,8 @@ export function readHousePage(ctx: Ctx, h: HouseInfo, told: Told = new Map()): H
   ];
 
   const whyWithAxes = [
-    `Hướng dẫn dắt: ${pathwayLabel}`,
-    `Trục biểu hiện: ${story.expressiveLevel} · Trục nâng đỡ: ${story.supportLevel}`,
+    ...narr.why,
+    `Mức biểu hiện: ${story.expressiveLevel}; độ hỗ trợ: ${story.supportLevel}.`,
     ...ctx.scored[idx].why,
   ];
 

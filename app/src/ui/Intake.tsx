@@ -95,6 +95,7 @@ export function Intake({ initial, onSubmit }: { initial?: FormValues; onSubmit: 
   const [hh, setHh] = useState(initial && initial.timeKind === "exact" ? String(initial.hh) : "");
   const [mm, setMm] = useState(initial && initial.timeKind === "exact" ? String(initial.mm) : "");
   const [canhId, setCanhId] = useState(initial?.canhId ?? "ty");
+  const [errMin, setErrMin] = useState<number>(initial?.errMin ?? 5);
   const [place, setPlace] = useState<PlaceInput | null>(initial?.place ?? null);
   const [manual, setManual] = useState(false);
   const [mLat, setMLat] = useState(""); const [mLon, setMLon] = useState("");
@@ -124,7 +125,7 @@ export function Intake({ initial, onSubmit }: { initial?: FormValues; onSubmit: 
 
   const draft: FormValues | null = date?.ok && effPlace && timeOk ? {
     name: name.trim(), calendar, day: nums.d, month: nums.m, year: nums.y, leap, timeKind,
-    hh: timeKind === "exact" ? hNum : 0, mm: timeKind === "exact" ? mNum : 0, canhId, place: effPlace,
+    hh: timeKind === "exact" ? hNum : 0, mm: timeKind === "exact" ? mNum : 0, canhId, place: effPlace, errMin,
   } : null;
 
   const timeInfo = useMemo(() => {
@@ -187,6 +188,15 @@ export function Intake({ initial, onSubmit }: { initial?: FormValues; onSubmit: 
           <div className="row3 time">
             <label className="mini"><span>Giờ (0–23)</span><input id={`${uid}-hh`} className="input" inputMode="numeric" maxLength={2} placeholder="hh" value={hh} onChange={(e) => setHh(e.target.value.replace(/\D/g, ""))} aria-label="Giờ" /></label>
             <label className="mini"><span>Phút</span><input id={`${uid}-mm`} className="input" inputMode="numeric" maxLength={2} placeholder="mm" value={mm} onChange={(e) => setMm(e.target.value.replace(/\D/g, ""))} aria-label="Phút" /></label>
+            <label className="mini wide"><span>Sai số giờ sinh có thể có</span>
+              <select id={`${uid}-err`} className="input" value={errMin} onChange={(e) => setErrMin(Number(e.target.value))} aria-label="Sai số giờ sinh có thể có">
+                <option value={1}>Trong khoảng ±1 phút</option>
+                <option value={5}>Trong khoảng ±5 phút</option>
+                <option value={15}>Trong khoảng ±15 phút</option>
+                <option value={30}>Trong khoảng ±30 phút</option>
+                <option value={60}>Lớn hơn 30 phút</option>
+              </select>
+            </label>
           </div>
         )}
         {timeKind === "canh" && (

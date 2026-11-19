@@ -174,22 +174,12 @@ export const HOUSE_SECTION_TITLES = {
   aspects: "Các góc chiếu hướng vào nhà",
   support: "Độ vững nội tại (Bhava Bala) và điểm nâng đỡ (SAV)",
   yoga: "Tổ hợp Yoga liên kết với nhà",
-  turn: "Một gợi ý nhỏ để bạn tự quan sát và ứng dụng",
 };
 
 /** The page that opens the twelve houses: 6 natal structural layers (timing consolidated in Đại vận chapter per Section II.2). */
 export const HOUSE_MAP = {
   intro: [
-    "Cuộc đời mỗi người mở ra qua mười hai lĩnh vực, mà truyền thống Parashara Jyotish gọi là mười hai “nhà” (Bhava): từ bản thân, tài chính, kỹ năng, mái ấm, sáng tạo, công việc thường nhật cho tới người đồng hành, chiều sâu biến chuyển, niềm tin, sự nghiệp, bạn bè và khoảng lặng tâm hồn.",
-    "Trên từng trang nhà, mình tập trung đọc sâu cấu trúc lá số gốc qua sáu lớp nền tảng, phân biệt rõ giữa mức độ biểu hiện sôi động hay yên tĩnh với mức độ nâng đỡ thuận lợi hay cần rèn giũa. Toàn bộ dòng chảy thời gian (Đại vận, Tiểu vận và Bầu trời hiện tại) được tập trung trọn vẹn tại chương Đại vận và tiểu vận để bạn theo dõi liền mạch mà không bị lặp lại ở từng trang.",
-    "Một ngôi nhà để trống hay có điểm số khiêm tốn hoàn toàn bình thường trong Jyotish: nhà yên tĩnh giúp bạn thảnh thơi, còn nhà nhiều thử thách chính là nơi rèn nên bản lĩnh sắc sảo nhất của bạn.",
+    "Nhà cho biết lĩnh vực đời sống. Rashi, tức cung đứng trên nhà, cho biết cách lĩnh vực ấy biểu hiện. Chủ nhà cho biết lĩnh vực đó liên kết với đâu. Hành tinh cư trú và góc chiếu bổ sung những tác động. Nakshatra làm rõ sắc thái. Còn sức mạnh của hành tinh và của nhà cho biết mức độ biểu hiện trong hệ thống luận giải.",
   ],
-  layers: [
-    { title: "Cung trên nhà", text: "Cung hoàng đạo nằm trên nhà tạo nên chất liệu và bầu không khí tự nhiên cho lĩnh vực đời sống đó." },
-    { title: "Hành tinh cai quản", text: "Hành tinh giữ chìa khóa của cung đó đang đi về nhà nào, đứng ở vị thế mạnh hay yếu, cho thấy mạch chuyện của nhà chảy về đâu." },
-    { title: "Hành tinh cư ngụ", text: "Những hành tinh đóng trực tiếp trong nhà (kèm chòm sao Nakshatra và lực Shadbala) làm tăng mức độ biểu hiện của ngôi nhà." },
-    { title: "Góc chiếu (Graha Drishti)", text: "Ánh nhìn từ các hành tinh ở nhà khác chiếu vào, mang theo sự nâng đỡ của cát tinh hoặc sức rèn luyện của hung tinh." },
-    { title: "Độ vững & Điểm nâng đỡ", text: "Đối chiếu giữa độ vững nội tại (Bhava Bala) và điểm hỗ trợ ngoại cảnh (Sarvashtakavarga - SAV) để tách bạch độ sôi động và độ thuận lợi." },
-    { title: "Tổ hợp Yoga", text: "Những tổ hợp hành tinh cổ điển kết nối ngôi nhà này với các mảng khác trên bản đồ sao." },
-  ],
+  layers: [] as { title: string; text: string }[],
 };

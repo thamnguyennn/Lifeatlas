@@ -63,9 +63,6 @@ function SectionView({ s, onYoga }: { s: Section; onYoga: (id: string) => void }
           ))}
         </div>
       )}
-      {s.yogaIds && s.yogaIds.length > 0 && (
-        <p className="hs-links">{s.yogaIds.map((id) => <button key={id} type="button" className="linkbtn" onClick={() => onYoga(id)}>Xem yoga này ở trang Yoga →</button>)}</p>
-      )}
     </section>
   );
 }
@@ -84,31 +81,27 @@ export function HousePage({ h, onYoga, printing = false }: { h: HouseReading; on
           <p className="hp-ask">{h.ask}</p>
         </div>
         <ul className="hp-chips">
-          <li><span className={`chip tone-${h.tone}`}>Độ nâng đỡ: {h.supportLevel}</span></li>
+          <li><span className={`chip tone-${h.tone}`}>Độ hỗ trợ: {h.supportLevel}</span></li>
           <li><span className="chip exp-chip">Mức biểu hiện: {h.expressiveLevel}</span></li>
         </ul>
       </header>
       <div className="hp-body card prose">
         {shown.map((s) => <SectionView key={s.id} s={s} onYoga={onYoga} />)}
       </div>
-      {layers.length > 0 && (
-        <details className="layers" open={printing}>
-          <summary>{HOUSE_SECTION_TITLES.layers}</summary>
-          <div className="prose">{layers.map((s) => <SectionView key={s.id} s={s} onYoga={onYoga} />)}</div>
-        </details>
-      )}
-      <details className="params why-drawer">
-        <summary>Vì sao mình nói điều này?</summary>
-        <ul className="why">{h.why.length ? h.why.map((w, i) => <li key={i}>{w}</li>) : <li>Không có yếu tố nào cộng hoặc trừ điểm.</li>}</ul>
-        <p className="faint small">Mỗi nhà được đánh giá trên hai trục độc lập: mức độ sôi động (số lượng hành tinh đóng trong nhà, góc chiếu Graha Drishti và các tổ hợp Yoga) và mức độ nâng đỡ (vị thế phẩm cấp của hành tinh cai quản nhà, mối quan hệ Panchadha Maitri, điểm SAV và thứ hạng Bhava Bala).</p>
+      <details className="layers" open={printing}>
+        <summary>{HOUSE_SECTION_TITLES.layers}</summary>
+        <div className="prose">
+          <ul className="why">{h.why.length ? h.why.map((w, i) => <li key={i}>{w}</li>) : <li>Không có yếu tố nào cộng hoặc trừ điểm.</li>}</ul>
+          {layers.map((s) => <SectionView key={s.id} s={s} onYoga={onYoga} />)}
+        </div>
       </details>
       <details className="params">
         <summary>Xem số liệu của nhà này</summary>
         <dl className="factlist">
           <div><dt>Cung</dt><dd>{h.signName}</dd></div>
           <div><dt>Hành tinh cai quản</dt><dd>{h.lordName}, đang ở nhà {h.lordHouse}</dd></div>
-          <div><dt>Độ nâng đỡ</dt><dd>{h.supportLevel} ({toneLabel(h.n, h.tone)})</dd></div>
-          <div><dt>Mức độ biểu hiện</dt><dd>{h.expressiveLevel}</dd></div>
+          <div><dt>Độ hỗ trợ</dt><dd>{h.supportLevel} ({toneLabel(h.n, h.tone)})</dd></div>
+          <div><dt>Mức biểu hiện</dt><dd>{h.expressiveLevel}</dd></div>
           <div><dt>Điểm hỗ trợ (SAV)</dt><dd>{h.sav}</dd></div>
           {h.rank !== null && <div><dt>Độ vững (Bhava Bala)</dt><dd>thứ {h.rank} trong 12 nhà</dd></div>}
         </dl>

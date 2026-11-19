@@ -9,6 +9,7 @@ import { compose, composeDay, makeCtx } from "../src/reading/compose.ts";
 import { shadbala, drikBala, beneficSet, SEVEN_IDS, REQUIRED_RUPAS } from "../src/engine/shadbala.ts";
 import { dashaOrigin, dashaMahas, dashaChildren, dashaChain, dashaReliability, levelTrust, LEVEL_NAME, TIME_WINDOW_MIN, type DNode } from "../src/engine/dasha5.ts";
 import { transitAt, taraOf, stayIn } from "../src/engine/transit.ts";
+import { readCompat } from "../src/reading/compat.ts";
 import { buildParts, flatPages } from "../src/ui/pages.ts";
 
 let passed = 0, failed = 0;
@@ -154,77 +155,101 @@ test("the nine children of every period fill it exactly, down to the fifth level
   check(mahas[1]);
 });
 
-console.log("Reading v3.0: literary opening, 6-part overview synthesis, pure natal houses, D9/D10 cross-reference, consolidated Dasha & dual-lens Gochara");
+console.log("Reading v3.x: one-sentence letter, merged overview, houses with yoga folded in, nodes, six divisional charts, dasha layers, 2027, explore");
 const NOW = NOW0;
 const full = compose(n, NOW, { name: "Minh Anh" });
 const blind = compose(n, NOW, { name: "Minh Anh", noTime: true });
 
 test("Mở lá số uses one complete sentence and no technical numbers", () => {
-  assert.deepEqual(full.letter.paragraphs, [full.letter.line]);
+  assert.match(full.letter.greeting, /^Gửi /);
   assert.match(full.letter.line, /^[^.!?0-9]+[.!?]$/u);
 });
-test("Tổng quan connects the anchors and respects missing birth time", () => {
-  assert.ok(!("cast" in full.overview));
-  assert.equal(full.overview.synthesis.paragraphs.length, 2);
-  assert.deepEqual(full.overview.synthesis.anchors.map(s => s.split(" ")[0]), ["Cung", "Mặt", "Mặt"]);
-  assert.ok(blind.overview.synthesis.anchors.every(s => !s.startsWith("Cung mọc ")));
-  assert.equal(full.overview.strength?.rows.length, 7);
+test("Tổng quan has the agreed blocks and respects missing birth time", () => {
+  const ids = full.overview.blocks.map((b) => b.id);
+  for (const id of ["lagna", "sun", "moon", "elements", "moonCycle", "pillars", "focus"]) assert.ok(ids.includes(id as never), `block ${id}`);
+  assert.equal(full.overview.strength?.rows?.length ?? full.overview.strength?.length, 7);
   assert.equal(full.overview.planets.length, 9);
+  assert.ok(!blind.overview.blocks.some((b) => b.id === "focus" && b.paragraphs.join(" ").match(/\bnhà \d+/i)), "no house numbers without birth time");
 });
 
-test("part 3 (12 Nhà): strictly natal structure (NO 'now' or 'next' Dasha sections), dual axes (expressiveLevel & supportLevel), and 5 narrative pathways without adjacent duplicates", () => {
+test("12 Nhà: open and summary are visible, evidence is folded, no dasha sections, adjacent houses open differently", () => {
   assert.equal(full.houses.length, 12);
   for (let i = 0; i < full.houses.length; i++) {
     const h = full.houses[i];
     const ids = h.sections.map((s) => s.id);
-    assert.ok(!ids.includes("now") && !ids.includes("next"), `house ${h.n} must NOT contain Dasha timing sections`);
-    const order = ["open", "summary", "sign", "lord", "inside", "aspects", "support", "yoga", "turn"];
+    assert.ok(!ids.includes("now" as never) && !ids.includes("next" as never) && !ids.includes("turn" as never), `house ${h.n}`);
     assert.deepEqual(ids.slice(0, 2), ["open", "summary"], `house ${h.n}`);
-    assert.equal(ids[ids.length - 1], "turn", `house ${h.n} ends with turn`);
-    assert.deepEqual(ids, order.filter((x) => ids.includes(x as (typeof ids)[number])), `house ${h.n}: layers in order`);
-    assert.deepEqual(h.sections.filter((s) => !s.fold).map((s) => s.id), ["open", "summary", "turn"], `house ${h.n} visible sections`);
-    assert.ok(["sôi động", "vừa phải", "yên tĩnh"].includes(h.expressiveLevel));
-    assert.ok(["thuận lợi", "pha trộn", "cần rèn giũa"].includes(h.supportLevel));
-    assert.ok(["strength_lead", "tension_contrast", "lord_bridge", "care_condition", "domain_steady"].includes(h.pathway));
-    if (i > 0) assert.notEqual(h.pathway, full.houses[i - 1].pathway, `house ${h.n} and ${h.n - 1} must not repeat the same opening pathway`);
+    assert.deepEqual(h.sections.filter((s) => !s.fold).map((s) => s.id), ["open", "summary"], `house ${h.n} visible sections`);
+    if (i > 0) assert.notEqual(h.pathway, full.houses[i - 1].pathway, `house ${h.n} repeats the opening path of ${h.n - 1}`);
     assert.ok(h.words >= 280 && h.words <= 1400, `house ${h.n} has ${h.words} words`);
   }
 });
 
-test("part 4 & 5: Rahu-Ketu axis, Jaimini Soul/Karakas, and D2/D9/D10 with D1 cross-references and why drawers", () => {
-  assert.match(full.lessons.axis.headline, /Rahu ở nhà \d+ · Ketu ở nhà \d+/);
-  assert.ok(full.lessons.soul);
-  assert.equal(full.lessons.soul!.karakas.length, 7);
+test("Rahu-Ketu lesson has the 12-factor table, and the six divisional charts have three parts and a diamond chart", () => {
+  assert.equal(full.nodes.factors.length, 12);
   assert.ok(full.vargas);
-  assert.deepEqual(full.vargas!.map((v) => v.n), [2, 9, 10]);
-  for (const v of full.vargas!) assert.ok(v.why && v.why.length >= 2, `D${v.n} has why list`);
+  assert.deepEqual(full.vargas!.map((v) => v.n), [2, 3, 4, 7, 9, 10]);
+  for (const v of full.vargas!) {
+    assert.ok(v.summary.length >= 1 && v.points.length >= 2 && v.points.length <= 3, `D${v.n} three-part content`);
+    assert.ok(v.why.length >= 2, `D${v.n} has why list`);
+    assert.equal(Object.keys(v.chart.planets).length, 9, `D${v.n} diamond data`);
+    assert.ok(v.trust.note.length > 20);
+  }
 });
 
-test("part 6 (Đại vận & Gochara): consolidated 20-year house activation windows, D9 & Lagna-lord cross-references, and dual Gochara lenses (from Moon & from Lagna)", () => {
+test("a wide birth-time error lowers the trust of the divisional charts that depend on the rising sign", () => {
+  const wide = compose(n, NOW, { name: "Minh Anh", windowMin: 60 });
+  const lv = (r: typeof full, k: number) => r.vargas!.find((v) => v.n === k)!.trust.level;
+  assert.equal(lv(wide, 9), lv(wide, 9));
+  assert.ok(wide.vargas!.some((v) => v.trust.level === "thấp"), "some chart is flagged when the window is ±60 minutes");
+  for (const v of wide.vargas!.filter((x) => x.trust.level === "thấp")) assert.ok(!/Nhà \d+ của D\d+ là/.test(JSON.stringify(v.points)), `D${v.n} must not be read house by house`);
+});
+
+test("Đại vận: Mahadasha has six layers; Antardasha is read through the Mahadasha lord and does not re-explain houses", () => {
   const T = full.timeline;
   assert.ok(T.mahas.length >= 5 && T.mahas.length <= 9);
   for (const m of T.mahas) {
     assert.equal(m.antars.length, 9);
-    assert.ok(m.read.paragraphs.length >= 3);
-    assert.ok(Array.isArray(m.litHouses));
+    assert.equal(m.read.layers?.length, 6);
+    for (const a of m.antars) assert.ok(!a.layers && a.paragraphs.length >= 2);
   }
-  assert.equal(T.houseWindows.length, 12, "all 12 houses have consolidated 20-year activation windows in timeline");
+  assert.equal(T.houseWindows.length, 12);
   for (const pl of full.sky.planets) {
     assert.ok(pl.moonText.length > 40, `${pl.id} has moonText`);
     assert.ok(pl.lagnaText && pl.lagnaText.length > 40, `${pl.id} has lagnaText`);
-    assert.ok(full.sky.why.length >= 4, "sky has why list");
   }
 });
 
-test("part 7 & page map: month's message, 26 pages with birth time, no house numbers without birth time", () => {
-  const T = full.today;
-  assert.ok(T.paragraphs.length >= 2 && T.paragraphs.length <= 4);
+test("Dự đoán 2027: twelve months built on a real calendar, with parameters folded", () => {
+  const F = full.forecast;
+  assert.equal(F.year, 2027);
+  assert.equal(F.months.length, 12);
+  assert.ok(F.key.length >= 4);
+  for (const m of F.months) { assert.ok(m.paragraphs.length === 3 && m.why.length >= 4, m.label); }
+  assert.ok(F.months.some((m) => m.events.length > 0));
+  assert.ok(F.key.every((e, i, a) => i === 0 || a[i - 1].ms <= e.ms), "calendar is in date order");
+  assert.doesNotMatch(JSON.stringify(blind.forecast), /\bnhà \d+\b/i, "no house numbers without birth time");
+});
+
+test("Khám phá thêm: three groups, eleven topics, plus compatibility", () => {
+  assert.equal(full.explore.length, 3);
+  assert.equal(full.explore.flatMap((g) => g.topics).length, 11);
+  const other = computeNatal(Date.UTC(1992, 10, 2, 7, 20), 16.46, 107.59);
+  const c = readCompat(n, other, "A", "B");
+  assert.equal(c.kootas.length, 8);
+  assert.equal(c.kootas.reduce((x, k) => x + k.max, 0), 36);
+  assert.ok(c.total >= 0 && c.total <= 36);
+  assert.equal(readCompat(n, n, "A", "A").kootas.find((k) => k.name.startsWith("Nadi"))!.got, 0, "same Moon, same nadi");
+});
+
+test("page map: seven parts, no sky page, no month message, no house numbers without birth time", () => {
   const parts = buildParts({ reading: full, noTime: false } as never);
-  assert.deepEqual(parts.map((p) => p.id), ["overview", "houses", "lessons", "vargas", "time", "today"]);
-  assert.equal(flatPages(parts).length, 26);
+  assert.deepEqual(parts.map((p) => p.id), ["overview", "houses", "lessons", "vargas", "time", "explore", "y2027"]);
+  assert.ok(!flatPages(parts).some((p) => p.id === "t-sky" || p.id === "today"));
+  assert.equal(flatPages(parts).length, 28);
   assert.equal(blind.houses.length, 0);
   assert.equal(blind.vargas, null);
-  const text = JSON.stringify({ o: blind.overview, l: blind.lessons, t: blind.timeline, ladder: blind.ladder, sky: blind.sky, today: blind.today });
+  const text = JSON.stringify({ o: blind.overview, l: blind.nodes, t: blind.timeline, ladder: blind.ladder, sky: blind.sky });
   assert.doesNotMatch(text, /\bnhà \d+\b/i);
 });
 

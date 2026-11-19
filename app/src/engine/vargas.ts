@@ -5,7 +5,7 @@ import { GRAHAS, SEVEN, mod, type GrahaId } from "./constants.ts";
 import { dignityOf } from "./rules.ts";
 import type { Dignity, Natal } from "./types.ts";
 
-export type VargaN = 2 | 3 | 9 | 10;
+export type VargaN = 2 | 3 | 4 | 7 | 9 | 10;
 
 export interface VargaPlanet {
   id: GrahaId;
@@ -26,7 +26,23 @@ export interface VargaChart {
 
 const LEO = 4;
 
+/**
+ * The method is fixed to the Parashara rules (BPHS) so that the same birth always gives the same divisional charts:
+ *   D2  Parashari hora: odd signs Sun's hora first (Leo, then Cancer), even signs Moon's hora first;
+ *   D3  Drekkana: the sign, the 5th and the 9th from it;
+ *   D4  Chaturthamsa: the sign, then the 4th, 7th and 10th from it;
+ *   D7  Saptamsa: odd signs count from the sign itself, even signs from the 7th;
+ *   D9  Navamsa: the usual nine divisions of 3°20′;
+ *   D10 Dasamsa: odd signs count from the sign itself, even signs from the 9th.
+ * D4 and D7 are computed here; the others come from caelus, which follows the same rules.
+ */
 export function vargaSign(lon: number, n: VargaN): number {
+  if (n === 4 || n === 7) {
+    const sign = Math.floor(mod(lon, 360) / 30), deg = mod(lon, 360) - sign * 30;
+    const part = Math.min(n - 1, Math.floor(deg / (30 / n)));
+    if (n === 4) return mod(sign + 3 * part, 12);
+    return mod((sign % 2 === 0 ? sign : sign + 6) + part, 12);
+  }
   return varga(lon, n).sign_index;
 }
 

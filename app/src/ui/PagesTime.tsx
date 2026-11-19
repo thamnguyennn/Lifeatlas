@@ -1,12 +1,15 @@
 // The pages about time: the chapters of life (dasha, five levels), where you stand in them today, the sky today, and the day's message.
 import { useMemo, useRef, useState } from "react";
 import type { Prepared } from "./logic.ts";
-import type { MahaRow, PeriodRead, TodayReading, Trust } from "../reading/types.ts";
+import type { MahaRow, PeriodRead, Trust } from "../reading/types.ts";
 import type { DayReading } from "../reading/compose.ts";
 import { readChildren, readTrend } from "../reading/compose.ts";
 import type { Ctx } from "../reading/compose.ts";
 import { LEVEL_NAME } from "../engine/dasha5.ts";
 import { YEAR_MS } from "../engine/core.ts";
+import { Intake } from "./Intake.tsx";
+import { prepare } from "./logic.ts";
+import { readCompat } from "../reading/compat.ts";
 import { Gloss } from "./Gloss.tsx";
 import { Glyph, SignGlyph } from "./Glyph.tsx";
 import { signIndex } from "../engine/constants.ts";
@@ -90,6 +93,10 @@ function PeriodList({ ctx, items }: { ctx: Ctx; items: PeriodRead[] }) {
   return <ul className="plist">{items.map((p) => <PeriodItem key={`${p.level}-${p.fromMs}`} ctx={ctx} p={p} />)}</ul>;
 }
 
+function Layers({ p }: { p: PeriodRead }) {
+  if (!p.layers) return <Paras list={p.paragraphs} />;
+  return <>{p.layers.map((l) => <div key={l.title} className="dlayer"><h4>{l.title}</h4><p><Gloss text={l.text} /></p></div>)}</>;
+}
 function MahaCard({ ctx, m, open, onToggle, setRef }: { ctx: Ctx; m: MahaRow; open: boolean; onToggle: () => void; setRef: (el: HTMLElement | null) => void }) {
   const stateText = m.state === "now" ? "Đang diễn ra" : m.state === "past" ? "Đã qua" : "Sắp tới";
   return (
@@ -108,7 +115,7 @@ function MahaCard({ ctx, m, open, onToggle, setRef }: { ctx: Ctx; m: MahaRow; op
       {open && (
         <div className="dbody">
           <p className="chapter-title">{m.read.title}</p>
-          <Paras list={m.read.paragraphs} />
+          <Layers p={m.read} />
           <h4 className="sub-h">Chín tiểu vận trong giai đoạn này</h4>
           <PeriodList ctx={ctx} items={m.antars} />
           <details className="params why-drawer">
@@ -180,59 +187,12 @@ export function ChaptersPage({ prepared, now }: { prepared: Prepared; now: numbe
 }
 
 // ------------------------------------------------------------------ where you stand today
-export function NowPage({ prepared, day, dayMs, onDay }: { prepared: Prepared; day: DayReading; dayMs: number | null; onDay: (ms: number | null) => void }) {
-  const L = day.ladder;
-  return (
-    <>
-      <p className="eyebrow reveal">Đại vận và tiểu vận</p>
-      <h2 className="reveal">Bạn đang ở đâu trong các giai đoạn</h2>
-      <DayPicker prepared={prepared} dayMs={dayMs} onChange={onDay} />
-      <p className="faint reveal">Ngày {L.dateLabel}: cả năm bậc đang chạy cùng lúc, từ giai đoạn lớn nhất đến nhỏ nhất.</p>
-      <ol className="ladder">
-        {L.levels.map((p) => (
-          <li key={p.level} className={`rung lv${p.level} reveal`}>
-            <div className="rung-side">
-              <Emblem id={p.lord} size={44} title="" className="rg" />
-              <span className="rung-lv">{p.name}</span>
-              <small>{p.sanskrit}</small>
-            </div>
-            <div className="rung-main card">
-              <header>
-                <h3>{p.level === 1 ? p.title : p.lordName}</h3>
-                {p.tone && p.level <= 2 && <span className={`chip tone-${p.tone}`}>{TONE_TEXT[p.tone]}</span>}
-                <TrustChip t={p.trust} />
-              </header>
-              <p className="rung-dates">{p.level > 1 && <>{p.path.join(" → ")} · </>}{p.from} – {p.to} · {p.span}</p>
-              <Paras list={p.paragraphs} />
-              {p.level === 2 && <Trend ctx={prepared.ctx} p={p} />}
-            </div>
-          </li>
-        ))}
-      </ol>
-      {L.blend.length > 0 && (
-        <section className="card block glow reveal">
-          <h3>Đặt cạnh bầu trời của ngày này</h3>
-          <Paras list={L.blend} />
-        </section>
-      )}
-      <details className="params reveal">
-        <summary>Xem độ chắc chắn của các mốc</summary>
-        <aside className="callout check"><p>{L.trustNote}</p></aside>
-      </details>
-    </>
-  );
-}
-
-// ------------------------------------------------------------------ the sky today
-export function SkyPage({ prepared, day, dayMs, onDay }: { prepared: Prepared; day: DayReading; dayMs: number | null; onDay: (ms: number | null) => void }) {
+function GocharaSection({ day }: { day: DayReading }) {
   const S = day.sky;
   return (
-    <>
-      <p className="eyebrow reveal">Đại vận và tiểu vận</p>
-      <h2 className="reveal">Bầu trời hiện tại</h2>
-      <DayPicker prepared={prepared} dayMs={dayMs} onChange={onDay} />
-      <p className="faint reveal">Ngày {S.dateLabel}. <Gloss text={S.intro} /></p>
-
+    <section className="gochara reveal">
+      <h3 className="sub-h">Gochara: các hành tinh đang đi qua đâu</h3>
+      <p className="faint"><Gloss text={S.intro} /></p>
       <section className={`card block sade phase-${S.sade.phase} reveal`}>
         <h3>{S.sade.title}</h3>
         <p><Gloss text={S.sade.text} /></p>
@@ -280,81 +240,134 @@ export function SkyPage({ prepared, day, dayMs, onDay }: { prepared: Prepared; d
         ))}
       </div>
 
-      <section className="card block reveal">
-        <h3>{S.day.title}</h3>
-        <Paras list={S.day.paragraphs} />
-        <details className="params mini">
-          <summary>Xem Chandra Bala và Tara Bala</summary>
-          <ul className="chips">
-            <li>Chandra Bala: {S.day.chandra ? "thuận" : "nên làm chậm lại"}</li>
-            <li>Tara Bala: {S.day.tara.kind}</li>
-          </ul>
-        </details>
-      </section>
+    </section>
+  );
+}
 
-      {S.hits.length > 0 && (
-        <>
-          <h3 className="sub-h reveal">Nơi bầu trời chạm vào lá số lúc bạn sinh</h3>
-          <div className="hits">
-            {S.hits.map((h) => <article key={h.title} className="card hit reveal"><h4>{h.title}</h4><p><Gloss text={h.text} /></p></article>)}
-          </div>
-        </>
+export function NowPage({ prepared, day, dayMs, onDay }: { prepared: Prepared; day: DayReading; dayMs: number | null; onDay: (ms: number | null) => void }) {
+  const L = day.ladder;
+  return (
+    <>
+      <p className="eyebrow reveal">Đại vận và tiểu vận</p>
+      <h2 className="reveal">Bạn đang ở đâu trong các giai đoạn</h2>
+      <DayPicker prepared={prepared} dayMs={dayMs} onChange={onDay} />
+      <p className="faint reveal">Ngày {L.dateLabel}: cả năm bậc đang chạy cùng lúc, từ giai đoạn lớn nhất đến nhỏ nhất.</p>
+      <ol className="ladder">
+        {L.levels.map((p) => (
+          <li key={p.level} className={`rung lv${p.level} reveal`}>
+            <div className="rung-side">
+              <Emblem id={p.lord} size={44} title="" className="rg" />
+              <span className="rung-lv">{p.name}</span>
+              <small>{p.sanskrit}</small>
+            </div>
+            <div className="rung-main card">
+              <header>
+                <h3>{p.level === 1 ? p.title : p.lordName}</h3>
+                {p.tone && p.level <= 2 && <span className={`chip tone-${p.tone}`}>{TONE_TEXT[p.tone]}</span>}
+                <TrustChip t={p.trust} />
+              </header>
+              <p className="rung-dates">{p.level > 1 && <>{p.path.join(" → ")} · </>}{p.from} – {p.to} · {p.span}</p>
+              <Layers p={p} />
+              {p.level === 2 && <Trend ctx={prepared.ctx} p={p} />}
+            </div>
+          </li>
+        ))}
+      </ol>
+      {L.blend.length > 0 && (
+        <section className="card block glow reveal">
+          <h3>Đặt cạnh bầu trời của ngày này</h3>
+          <Paras list={L.blend} />
+        </section>
       )}
-
-      <details className="params reveal why-drawer">
-        <summary>Vì sao mình nói điều này?</summary>
-        <ul className="why">{S.why.map((w, i) => <li key={i}>{w}</li>)}</ul>
+      <details className="params reveal">
+        <summary>Xem độ chắc chắn của các mốc</summary>
+        <aside className="callout check"><p>{L.trustNote}</p></aside>
       </details>
+      <GocharaSection day={day} />
     </>
   );
 }
 
-// ------------------------------------------------------------------ the message of the month
-const ym = (ms: number) => { const d = new Date(ms); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}`; };
-/** The month asked for is read at its middle, except this month, which is read from today. */
-export const monthToMs = (y: number, m: number, now: number) => {
-  const nd = new Date(now);
-  return nd.getFullYear() === y && nd.getMonth() === m - 1 ? now : new Date(y, m - 1, 15, 12).getTime();
-};
-
-export function MonthPicker({ prepared, monthMs, onChange }: { prepared: Prepared; monthMs: number | null; onChange: (ms: number | null) => void }) {
-  const first = prepared.natal.utcMs + 86_400_000;
-  const last = prepared.natal.utcMs + 110 * YEAR_MS;
-  const now = prepared.ctx.now;
-  const cur = monthMs ?? now;
-  const set = (y: number, m: number) => { const ms = monthToMs(y, m, now); if (ms >= first && ms <= last) onChange(ms); };
-  const shift = (k: number) => { const d = new Date(cur); set(d.getFullYear(), d.getMonth() + 1 + k); };
+// ------------------------------------------------------------------ the sky today
+// ------------------------------------------------------------------ explore more
+export function ExploreGroupPage({ prepared, gid }: { prepared: Prepared; gid: string }) {
+  const g = prepared.reading.explore.find((x) => x.id === gid);
+  if (!g) return null;
   return (
-    <div className="daypick reveal">
-      <label>
-        <span>Xem tháng</span>
-        <input type="month" value={ym(cur)} min={ym(first)} max={ym(last)}
-          onChange={(e) => { const m = /^(\d{4})-(\d{2})$/.exec(e.target.value); if (m) set(+m[1], +m[2]); }} />
-      </label>
-      <button type="button" className="btn ghost" onClick={() => shift(-1)} aria-label="Tháng trước">←</button>
-      <button type="button" className="btn ghost" onClick={() => shift(1)} aria-label="Tháng sau">→</button>
-      {monthMs !== null && <button type="button" className="linkbtn" onClick={() => onChange(null)}>Về tháng này</button>}
-    </div>
+    <>
+      <p className="eyebrow reveal">Khám phá thêm</p>
+      <h2 className="reveal">{g.title}</h2>
+      <p className="lead reveal">{g.intro}</p>
+      <div className="fc-months">
+        {g.topics.map((t, i) => (
+          <details key={t.id} className="card fc-month reveal" open={i === 0}>
+            <summary><b>{t.title}</b> · {t.ask}</summary>
+            <p><Gloss text={t.lead} /></p>
+            {t.points.map((p) => <div key={p.title} className="varga-point"><h4>{p.title}</h4><p><Gloss text={p.text} /></p></div>)}
+            <details className="params mini"><summary>Vì sao mình nói điều này?</summary><ul className="why">{t.why.map((w, k) => <li key={k}>{w}</li>)}</ul></details>
+          </details>
+        ))}
+      </div>
+    </>
   );
 }
 
-export function TodayPage({ prepared, today, monthMs, onMonth }: { prepared: Prepared; today: TodayReading; monthMs: number | null; onMonth: (ms: number | null) => void }) {
-  const T = today;
+export function CompatPage({ prepared }: { prepared: Prepared }) {
+  const [other, setOther] = useState<Prepared | null>(null);
+  const [err, setErr] = useState("");
+  const nameA = prepared.values.name?.trim() || "Bạn";
+  const c = useMemo(() => (other ? readCompat(prepared.natal, other.natal, nameA, other.values.name?.trim() || "Người kia") : null), [other, prepared, nameA]);
   return (
     <>
-      <p className="eyebrow reveal">Lời nhắn tháng này</p>
-      <MonthPicker prepared={prepared} monthMs={monthMs} onChange={onMonth} />
-      <article className="today card glow reveal">
-        <p className="today-date">{monthMs === null ? "Tháng này" : "Tháng"} {T.monthLabel}</p>
-        <h2>{T.title}</h2>
-        {T.paragraphs.map((p, i) => <p key={i} className="today-msg"><Gloss text={p} /></p>)}
-        <p className="p-ask"><span>Một câu hỏi để mang theo</span>{T.ask}</p>
-      </article>
-      <details className="params reveal why-drawer">
-        <summary>Vì sao mình nói điều này?</summary>
-        <ul className="why">{T.why.map((w, i) => <li key={i}>{w}</li>)}</ul>
-        <p className="faint small">{T.trustNote}</p>
-      </details>
+      <p className="eyebrow reveal">Khám phá thêm</p>
+      <h2 className="reveal">So sánh hai lá số</h2>
+      <p className="lead reveal">Nhập ngày, giờ và nơi sinh của một người nữa để xem hai lá số hòa hợp đến đâu về cảm xúc, tính khí và sự đồng hành. Dữ liệu chỉ xử lý trên máy bạn.</p>
+      {!c && (
+        <div className="card block reveal compat-form">
+          <Intake onSubmit={(v) => { try { setOther(prepare(v)); setErr(""); } catch (e) { setErr(String((e as Error).message)); } }} />
+          {err && <p className="errors">{err}</p>}
+        </div>
+      )}
+      {c && other && (
+        <>
+          <div className="card block prose reveal"><h3>{c.total}/36 · {c.band}</h3><Paras list={c.summary} /></div>
+          <h3 className="sub-h reveal">Tám khía cạnh</h3>
+          <ul className="koota reveal">
+            {c.kootas.map((k) => <li key={k.name}><b>{k.name}</b><span className="kscore">{k.got}/{k.max}</span><small>{k.note}</small><i style={{ width: `${(k.got / k.max) * 100}%` }} /></li>)}
+          </ul>
+          {c.points.map((p) => <div key={p.title} className="card block prose reveal"><h4>{p.title}</h4><p><Gloss text={p.text} /></p></div>)}
+          <details className="params reveal why-drawer"><summary>Vì sao mình nói điều này?</summary><ul className="why">{c.why.map((w, i) => <li key={i}>{w}</li>)}</ul></details>
+          <button type="button" className="btn" onClick={() => setOther(null)}>So sánh với người khác</button>
+        </>
+      )}
+    </>
+  );
+}
+
+// ------------------------------------------------------------------ 2027
+export function ForecastPage({ prepared }: { prepared: Prepared }) {
+  const F = prepared.reading.forecast;
+  return (
+    <>
+      <p className="eyebrow reveal">Năm tới</p>
+      <h2 className="reveal">Dự đoán {F.year}</h2>
+      <div className="card block prose reveal"><Paras list={F.intro} /></div>
+      <h3 className="sub-h reveal">Những mốc lớn của bầu trời</h3>
+      <ul className="fc-key reveal">
+        {F.key.map((e) => <li key={e.ms + e.title}><b>{e.date}</b> · {e.title}<small>{e.text}</small></li>)}
+      </ul>
+      <h3 className="sub-h reveal">Từng tháng</h3>
+      <div className="fc-months">
+        {F.months.map((m) => (
+          <details key={m.month} className={`card fc-month tone-${m.tone} reveal`} open={m.month === 1}>
+            <summary><b>{m.label}</b> · {m.headline}</summary>
+            <Paras list={m.paragraphs} />
+            {m.events.length > 0 && <ul className="fc-ev">{m.events.map((e) => <li key={e.ms + e.title}><b>{e.date.slice(0, 5)}</b> {e.title}</li>)}</ul>}
+            <details className="params mini"><summary>Vì sao mình nói điều này?</summary><ul className="why">{m.why.map((w, i) => <li key={i}>{w}</li>)}</ul></details>
+          </details>
+        ))}
+      </div>
+      <aside className="callout check reveal"><p>{F.trustNote}</p></aside>
     </>
   );
 }

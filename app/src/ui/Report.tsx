@@ -8,9 +8,10 @@ import { composeDay, type DayReading } from "../reading/compose.ts";
 import { SignGlyph } from "./Glyph.tsx";
 import { HousePage } from "./Houses.tsx";
 import {
-  AxisPage, CommonPage, HouseMapPage, KarakasPage, KeysPage, SoulPage, VargaPage, YogaPage,
+  AxisPage, HouseMapPage, VargaPage,
 } from "./PagesA.tsx";
-import { ChaptersPage, NowPage, SkyPage, TodayPage } from "./PagesTime.tsx";
+import { OverviewPage } from "./PagesOverview.tsx";
+import { ChaptersPage, NowPage, ForecastPage, ExploreGroupPage, CompatPage } from "./PagesTime.tsx";
 import { buildParts, flatPages, type PageDef } from "./pages.ts";
 import { birthSubtitle } from "./format.ts";
 import { readingToText } from "./export-text.ts";
@@ -55,22 +56,17 @@ export function Report({ prepared, onEdit, onChoose, now }: {
     return () => { window.removeEventListener("beforeprint", before); window.removeEventListener("afterprint", after); };
   }, []);
   const [dayMs, setDayMs] = useState<number | null>(null);
-  const [monthMs, setMonthMs] = useState<number | null>(null);
   const [copied, setCopied] = useState(false);
   const [manualCopy, setManualCopy] = useState(false);
   const exportText = useMemo(() => readingToText(prepared), [prepared]);
 
   const day: DayReading = useMemo(
-    () => (dayMs === null ? { ladder: r.ladder, sky: r.sky, today: r.today } : composeDay(prepared.ctx, dayMs)),
+    () => (dayMs === null ? { ladder: r.ladder, sky: r.sky } : composeDay(prepared.ctx, dayMs)),
     [dayMs, r, prepared.ctx],
   );
 
-  const monthReading = useMemo(
-    () => (monthMs === null ? r.today : composeDay(prepared.ctx, monthMs).today),
-    [monthMs, r, prepared.ctx],
-  );
 
-  useReveal(`${cur}|${dayMs}|${monthMs}`);
+  useReveal(`${cur}|${dayMs}`);
 
   const copy = async () => {
     try {
@@ -129,19 +125,16 @@ export function Report({ prepared, onEdit, onChoose, now }: {
   const renderPage = (id: string): ReactElement | null => {
     const houseNo = /^h-(\d+)$/.exec(id);
     const varga = /^v-(\d+)$/.exec(id);
-    if (id === "ov-keys") return <KeysPage prepared={prepared} />;
-    if (id === "ov-common") return <CommonPage prepared={prepared} />;
+    if (id === "ov") return <OverviewPage prepared={prepared} />;
     if (id === "h-map") return <HouseMapPage prepared={prepared} selected={null} onPick={pickHouse} />;
     if (houseNo && r.houses[+houseNo[1] - 1]) return <HousePage h={r.houses[+houseNo[1] - 1]} onYoga={pickYoga} printing={printAll} />;
-    if (id === "yogas") return <YogaPage prepared={prepared} focus={yogaFocus} onHouse={pickHouse} />;
     if (id === "axis") return <AxisPage prepared={prepared} />;
-    if (id === "soul") return <SoulPage prepared={prepared} />;
-    if (id === "karakas") return <KarakasPage prepared={prepared} />;
     if (varga) return <VargaPage prepared={prepared} n={+varga[1] as 2 | 9 | 10} />;
     if (id === "t-chapters") return <ChaptersPage prepared={prepared} now={now} />;
     if (id === "t-now") return <NowPage prepared={prepared} day={day} dayMs={dayMs} onDay={setDayMs} />;
-    if (id === "t-sky") return <SkyPage prepared={prepared} day={day} dayMs={dayMs} onDay={setDayMs} />;
-    if (id === "today") return <TodayPage prepared={prepared} today={monthReading} monthMs={monthMs} onMonth={setMonthMs} />;
+    if (id === "x-compat") return <CompatPage prepared={prepared} />;
+    if (id.startsWith("x-")) return <ExploreGroupPage prepared={prepared} gid={id.slice(2)} />;
+    if (id === "y2027") return <ForecastPage prepared={prepared} />;
     return null;
   };
   const body = renderPage(cur);

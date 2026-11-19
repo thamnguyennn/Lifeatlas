@@ -18,23 +18,9 @@ export function FactList({ rows }: { rows: FactRow[] }) {
   return <dl className="factlist">{rows.map(([k, v]) => <div key={k}><dt>{k}</dt><dd>{v}</dd></div>)}</dl>;
 }
 
-export function KeysPage({ prepared }: { prepared: Prepared }) {
-  const { letter, overview } = prepared.reading;
-  return <>
-    <article className="letter card reveal"><blockquote className="headline">{letter.line}</blockquote></article>
-    <h2 className="reveal">Tổng quan</h2>
-    <article className="card prose reveal">
-      {overview.synthesis.paragraphs.map((p) => <p key={p}>{p}</p>)}
-      <details className="params"><summary>Các cung trong lời đọc này</summary>
-        {overview.synthesis.anchors.map((p) => <p key={p}>{p}</p>)}
-      </details>
-    </article>
-  </>;
-}
-
 const BAND_CLASS: Record<StrengthRow["band"], string> = { "rất mạnh": "b4", mạnh: "b3", vừa: "b2", yếu: "b1" };
 
-function StrengthBars({ rows }: { rows: StrengthRow[] }) {
+export function StrengthBars({ rows }: { rows: StrengthRow[] }) {
   const max = Math.max(200, ...rows.map((r) => r.pct + 10));
   return (
     <figure className="sbars" style={{ ["--mark" as string]: `${(100 / max) * 100}%` }}>
@@ -51,7 +37,7 @@ function StrengthBars({ rows }: { rows: StrengthRow[] }) {
   );
 }
 
-function PlanetTable({ prepared }: { prepared: Prepared }) {
+export function PlanetTable({ prepared }: { prepared: Prepared }) {
   const { reading: r, noTime } = prepared;
   const [open, setOpen] = useState<string | null>(null);
   const rows: PlanetRow[] = r.overview.planets;
@@ -89,37 +75,6 @@ function PlanetTable({ prepared }: { prepared: Prepared }) {
   );
 }
 
-export function CommonPage({ prepared }: { prepared: Prepared }) {
-  const ov = prepared.reading.overview;
-  return (
-    <>
-      <p className="eyebrow reveal">Tổng quan</p>
-      <h2 className="reveal">Những điểm chung của lá số</h2>
-      <div className="commons">
-        {ov.common.map((c) => (
-          <article key={c.id} className="card common reveal">
-            <h3>{c.title}</h3>
-            <Paras list={c.paragraphs} />
-          </article>
-        ))}
-      </div>
-      {ov.strength && (
-        <section className="card strength reveal">
-          <h3>Sức mạnh của bảy hành tinh</h3>
-          <p><Gloss text={ov.strength.intro} /></p>
-          <StrengthBars rows={ov.strength.rows} />
-          <p>{ov.strength.best}</p>
-          <p>{ov.strength.worst}</p>
-        </section>
-      )}
-      <details className="params reveal">
-        <summary>Bảng chín hành tinh</summary>
-        <PlanetTable prepared={prepared} />
-      </details>
-    </>
-  );
-}
-
 // ------------------------------------------------------------------ 3. twelve aspects of life
 export function HouseMapPage({ prepared, selected, onPick }: { prepared: Prepared; selected: number | null; onPick: (n: number) => void }) {
   const { reading: r, natal } = prepared;
@@ -140,20 +95,10 @@ export function HouseMapPage({ prepared, selected, onPick }: { prepared: Prepare
           </details>
         </div>
       </div>
-      <h3 className="sub-h reveal">Chọn một khía cạnh để đọc</h3>
       <HouseTiles houses={r.houses} onPick={onPick} />
       <details className="params reveal">
         <summary>Xem điểm SAV của 12 nhà</summary>
         <SavBars houses={r.houses} onPick={onPick} />
-      </details>
-      <details className="params reveal">
-        <summary>Cách mình đọc mỗi nhà</summary>
-        <ol className="layers" aria-label="Sáu lớp đọc của mỗi nhà">
-          <li className="layers-head">Mỗi nhà được đọc qua sáu lớp cấu trúc gốc</li>
-          {r.houseMap.layers.map((l, i) => (
-            <li key={l.title}><span className="ln">{i + 1}</span><div><b>{l.title}</b><span><Gloss text={l.text} /></span></div></li>
-          ))}
-        </ol>
       </details>
     </>
   );
@@ -194,18 +139,17 @@ export function YogaPage({ prepared, focus, onHouse }: { prepared: Prepared; foc
   );
 }
 
-// ------------------------------------------------------------------ 4. lessons of this life
+// ------------------------------------------------------------------ 4. lessons of this life: Rahu and Ketu
 export function AxisPage({ prepared }: { prepared: Prepared }) {
-  const a = prepared.reading.lessons.axis;
+  const a = prepared.reading.nodes;
   return (
     <>
       <p className="eyebrow reveal">Bài học kiếp này</p>
-      <h2 className="reveal">Điều bạn đã thạo và điều bạn đến để học</h2>
+      <h2 className="reveal">Rahu và Ketu: điều bạn đã thạo và điều bạn đến để học</h2>
       <p className="faint reveal"><Gloss text={a.intro} /></p>
       <div className="axis-head card reveal">
         <p className="eyebrow">{a.headline}</p>
-        {a.lesson && <p className="axis-lesson">{a.lesson}</p>}
-        {a.pull && <p>{a.pull}</p>}
+        {a.axis.map((p, i) => <p key={i} className={i === 0 ? "axis-lesson" : undefined}><Gloss text={p} /></p>)}
       </div>
       <div className="axis-grid">
         <article className="card prose axis-end ketu reveal">
@@ -217,64 +161,21 @@ export function AxisPage({ prepared }: { prepared: Prepared }) {
           <Paras list={a.rahu.paragraphs} />
         </article>
       </div>
-      {a.bridge && <div className="summary reveal"><strong>Cách nối hai đầu lại</strong><p>{a.bridge}</p></div>}
+      {a.bridge.length > 0 && <div className="summary reveal"><strong>Cách nối hai đầu lại</strong>{a.bridge.map((p, i) => <p key={i}>{p}</p>)}</div>}
       {a.ask && <p className="p-ask reveal"><span>Một câu hỏi để mang theo</span>{a.ask}</p>}
       <details className="params reveal">
-        <summary>Thông số của Rahu và Ketu</summary>
-        <FactList rows={a.facts.map((f) => [f.label, f.value] as FactRow)} />
+        <summary>Vì sao mình nói điều này? Mười hai câu hỏi về Rahu và Ketu</summary>
+        <div className="factor-table" role="table" aria-label="Mười hai câu hỏi về Rahu và Ketu">
+          <div className="ft-row ft-head" role="row"><span>Yếu tố</span><span>Rahu</span><span>Ketu</span></div>
+          {a.factors.map((f) => (
+            <div className="ft-row" role="row" key={f.n}>
+              <span role="cell"><b>{f.n}. {f.name}</b><small>{f.question}</small></span>
+              <span role="cell">{f.rahu}</span>
+              <span role="cell">{f.ketu}</span>
+            </div>
+          ))}
+        </div>
       </details>
-    </>
-  );
-}
-
-export function SoulPage({ prepared }: { prepared: Prepared }) {
-  const s = prepared.reading.lessons.soul;
-  if (!s) return null;
-  return (
-    <>
-      <p className="eyebrow reveal">Bài học kiếp này</p>
-      <h2 className="reveal">Hành tinh của linh hồn</h2>
-      <p className="faint reveal"><Gloss text={s.intro} /></p>
-      <div className="soul-grid">
-        <article className="card prose soul-card reveal">
-          <p className="eyebrow">Hành tinh dẫn đường · {s.ak.planet}</p>
-          <h3>{s.ak.title}</h3>
-          <Paras list={s.ak.paragraphs} />
-          <p className="p-ask"><span>Một câu hỏi để mang theo</span>{s.ak.ask}</p>
-        </article>
-        <article className="card prose soul-card reveal">
-          <p className="eyebrow">Nơi linh hồn muốn được thể hiện</p>
-          <h3>{s.karakamsa.title}</h3>
-          <Paras list={s.karakamsa.paragraphs} />
-        </article>
-      </div>
-    </>
-  );
-}
-
-export function KarakasPage({ prepared }: { prepared: Prepared }) {
-  const s = prepared.reading.lessons.soul;
-  if (!s) return null;
-  return (
-    <>
-      <p className="eyebrow reveal">Bài học kiếp này</p>
-      <h2 className="reveal">Bảy vai trò trong đời</h2>
-      <p className="faint reveal"><Gloss text="Hệ Jaimini giao cho bảy hành tinh bảy vai khác nhau, mỗi vai là một người đồng hành trong đời bạn: linh hồn, người cố vấn, anh chị em, mẹ, con cái, đối thủ và bà con, bạn đời." /></p>
-      <div className="karakas">
-        {s.karakas.map((k) => (
-          <article key={k.role} className="card karaka reveal">
-            <header>
-              <Glyph name={k.planetId} size={30} className="kg" />
-              <div>
-                <p className="eyebrow">{k.sa}</p>
-                <h3>{k.meaning}</h3>
-                <p className="k-planet">{k.planet}</p>
-              </div>
-            </header>
-            <Paras list={k.paragraphs} />
-          </article>
-        ))}
-      </div>
     </>
   );
 }
@@ -283,7 +184,7 @@ export function KarakasPage({ prepared }: { prepared: Prepared }) {
 function HoraBoxes({ hora }: { hora: NonNullable<VargaReading["hora"]> }) {
   const box = (key: "sun" | "moon", title: string, sub: string) => (
     <div className={`hora hora-${key}`}>
-      <h4>{title}{hora.lagna === key && <em>Cung mọc của bạn ở nhóm này</em>}</h4>
+      <h4>{title}</h4>
       <small>{sub}</small>
       <ul>
         {(hora[key] as GrahaId[]).map((g) => <li key={g}><Glyph name={g} size={18} /> {GRAHA_VI[g]}</li>)}
@@ -293,9 +194,8 @@ function HoraBoxes({ hora }: { hora: NonNullable<VargaReading["hora"]> }) {
   );
   return (
     <div className="hora-wrap">
-      <h3>D2 · Hora</h3>
-      {box("sun", "Nhóm Mặt Trời", "Chủ động, vị thế, tự mình làm")}
-      {box("moon", "Nhóm Mặt Trăng", "Quan hệ, trao đổi, chăm sóc")}
+      {box("sun", "Hora Mặt Trời", "Chủ động, tự mình nắm")}
+      {box("moon", "Hora Mặt Trăng", "Quan hệ, trao đổi, thị trường")}
     </div>
   );
 }
@@ -307,41 +207,34 @@ export function VargaPage({ prepared, n }: { prepared: Prepared; n: VargaReading
     <>
       <p className="eyebrow reveal">Biểu đồ chuyên sâu</p>
       <h2 className="reveal">{v.code} · {v.name}</h2>
+      <p className="lead reveal">{v.question}</p>
       <div className="varga">
         <div className="varga-side card reveal">
-          {v.chart ? (
-            <>
-              <DiamondChart data={{ lagnaSign: v.chart.lagnaSign, planets: v.chart.planets, label: `Lá số ${v.code} (${v.name})` }} />
-              <ChartLegend />
-            </>
-          ) : v.hora ? <HoraBoxes hora={v.hora} /> : null}
+          <DiamondChart data={{ lagnaSign: v.chart.lagnaSign, planets: v.chart.planets, label: `Lá số ${v.code} (${v.name})` }} />
+          <ChartLegend />
+          {v.hora && <HoraBoxes hora={v.hora} />}
         </div>
         <div className="varga-text card prose reveal">
-          <h3>{v.short.charAt(0).toUpperCase() + v.short.slice(1)}</h3>
-          <p><Gloss text={v.lead} /></p>
-          <Paras list={v.paragraphs} />
-          {v.why && v.why.length > 0 && (
+          <h3>1 · Nhìn chung</h3>
+          <Paras list={v.summary} />
+          <h3>2 · Điểm nổi bật</h3>
+          {v.points.map((pt) => (
+            <div key={pt.title} className="varga-point">
+              <h4>{pt.title}</h4>
+              <Paras list={pt.paragraphs} />
+            </div>
+          ))}
+          <h3>3 · Độ chắc của phần đọc này</h3>
+          <p className={`trust trust-${v.trust.level === "chắc" ? "ok" : "warn"}`}><Gloss text={v.trust.note} /></p>
+          {v.why.length > 0 && (
             <details className="params why-drawer">
               <summary>Vì sao mình nói điều này?</summary>
               <ul className="why">{v.why.map((w, i) => <li key={i}>{w}</li>)}</ul>
             </details>
           )}
-          <details className="params"><summary>Xem cách chia lá số này</summary>{v.note && <p className="faint small">{v.note}</p>}<p className="faint small">{v.how}</p></details>
+          <details className="params"><summary>Xem cách chia lá số này</summary><p className="faint small">{v.how}</p></details>
         </div>
       </div>
-      {v.houses && (
-        <section className="varga-houses card prose reveal">
-          <h3>{v.housesTitle}</h3>
-          <p><Gloss text={v.housesIntro ?? ""} /></p>
-          {v.houses.map((h) => (
-            <details key={h.house} className="layers" open={h.house === 1 || (v.n === 9 ? h.house === 7 : h.house === 10)}>
-              <summary><b>Nhà {h.house} · {h.sign}</b> · {h.topic}</summary>
-              <p><Gloss text={h.text} /></p>
-              {h.notes.map((t, i) => <p key={i} className="faint small"><Gloss text={t} /></p>)}
-            </details>
-          ))}
-        </section>
-      )}
     </>
   );
 }

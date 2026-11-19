@@ -26,6 +26,8 @@ export interface FormValues {
   mm: number;
   canhId: string;
   place: PlaceInput;
+  /** How far the exact birth time may be off, in minutes either way (1, 5, 15, 30; 60 stands for "more than 30"). */
+  errMin?: number;
 }
 
 export const MIN_YEAR = 1900;
@@ -131,6 +133,12 @@ export interface Prepared {
   moonSpan?: { from: string; to: string; signFrom: string; signTo: string };
 }
 
+/** The time window the reading trusts: the error the person chose for an exact time, otherwise the width of the canh or the whole day. */
+export function windowFor(v: Pick<FormValues, "timeKind" | "errMin">): number {
+  if (v.timeKind === "exact") return v.errMin ?? 5;
+  return TIME_WINDOW_MIN[v.timeKind];
+}
+
 export function localMinuteOf(v: FormValues): number {
   if (v.timeKind === "exact") return v.hh * 60 + v.mm;
   if (v.timeKind === "canh") {
@@ -158,7 +166,7 @@ export function prepare(v: FormValues, chosenMin?: number, now = Date.now()): Pr
   const [d, m, y] = solar;
   const time = resolveCivilTime(y, m, d, Math.floor(localMin / 60), localMin % 60, v.place);
   const natal = computeNatal(time.utcMs, v.place.lat, v.place.lon);
-  const ctx = makeCtx(natal, now, { name: v.name, noTime: v.timeKind === "unknown", windowMin: TIME_WINDOW_MIN[v.timeKind] });
+  const ctx = makeCtx(natal, now, { name: v.name, noTime: v.timeKind === "unknown", windowMin: windowFor(v) });
 
 
   let moonSpan: Prepared["moonSpan"];

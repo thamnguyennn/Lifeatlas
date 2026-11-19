@@ -175,26 +175,28 @@ export function readPeriod(ctx: Ctx, node: DNode): PeriodRead {
   let tone: Tone | undefined;
   const houses = litHouses(ctx, lord);
 
+  let layers: { title: string; text: string }[] | undefined;
   if (level === 1) {
     const ch = CHAPTER[lord];
     title = `Giai đoạn “${ch.title}”`;
-    paragraphs.push(`${ch.asks} ${fill(DASHA_EVENTS_LEAD, { list: plan.events.slice(0, 4).join("; ") })}`);
-    paragraphs.push(whereLines(ctx, lord, "giai đoạn", false).join(" "));
     const cond = conditionLines(ctx, lord);
-    if (cond.length) paragraphs.push(cond.join(" "));
-    paragraphs.push(`${ch.scene} ${ch.trap}`);
-    paragraphs.push(`${classicLine(ctx, lord)} ${DASHA_TONE_LINE[periodTone(ctx, lord).tone]} Việc nên ưu tiên: ${plan.doing}`);
+    layers = [
+      { title: "1 · Chủ đề của giai đoạn", text: `${ch.asks} ${fill(DASHA_EVENTS_LEAD, { list: plan.events.slice(0, 4).join("; ") })}` },
+      { title: "2 · Hành tinh này đứng ở đâu, cai quản gì", text: whereLines(ctx, lord, "giai đoạn", false).join(" ") },
+      { title: "3 · Nó mạnh hay yếu", text: cond.length ? cond.join(" ") : `${a} không có điều kiện nào đặc biệt cộng hay trừ sức, nên giai đoạn này đi theo nhịp bình thường của nó.` },
+      { title: "4 · Bức tranh chung và sắc thái", text: `${classicLine(ctx, lord)} ${DASHA_TONE_LINE[periodTone(ctx, lord).tone]}` },
+      { title: "5 · Điều dễ gặp trong đời sống", text: `${ch.scene} ${ch.trap}` },
+      { title: "6 · Việc nên ưu tiên", text: plan.doing.charAt(0).toUpperCase() + plan.doing.slice(1) },
+    ];
+    paragraphs.push(...layers.map((l) => l.text));
     tone = periodTone(ctx, lord).tone;
   } else {
     title = `${a} · ${LEVEL_NAME[level].toLowerCase()} trong ${node.path.slice(0, level - 1).map(nameOf).join(" › ")}`;
     const pair = holder ? pairText(ctx, holder, lord) : [];
     if (level === 2) {
+      // The sub-period is read through its relation to the lord of the period it sits in; the houses were already explained there.
+      if (pair.length) paragraphs.push(pair.join(" "));
       paragraphs.push(`${plan.about} ${fill(DASHA_EVENTS_LEAD, { list: plan.events.slice(0, 3).join("; ") })}`);
-      paragraphs.push(whereLines(ctx, lord, "giai đoạn nhỏ", false).join(" "));
-      const cond = conditionLines(ctx, lord);
-      if (cond.length) paragraphs.push(cond.join(" "));
-      if (pair.length) paragraphs.push(`${classicLine(ctx, lord)} ${pair.join(" ")}`);
-      else paragraphs.push(classicLine(ctx, lord));
       const t = antarTone(ctx, holder as GrahaId, lord);
       tone = t;
       paragraphs.push(`${DASHA_TONE_LINE[t]} ${fill(DASHA_WATCH, { watch: plan.watch, doing: plan.doing })}`);
@@ -212,7 +214,7 @@ export function readPeriod(ctx: Ctx, node: DNode): PeriodRead {
     from: fmtEdge(level, node.startMs), to: fmtEdge(level, node.endMs), fromMs: node.startMs, toMs: node.endMs,
     span: spanLabel(node.endMs - node.startMs),
     trust: trustAt(ctx, mid, level),
-    path: node.path.map(nameOf), pathIds: node.path, title, paragraphs,
+    path: node.path.map(nameOf), pathIds: node.path, title, paragraphs, layers,
     litHouses: houses,
     state: stateOf(ctx.now, node.startMs, node.endMs), tone,
   };

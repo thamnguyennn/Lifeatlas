@@ -4,7 +4,7 @@ import { SIGNS, mod, fmtDeg, type GrahaId } from "../engine/constants.ts";
 import { GOCHAR_GOOD, transitAt } from "../engine/transit.ts";
 import { levelTrust } from "../engine/dasha5.ts";
 import type { Ctx } from "./ctx.ts";
-import type { SkyPlanet, SkyReading, TodayReading } from "./types.ts";
+import type { SkyPlanet, SkyReading } from "./types.ts";
 import { HOUSE_TAG } from "./content/houses-signs.ts";
 import { PLANETS } from "./content/planets.ts";
 import { CHAPTER } from "./content/chapters.ts";
@@ -142,106 +142,3 @@ export function readSky(ctx: Ctx): SkyReading {
   };
 }
 
-// ---------------------------------------------------------------- the message of the month
-
-export function readToday(ctx: Ctx): TodayReading {
-  const tr = ctx.transit;
-  const [maha, antar, prat, fine, finest] = ctx.chain;
-  const trust = (lvl: 1 | 2 | 3 | 4 | 5) => levelTrust(lvl, ctx.rel);
-  const season: string[] = [];
-  const skyLines: string[] = [];
-  const why: string[] = [];
-
-  if (maha) {
-    const through = (ctx.now - maha.startMs) / (maha.endMs - maha.startMs);
-    const closing = maha.endMs - ctx.now < 540 * 86_400_000 || through > 0.85;
-    const where = closing ? "late" : through < 0.15 ? "early" : "middle";
-    season.push(fill(TODAY_SEASON[where], { title: CHAPTER[maha.lord].title, to: mmYYYY(maha.endMs), now: lowerFirst(CHAPTER[maha.lord].now) }));
-    why.push(`Đại vận ${nameOf(maha.lord)}: đến ${mmYYYY(maha.endMs)} (${trust(1)})`);
-  }
-  if (antar && trust(2) !== "chỉ tham khảo") {
-    const withPrat = prat && trust(3) !== "chỉ tham khảo";
-    season.push(withPrat
-      ? fill(TODAY_PARTS.antarPrat, {
-        antar: nameOf(antar.lord), clause: PLANETS[antar.lord].antar, prat: nameOf(prat.lord), clause2: PLANETS[prat.lord].antar,
-        to: `${trust(3) === "gần đúng" ? "khoảng " : ""}${ddmmyyyy(prat.endMs)}`,
-      })
-      : fill(TODAY_PARTS.antar, { antar: nameOf(antar.lord), clause: PLANETS[antar.lord].antar }));
-  }
-  if (antar) why.push(`Tiểu vận ${nameOf(antar.lord)}: đến ${mmYYYY(antar.endMs)} (${trust(2)})`);
-  if (prat) why.push(`Chặng ${nameOf(prat.lord)}: đến ${ddmmyyyy(prat.endMs)} (${trust(3)})`);
-  const nextMaha = maha ? ctx.n.dasha.find((d) => d.startMs >= maha.endMs - 86_400_000) : undefined;
-  if (maha && nextMaha && maha.endMs - ctx.now < 540 * 86_400_000 && trust(1) !== "chỉ tham khảo") {
-    season.push(fill(TODAY_PARTS.next, { title: CHAPTER[nextMaha.lord].title, from: `${trust(1) === "chắc" ? "" : "khoảng "}${mmYYYY(nextMaha.startMs)}` }));
-  }
-  if (fine && trust(4) === "chắc") {
-    season.push(fill(TODAY_PARTS.fine, { fine: nameOf(fine.lord), clause: PLANETS[fine.lord].antar }));
-  }
-  if (fine) why.push(`Nhịp ${nameOf(fine.lord)}: đến ${ddmmyyyy(fine.endMs)} (${trust(4)})`);
-  if (finest) why.push(`Nhịp ngắn nhất ${nameOf(finest.lord)}: đến ${ddmmyyyy(finest.endMs)} (${trust(5)})`);
-
-  const ov = findOverlaps(ctx)[0];
-  if (ov) skyLines.push(fill(OVERLAP_TODAY, { n: ov.n, tag: ov.tag, who: ov.who, planet: nameOf(ov.planet), effect: ov.effect }));
-  const sade = tr.sadeSati.phase;
-  const hit = tr.hits.find((h) => h.orb <= 1.5 && (h.transit === "saturn" || h.transit === "jupiter" || h.transit === "rahu" || h.transit === "ketu"));
-  let sky = "";
-  if (sade === "peak") sky = TODAY_SKY.sadePeak;
-  else if (sade === "rising") sky = TODAY_SKY.sadeRising;
-  else if (sade === "setting") sky = TODAY_SKY.sadeSetting;
-  else if (tr.ashtamaShani) sky = TODAY_SKY.ashtama;
-  else if (hit) {
-    const t = hit.transit as "saturn" | "jupiter" | "rahu" | "ketu";
-    sky = fill(TODAY_SKY.hit, {
-      t: nameOf(hit.transit), kind: hit.kind === "trùng" ? "đứng trùng" : "đứng đối diện",
-      n: hit.natal === "lagna" ? "cung mọc" : nameOf(hit.natal),
-      role: hit.natal === "lagna" ? "bản thân bạn" : PLANETS[hit.natal].role.split(",")[0],
-      effect: HIT_TODAY[t],
-    });
-  } else if (tr.jupiterFromMoon.good) sky = TODAY_SKY.jupiter;
-  if (sky) skyLines.push(sky);
-  why.push(`Sao Thổ: cung thứ ${tr.saturnFromMoon} tính từ Mặt Trăng${tr.sadeSati.phase !== "none" ? " (đang trong Sade Sati)" : ""}`);
-  why.push(`Sao Mộc: cung thứ ${tr.jupiterFromMoon.house} tính từ Mặt Trăng (${tr.jupiterFromMoon.good ? "thuận" : "chưa thuận"})`);
-
-  const vn = new Date(ctx.now + 7 * 3_600_000);
-  const y = vn.getUTCFullYear(), mo = vn.getUTCMonth();
-  const monthStart = Date.UTC(y, mo, 1) - 7 * 3_600_000, monthEnd = Date.UTC(y, mo + 1, 1) - 7 * 3_600_000;
-  const sunA = transitAt(ctx.n, monthStart + 43_200_000).grahas.sun;
-  const sunB = transitAt(ctx.n, monthEnd - 43_200_000).grahas.sun;
-  const worth = (s: "tốt" | "vừa" | "khó") => (s === "tốt" ? 1 : s === "khó" ? -1 : 0);
-  const score = (worth(sunA.support) + worth(sunB.support)) / 2;
-  const rhythm = score >= 0.5 ? "good" : score <= -0.5 ? "hard" : "mixed";
-  const moved = sunA.sign !== sunB.sign;
-  const sunLines: string[] = [];
-  if (ctx.noTime) {
-    sunLines.push(moved
-      ? fill(MONTH_SUN.twoNoTime, { s1: SIGNS[sunA.sign], s2: SIGNS[sunB.sign], h1: sunA.fromMoon, h2: sunB.fromMoon })
-      : fill(MONTH_SUN.oneNoTime, { sign: SIGNS[sunA.sign], h: sunA.fromMoon }));
-  } else {
-    const t1 = MONTH_THEME[sunA.fromLagna - 1], t2 = MONTH_THEME[sunB.fromLagna - 1];
-    sunLines.push(moved
-      ? fill(MONTH_SUN.two, { h1: sunA.fromLagna, main1: t1.main, good1: t1.good, care1: t1.care, h2: sunB.fromLagna, main2: t2.main, good2: t2.good, care2: t2.care })
-      : fill(MONTH_SUN.one, { h: sunA.fromLagna, main: t1.main, good: t1.good, care: t1.care }));
-  }
-  if (rhythm !== "mixed") sunLines.push(rhythm === "good" ? MONTH_SUN.good : MONTH_SUN.hard);
-  why.push(`Mặt Trời trong tháng: ${SIGNS[sunA.sign]}${moved ? ` rồi ${SIGNS[sunB.sign]}` : ""}${ctx.noTime ? "" : `, nhà ${sunA.fromLagna}${moved ? ` rồi nhà ${sunB.fromLagna}` : ""}`}`);
-  why.push(`Mặt Trời tính từ Mặt Trăng lúc sinh: cung thứ ${sunA.fromMoon}${moved ? ` rồi thứ ${sunB.fromMoon}` : ""} (${rhythm === "good" ? "thuận" : rhythm === "hard" ? "chưa thuận" : "vừa"})`);
-
-  let lead: GrahaId | undefined = maha?.lord;
-  for (const lvl of [2, 3, 4] as const) {
-    const node = ctx.chain[lvl - 1];
-    if (node && (trust(lvl) === "chắc" || (lvl === 2 && trust(lvl) !== "chỉ tham khảo"))) lead = node.lord;
-  }
-  const action = lead ? ACTION[lead][rhythm] : "";
-
-  const ask = ctx.noTime ? (maha ? CHAPTER[maha.lord].ask : MONTH_ASK[0]) : MONTH_ASK[sunA.fromLagna - 1];
-  const trustNote = ctx.noTime
-    ? TODAY_NOTIME_NOTE
-    : `Lời nhắn dùng đến bậc ${[1, 2, 3, 4, 5].filter((l) => trust(l as 1) !== "chỉ tham khảo").length} của đại vận, vì các bậc sâu hơn chưa đủ chắc với giờ sinh bạn cung cấp.`;
-
-  return {
-    ms: ctx.now, monthLabel: mmYYYY(ctx.now), title: fill(TODAY_TITLE, { month: mmYYYY(ctx.now) }),
-    paragraphs: [season.join(" "), skyLines.join(" "), sunLines.join(" "), action].filter(Boolean), ask, why, trustNote,
-  };
-}
-
-export { firstSentence };

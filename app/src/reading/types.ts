@@ -1,35 +1,18 @@
 // The shape of a finished reading in Life Atlas v3.0.
 // Everything the UI shows is in here; the UI writes no astrology of its own.
+import type { Forecast } from "./forecast.ts";
+import type { ExploreGroup } from "./explore.ts";
 import type { GrahaId } from "../engine/constants.ts";
 import type { Tone } from "./shared.ts";
+import type { Letter, Overview } from "./overview3.ts";
+import type { NodesReading } from "./nodes.ts";
+export type { NodesReading } from "./nodes.ts";
+export type { Letter, Overview, OverviewBlock } from "./overview3.ts";
 
 export type { Tone };
 export type Trust = "chắc" | "gần đúng" | "chỉ tham khảo";
 
 // ---------------------------------------------------------------- letter and overview
-
-export type OpeningPathway =
-  | "harmony"
-  | "contrast"
-  | "stellium"
-  | "retro_depth"
-  | "dusthana_forge"
-  | "quiet_horizon";
-
-export interface Letter {
-  line: string;
-  paragraphs: string[];
-}
-
-export interface Keystone {
-  id: "lagna" | "sun" | "moon";
-  /** "Cung mọc", "Mặt Trời", "Mặt Trăng". */
-  title: string;
-  /** What this point stands for, in four or five words. */
-  role: string;
-  sign: string;
-  paragraphs: string[];
-}
 
 export interface StrengthRow {
   id: GrahaId;
@@ -58,38 +41,17 @@ export interface PlanetRow {
   strengthNote: string | null;
 }
 
-export interface OverviewSynthesis {
-  paragraphs: string[];
-  anchors: string[];
-}
-
-export interface Overview {
-  intro: string;
-  synthesis: OverviewSynthesis;
-  keystones: Keystone[];
-  /** How the three keystones talk to each other. */
-  link: { title: string; paragraphs: string[] };
-  common: { id: string; title: string; paragraphs: string[] }[];
-  strength: null | { intro: string; rows: StrengthRow[]; best: string; worst: string };
-  planets: PlanetRow[];
-}
-
 // ---------------------------------------------------------------- houses
 
-export type HousePathway =
-  | "strength_lead"
-  | "tension_contrast"
-  | "lord_bridge"
-  | "care_condition"
-  | "domain_steady";
+export type HousePathway = "strength" | "contrast" | "bridge" | "care" | "life" | "occupant" | "yoga" | "quiet";
 
 export type ExpressiveLevel = "sôi động" | "vừa phải" | "yên tĩnh";
-export type SupportLevel = "thuận lợi" | "pha trộn" | "cần rèn giũa";
+export type SupportLevel = "thuận lợi" | "có thuận có khó" | "cần rèn giũa";
 
 export interface SectionBlock { label: string; paragraphs: string[] }
 
 export interface Section {
-  id: "open" | "summary" | "sign" | "lord" | "inside" | "aspects" | "support" | "yoga" | "turn";
+  id: "open" | "summary" | "sign" | "lord" | "inside" | "aspects" | "support" | "yoga";
   /** Evidence layers: the page shows them folded under "Vì sao mình nói điều này?". */
   fold?: boolean;
   title: string;
@@ -176,33 +138,25 @@ export interface Lessons {
   soul: SoulReading | null;
 }
 
-export interface VargaHouseRead {
-  house: number;
-  sign: string;
-  topic: string;
-  /** The three beats: what it is, what it costs, how others see it. */
-  text: string;
-  /** Where the lord sits and who is inside. */
-  notes: string[];
-}
+export interface VargaPoint { title: string; paragraphs: string[] }
 
 export interface VargaReading {
-  n: 2 | 9 | 10;
+  n: 2 | 3 | 4 | 7 | 9 | 10;
   code: string;
   name: string;
   short: string;
-  lead: string;
+  /** The one question the chart answers. */
+  question: string;
+  trust: { level: "chắc" | "một phần" | "thấp" | "không"; note: string };
+  /** Part 1: the judgement, with D1 and the divisional chart read together. */
+  summary: string[];
+  /** Part 2: the two or three features that stand out in this chart. */
+  points: VargaPoint[];
+  /** Part 3: the facts behind it ("Vì sao mình nói điều này?"). */
+  why: string[];
   how: string;
-  paragraphs: string[];
-  /** D1-to-Varga structural bridge & technical explanation lines. */
-  why?: string[];
-  /** D9 and D10 are read house by house. */
-  houses?: VargaHouseRead[];
-  housesTitle?: string;
-  housesIntro?: string;
-  note?: string;
-  chart?: { lagnaSign: number; planets: Record<GrahaId, number> };
-  hora?: { sun: GrahaId[]; moon: GrahaId[]; lagna: "sun" | "moon" };
+  chart: { lagnaSign: number; planets: Record<GrahaId, number> };
+  hora?: { sun: GrahaId[]; moon: GrahaId[] };
 }
 
 // ---------------------------------------------------------------- time: dasha, sky, today
@@ -226,6 +180,8 @@ export interface PeriodRead {
   pathIds: GrahaId[];
   title: string;
   paragraphs: string[];
+  /** A Mahadasha is read in six layers (levels below it use paragraphs). */
+  layers?: { title: string; text: string }[];
   /** Natal houses activated by this period (owned, occupied, aspected). */
   litHouses?: number[];
   state: "past" | "now" | "future";
@@ -308,18 +264,6 @@ export interface SkyReading {
   why: string[];
 }
 
-export interface TodayReading {
-  ms: number;
-  monthLabel: string;
-  title: string;
-  /** A short letter: the season the person is in, the sky meeting it, one small thing to do. */
-  paragraphs: string[];
-  ask: string;
-  /** What the message was built from, shown collapsed. */
-  why: string[];
-  trustNote: string;
-}
-
 // ---------------------------------------------------------------- everything
 
 export interface Reading {
@@ -330,10 +274,11 @@ export interface Reading {
   houseMap: { intro: string[]; layers: { title: string; text: string }[] } | null;
   houses: HouseReading[];
   yogas: { intro: string; list: YogaReading[] };
-  lessons: Lessons;
+  nodes: NodesReading;
   vargas: VargaReading[] | null;
+  forecast: Forecast;
+  explore: ExploreGroup[];
   timeline: Timeline;
   ladder: LadderReading;
   sky: SkyReading;
-  today: TodayReading;
 }

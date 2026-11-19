@@ -1094,3 +1094,57 @@ details.params.mini .sp-meta { margin: 0 0 0.5rem; }
 @media (max-width: 760px) {
   .synth-grid { grid-template-columns: 1fr; }
 }
+
+/* v3: author note at the foot of the home page, ask-for-time-error select */
+.author-end { max-width: 62ch; margin: 1.5rem auto 2.5rem; }
+.author-note { border-top: 1px solid var(--line-soft); padding-top: 1rem; color: var(--text-dim); }
+.author-note summary { cursor: pointer; color: var(--text-faint); font-size: 0.92rem; letter-spacing: 0.04em; list-style: none; }
+.author-note summary::-webkit-details-marker { display: none; }
+.author-note summary::before { content: "✦ "; color: var(--gold); }
+.author-note[open] summary { color: var(--gold); margin-bottom: 0.7rem; }
+.author-note p { margin: 0; line-height: 1.8; }
+.row3.time .mini.wide { grid-column: 1 / -1; }
+
+.intro-note { position: absolute; left: 50%; top: 4.2rem; transform: translateX(-50%); margin: 0; padding: 0.4rem 0.9rem; max-width: min(92vw, 34rem); text-align: center; font-size: 0.82rem; color: var(--text-dim); background: rgba(8, 13, 31, 0.6); border: 1px solid var(--line-soft); border-radius: 999px; z-index: 3; }
+
+/* v3 overview */
+.ov-blocks { display: grid; gap: 1rem; margin-top: 1rem; }
+.ov-block { padding: clamp(1.2rem, 3vw, 1.9rem); max-width: 80ch; }
+.ov-block header { display: flex; gap: 0.9rem; align-items: center; margin-bottom: 0.7rem; }
+.ov-block h3 { margin: 0; }
+.ov-block p { line-height: 1.78; }
+.ov-facts { font-variant-numeric: tabular-nums; color: var(--gold); letter-spacing: 0.04em; font-size: 0.92rem; }
+.why ul { margin: 0.4rem 0 0; padding-left: 1.1rem; display: grid; gap: 0.35rem; color: var(--text-dim); font-size: 0.9rem; }
+.focus-bars { list-style: none; padding: 0; margin: 0.9rem 0 0.4rem; display: grid; gap: 0.45rem; }
+.focus-bars li { display: grid; grid-template-columns: minmax(8rem, 15rem) 1fr 3rem; gap: 0.7rem; align-items: center; font-size: 0.9rem; color: var(--text-dim); }
+.focus-bars .fb { height: 7px; border-radius: 99px; background: var(--line-soft); overflow: hidden; }
+.focus-bars .fb i { display: block; height: 100%; background: var(--gold); border-radius: 99px; }
+.focus-bars b { text-align: right; font-variant-numeric: tabular-nums; color: var(--text); }
+@media (max-width: 560px) { .focus-bars li { grid-template-columns: 1fr 3rem; } .focus-bars .fb { grid-column: 1 / -1; order: 3; } }
+
+.factor-table { display: grid; gap: 0; margin-top: 0.6rem; font-size: 0.9rem; }
+.ft-row { display: grid; grid-template-columns: minmax(9rem, 1.1fr) 1.5fr 1.5fr; gap: 0.8rem; padding: 0.55rem 0.2rem; border-bottom: 1px solid var(--line-soft); color: var(--text-dim); }
+.ft-row b { color: var(--text); display: block; } .ft-row small { color: var(--text-faint); }
+.ft-head { color: var(--gold); font-size: 0.78rem; letter-spacing: 0.08em; text-transform: uppercase; }
+@media (max-width: 640px) { .ft-row { grid-template-columns: 1fr; gap: 0.2rem; } .ft-head { display: none; } .ft-row span:nth-child(2)::before { content: "Rahu: "; color: var(--gold); } .ft-row span:nth-child(3)::before { content: "Ketu: "; color: var(--gold); } }
+
+.dlayer { margin: 0 0 .9rem; }
+.dlayer h4 { margin: 0 0 .25rem; font-size: .95rem; letter-spacing: .01em; color: var(--accent, #d9b46c); }
+.dlayer p { margin: 0; }
+.varga-point { margin: 0 0 1rem; }
+.varga-point h4 { margin: 0 0 .25rem; }
+.trust-warn { border-left: 3px solid #d9a14c; padding-left: .75rem; }
+.trust-ok { border-left: 3px solid #6fae8a; padding-left: .75rem; }
+.gochara { margin-top: 2rem; }
+
+.fc-key { list-style: none; padding: 0; margin: 0 0 1.5rem; display: grid; gap: .6rem; }
+.fc-key li small { display: block; opacity: .75; margin-top: .15rem; }
+.fc-months { display: grid; gap: .75rem; margin-bottom: 1.5rem; }
+.fc-month summary { cursor: pointer; padding: .2rem 0; }
+.fc-ev { margin: .4rem 0 .6rem; padding-left: 1.1rem; font-size: .92rem; opacity: .85; }
+
+.koota { list-style: none; padding: 0; margin: 0 0 1.25rem; display: grid; gap: .6rem; }
+.koota li { position: relative; padding: .6rem .8rem .8rem; border: 1px solid rgba(255,255,255,.12); border-radius: 12px; overflow: hidden; }
+.koota li small { display: block; opacity: .75; }
+.koota .kscore { float: right; font-variant-numeric: tabular-nums; }
+.koota li i { position: absolute; left: 0; bottom: 0; height: 3px; background: var(--accent, #d9b46c); }

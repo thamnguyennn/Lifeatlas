@@ -1,7 +1,6 @@
 // Hand-written reading atoms for Life Atlas v3.0: Opening (Mở lá số) and Overview (Tổng quan).
 // Concise, evocative literary voice ("mình" và "bạn") — ~50% more compact while preserving all core Parashara insights.
 
-import type { OpeningPathway } from "../types.ts";
 
 /** Mặt Trời ở từng cung: bản ngã và định hướng sống (cô đọng). Index 0 = Bạch Dương. */
 export const SUN_SIGN: string[] = [
@@ -131,21 +130,6 @@ export const LETTER_LINES = {
 };
 
 // ------------------------------------------------------------------ 6 concise literary pathways for Mở Lá Số (~50% shorter)
-
-export const OPENING_P1_BY_PATHWAY: Record<OpeningPathway, string> = {
-  harmony:
-    "Chào bạn, thật vui khi bạn dành một khoảng lặng để mở tấm bản đồ sao này cùng mình. Hãy xem đây như một cuộc trò chuyện yên tĩnh, nơi mình đọc lại những dòng tín hiệu mà bầu trời lúc bạn sinh đã giữ riêng cho bạn.",
-  contrast:
-    "Chào bạn, mời bạn tạm gác lại những bộn bề ngoài kia để ngồi xuống cùng mình một lát. Ai cũng có một dáng vẻ khi bước ra đời và một khoảng trời riêng khi ở một mình; lá số này là nơi hai phần ấy gặp nhau.",
-  stellium:
-    "Chào bạn, cảm ơn bạn đã ghé vào khoảng không gian tĩnh lặng này cùng mình. Có những bản đồ sao rải đều ánh sáng khắp mười hai cung, lại có lá số dồn nhiều tinh tú về một miền trọng tâm đầy sức hút như lá số của bạn.",
-  retro_depth:
-    "Chào bạn, mời bạn dừng chân một chút trong khoảng lặng ấm áp này. Bầu trời lúc bạn ra đời có những hành tinh chọn bước chậm lại ở pha nghịch hành, trao cho bạn một chiều sâu chiêm nghiệm rất riêng.",
-  dusthana_forge:
-    "Chào bạn, mỗi tấm bản đồ sao mở ra đều như một cuộc trò chuyện riêng tư dưới ánh đèn ấm. Lá số của bạn thuộc nhóm cấu trúc giàu sức rèn giũa — nơi bản lĩnh và độ chín được hun đúc từ chính những va chạm thực tế.",
-  quiet_horizon:
-    "Chào bạn, thật ấm áp khi được đón bạn vào không gian yên tĩnh này để nhìn lại bầu trời ngày bạn chào đời. Giống như một tấm gương trong trẻo của truyền thống Jyotish cổ, lá số mở ra nhịp điệu tự nhiên để bạn thong thả soi chiếu chính mình.",
-};
 
 export const OVERVIEW_INTRO =
   "Phần Tổng quan phác họa sơ bộ ba trụ cột quan trọng nhất của bạn — Cung mọc, Mặt Trời và Mặt Trăng — rồi đặt chúng cạnh nhau để bạn nhìn nhanh cách mình bước ra đời, định hướng sống và đời sống cảm xúc.";

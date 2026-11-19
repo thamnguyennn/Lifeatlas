@@ -3,12 +3,15 @@
 // made by a rule that is written down in the "Phương pháp" page.
 import { SIGNS, NAKSHATRA_VI, fmtDeg } from "../engine/constants.ts";
 import { makeCtx, withTime, type ComposeOptions, type Ctx } from "./ctx.ts";
-import { readAxis, readSoul, readVargas } from "./deep.ts";
+import { readExplore } from "./explore.ts";
+import { readForecast } from "./forecast.ts";
+import { readVargas } from "./vargas3.ts";
+import { readNodes } from "./nodes.ts";
 import { readHousePage, type Told } from "./housepage.ts";
 import { HOUSE_MAP } from "./content/house-deep.ts";
-import { readLetter, readOverview } from "./overviewpage.ts";
+import { readLetter, readOverview } from "./overview3.ts";
 import { readLadder, readTimeline } from "./timeline.ts";
-import { readSky, readToday } from "./skypage.ts";
+import { readSky } from "./skypage.ts";
 import { readYogas } from "./yogapage.ts";
 import type { Reading } from "./types.ts";
 
@@ -37,19 +40,20 @@ export function composeFrom(ctx: Ctx): Reading {
     houseMap: noTime ? null : HOUSE_MAP,
     houses: noTime ? [] : (() => { const told: Told = new Map(); return n.houses.map((h) => readHousePage(ctx, h, told)); })(),
     yogas: readYogas(n, noTime),
-    lessons: { axis: readAxis(n, noTime), soul: readSoul(n, noTime) },
-    vargas: noTime ? null : readVargas(n),
+    nodes: readNodes(ctx),
+    vargas: noTime ? null : readVargas(ctx),
+    forecast: readForecast(ctx),
+    explore: readExplore(ctx),
     timeline: readTimeline(ctx),
     ladder: readLadder(ctx),
     sky: readSky(ctx),
-    today: readToday(ctx),
   };
 }
 
 /** The parts of a reading that depend on the day: used when the reader picks another date. */
 export function composeDay(ctx: Ctx, ms: number) {
   const c = withTime(ctx, ms);
-  return { ladder: readLadder(c), sky: readSky(c), today: readToday(c) };
+  return { ladder: readLadder(c), sky: readSky(c) };
 }
 
 export type DayReading = ReturnType<typeof composeDay>;

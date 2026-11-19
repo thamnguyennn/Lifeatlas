@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "tsc --noEmit && vite build && node scripts/post-build.mjs",
     "test": "node --experimental-strip-types --no-warnings tests/run.ts",
-    "lint:reading": "node --experimental-strip-types --no-warnings scripts/lint-reading.ts 300",
+    "lint:reading": "node --experimental-strip-types --no-warnings scripts/quality-check.ts",
     "calibrate": "node --experimental-strip-types --no-warnings scripts/calibrate.ts"
   },
   "dependencies": {
