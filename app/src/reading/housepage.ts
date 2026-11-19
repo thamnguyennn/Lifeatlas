@@ -7,7 +7,7 @@ import { isSeven, type PlanetStrength } from "../engine/shadbala.ts";
 import type { HouseInfo, Natal } from "../engine/types.ts";
 import type { Ctx } from "./ctx.ts";
 import { conditionSentences, importance, lordState } from "./shared.ts";
-import { narrateHouse, PATH_LABEL } from "./housenarr.ts";
+import { narrateHouse4, PATH_LABEL4 } from "./house4.ts";
 import { buildFacts } from "./facts.ts";
 import type { HousePathway, HouseReading, Section, SectionBlock } from "./types.ts";
 import { yogaDetail, yogaKey } from "./yogapage.ts";
@@ -25,7 +25,7 @@ import {
   PART_TEXT, PART_SPREAD, BHAVA_LINE, BHAVA_DIVERGE, SAV_INTRO, SAV_INTRO_SHORT, SAV_REVERSE, YOGA_INTRO_ONE, YOGA_INTRO_MANY, YOGA_SHORT_ONE, YOGA_SHORT_MANY,
   EMPTY_HOUSE_SHORT, HOUSE_SECTION_TITLES as T, type PartKey,
 } from "./content/house-deep.ts";
-import { nameOf, domain, joinVi, fill } from "./util.ts";
+import { nameOf, domain, joinVi, fill, firstSentence } from "./util.ts";
 
 const nakName = (name: string) => NAKSHATRA_VI[name] ?? name;
 const words = (s: string) => s.split(/\s+/).filter(Boolean).length;
@@ -116,113 +116,15 @@ export function readHousePage(ctx: Ctx, h: HouseInfo, told: Told = new Map()): H
   const F = buildFacts(ctx);
   const hf = F.houses[idx];
   const recent = lastPaths.get(told) ?? [];
-  const narr = narrateHouse(ctx, hf, recent);
+  const narr = narrateHouse4(ctx, F, hf, recent);
   lastPaths.set(told, [...recent, narr.path]);
-  const pathwayLabel = PATH_LABEL[narr.path];
-  const story = { pathway: narr.path, expressiveLevel: narr.expressive, supportLevel: narr.support, used: narr.used };
-
-  const sections: Section[] = [];
-
-  sections.push({ id: "open", title: T.open, paragraphs: [HOUSE_OPEN[idx]] });
-
-  const aspectBlocksAll = aspectBlocks(n, h);
-  // The story: how this house reads in this chart, in two to four connected paragraphs. The layers below it are the evidence.
-  const summaryAtoms = [...narr.used];
-  sections.push({ id: "summary", title: narr.title, paragraphs: narr.paragraphs });
-
-  sections.push({
-    id: "sign", title: T.sign(sign), fold: true,
-    paragraphs: [fill(full ? SIGN_ON_HOUSE : SIGN_ON_HOUSE_SHORT, { sign }), ...HOUSE_FACULTIES[idx].map((f) => SIGN_FACULTY[h.sign][f])],
-  });
-
-  // the lord
-  const lordParas = [
-    fill(full ? LORD_INTRO : LORD_INTRO_SHORT, { n: h.n, lord: lordName }),
-    ...(lp === h.n ? [fill(LORD_SELF, { dH })] : []),
-    LORD_IN[idx][lp - 1],
-    ...lordState(n, h),
-    ...profileLines(ctx, h.lord, h.n, told, full),
+  const pathwayLabel = PATH_LABEL4[narr.path];
+  const story = { pathway: narr.path, expressiveLevel: narr.expressive, supportLevel: narr.support };
+  const sections: Section[] = [
+    { id: "open", title: T.open, paragraphs: [firstSentence(HOUSE_OPEN[idx])] },
+    { id: "summary", title: narr.title, paragraphs: narr.paragraphs },
   ];
-  sections.push({ id: "lord", title: T.lord(lordName), fold: true, paragraphs: lordParas });
-
-  // who sits inside
-  if (!h.occupants.length) {
-    sections.push({ id: "inside", title: T.inside, fold: true, paragraphs: [fill(firstTime(told, "empty") ? EMPTY_HOUSE : EMPTY_HOUSE_SHORT[h.n % EMPTY_HOUSE_SHORT.length], { dH, lord: lordName })] });
-  } else {
-    const list = joinVi(h.occupants.map(nameOf));
-    sections.push({
-      id: "inside", title: T.inside, fold: true,
-      paragraphs: [fill(full ? (h.occupants.length > 1 ? OCCUPANT_INTRO_MANY : OCCUPANT_INTRO_ONE) : OCCUPANT_INTRO_SHORT, { list, dH })],
-      blocks: h.occupants.map((g) => {
-        const rulesIt = g === h.lord;
-        return {
-          label: `${nameOf(g)} ở nhà ${h.n}`,
-          paragraphs: [
-            PLANET_IN_HOUSE[g][idx],
-            ...conditionSentences(n, g, rulesIt).slice(0, 2),
-            ...(rulesIt ? [] : profileLines(ctx, g, h.n, told, false, n.grahas[g].digBala)),
-          ],
-        };
-      }),
-    });
-  }
-
-  // who looks at it
-  const ab = aspectBlocksAll;
-  sections.push({
-    id: "aspects", title: T.aspects, fold: true,
-    paragraphs: [fill(ab.length ? (full ? ASPECT_INTRO : ASPECT_INTRO_SHORT) : ASPECT_NONE, { dH })],
-    blocks: ab.length ? ab : undefined,
-  });
-
-  // support
-  const supportParas = [
-    `${full ? SAV_INTRO + " " : ""}${dust ? SAV_REVERSE[h.n as 6 | 8 | 12] + " " : ""}${fill(full ? "Nhà này được {sav} điểm, ở mức {label}." : SAV_INTRO_SHORT, { sav: h.sav, label: savLabel })} ${SAV_LINES[idx][bandKey]}`,
-  ];
-  if (bh) {
-    const tier = bh.rank <= 4 ? "top" : bh.rank <= 8 ? "mid" : "low";
-    const rankClause = bh.rank === 1 ? "khỏe nhất trong mười hai nhà" : bh.rank === 12 ? "yếu nhất trong mười hai nhà"
-      : `đứng thứ ${bh.rank} trong mười hai nhà, ${tier === "top" ? "thuộc nhóm khỏe nhất lá số" : tier === "mid" ? "ở giữa bảng" : "thuộc nhóm cần bồi đắp nhiều nhất"}`;
-    supportParas.push(fill(BHAVA_LINE[tier], { rankClause, dH }));
-    if (!dust && tier === "top" && bandKey === "low") supportParas.push(BHAVA_DIVERGE.strongLowSupport);
-    if (!dust && tier === "low" && bandKey === "high") supportParas.push(BHAVA_DIVERGE.weakHighSupport);
-  }
-  sections.push({ id: "support", title: T.support, fold: true, paragraphs: supportParas });
-
-  // yogas that pass through the house
-  const ys = [...hf.yogas].sort((a, b) => importance(b) - importance(a)).slice(0, 2);
-  const yogaIds = ys.map((y) => y.id);
-  if (ys.length) {
-    sections.push({
-      id: "yoga", title: T.yoga, fold: true,
-      paragraphs: [firstTime(told, "yoga")
-        ? (ys.length > 1 ? fill(YOGA_INTRO_MANY, { k: ys.length }) : YOGA_INTRO_ONE)
-        : (ys.length > 1 ? fill(YOGA_SHORT_MANY, { k: ys.length }) : YOGA_SHORT_ONE)],
-      yogaIds,
-      blocks: ys.map((y) => {
-        const tpl = YOGA_TEXT[yogaKey(y)];
-        const text = fill(tpl, { p: nameOf(y.grahas[0]) });
-        const cut = text.indexOf(" (Cách nhận ra:");
-        const detail = yogaDetail(n, y);
-        return { label: y.name, paragraphs: [cut < 0 ? text : text.slice(0, cut), ...(detail ? [detail] : [])] };
-      }),
-    });
-  }
-
-
-  // Drop from the folded layers what the summary has already said, and any layer that is left empty.
-  const said = new Set(summaryAtoms);
-  for (const sec of sections) {
-    if (!sec.fold) continue;
-    sec.paragraphs = sec.paragraphs.filter((x) => !said.has(x));
-    if (sec.blocks) {
-      sec.blocks = sec.blocks.map((b) => ({ ...b, paragraphs: b.paragraphs.filter((x) => !said.has(x)) })).filter((b) => b.paragraphs.length);
-      if (!sec.blocks.length) { sec.blocks = undefined; if (sec.id === "aspects") sec.paragraphs = []; }
-    }
-  }
-  const bare = (sec: Section) => (sec.id === "lord" && sec.paragraphs.length <= 1 && !sec.blocks) || (sec.id === "inside" && !h.occupants.length);
-  const kept = sections.filter((sec) => !bare(sec) && (!sec.fold || sec.paragraphs.length || (sec.blocks && sec.blocks.length)));
-  sections.length = 0; sections.push(...kept);
+  const yogaIds = hf.yogas.filter((y) => y.strength !== "weak").map((y) => y.id);
 
   const facts: HouseReading["facts"] = [
     { label: "Cung trên nhà", value: sign },
@@ -238,11 +140,7 @@ export function readHousePage(ctx: Ctx, h: HouseInfo, told: Told = new Map()): H
     ...(bh ? [{ label: "Độ vững nội tại (Bhava Bala)", value: `${(bh.total / 60).toFixed(1)} rupa, xếp thứ ${bh.rank} trong 12 nhà` }] : []),
   ];
 
-  const whyWithAxes = [
-    ...narr.why,
-    `Mức biểu hiện: ${story.expressiveLevel}; độ hỗ trợ: ${story.supportLevel}.`,
-    ...ctx.scored[idx].why,
-  ];
+  const whyWithAxes = narr.why;
 
   const allText = sections.flatMap((s) => [...s.paragraphs, ...(s.blocks ?? []).flatMap((b) => b.paragraphs)]);
   return {

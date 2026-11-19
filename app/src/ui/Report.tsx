@@ -11,7 +11,7 @@ import {
   AxisPage, HouseMapPage, VargaPage,
 } from "./PagesA.tsx";
 import { OverviewPage } from "./PagesOverview.tsx";
-import { ChaptersPage, NowPage, ForecastPage, ExploreGroupPage, CompatPage } from "./PagesTime.tsx";
+import { ChaptersPage, NowPage, ForecastPage, ExploreHub } from "./PagesTime.tsx";
 import { buildParts, flatPages, type PageDef } from "./pages.ts";
 import { birthSubtitle } from "./format.ts";
 import { readingToText } from "./export-text.ts";
@@ -132,8 +132,7 @@ export function Report({ prepared, onEdit, onChoose, now }: {
     if (varga) return <VargaPage prepared={prepared} n={+varga[1] as 2 | 9 | 10} />;
     if (id === "t-chapters") return <ChaptersPage prepared={prepared} now={now} />;
     if (id === "t-now") return <NowPage prepared={prepared} day={day} dayMs={dayMs} onDay={setDayMs} />;
-    if (id === "x-compat") return <CompatPage prepared={prepared} />;
-    if (id.startsWith("x-")) return <ExploreGroupPage prepared={prepared} gid={id.slice(2)} />;
+    if (id === "x-hub") return <ExploreHub prepared={prepared} />;
     if (id === "y2027") return <ForecastPage prepared={prepared} />;
     return null;
   };
@@ -169,6 +168,12 @@ export function Report({ prepared, onEdit, onChoose, now }: {
               </button>
             ))}
           </div>
+        </aside>
+      )}
+      {!noTime && r.meta.lagnaShift.length > 1 && (
+        <aside className="callout check reveal">
+          <strong>Trong sai số giờ sinh bạn chọn, cung mọc có thể là {r.meta.lagnaShift.join(" hoặc ")}</strong>
+          <p>Bài đọc dùng giờ bạn nhập. Những phần dựa vào cung mọc (12 nhà, các biểu đồ chia, nhà trong dự báo) nên được đọc như một khả năng, không phải điều chắc chắn. Những phần không phụ thuộc cung mọc, như Mặt Trăng và các giai đoạn đời lớn, ít bị ảnh hưởng hơn.</p>
         </aside>
       )}
       {noTime && (

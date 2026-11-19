@@ -19,8 +19,18 @@ export interface Stability {
 
 const uniq = (xs: number[]) => [...new Set(xs)];
 
+const memo = new WeakMap<Natal, Map<string, Stability>>();
 export function stability(n: Natal, windowMin: number, noTime = false): Stability {
-  const offsets = windowMin <= 1 ? [0, -1, 1] : [-1, -0.5, 0, 0.5, 1].map((k) => k * windowMin);
+  const m = memo.get(n) ?? new Map<string, Stability>(); memo.set(n, m);
+  const key = `${windowMin}|${noTime}`;
+  if (!m.has(key)) m.set(key, castStability(n, windowMin, noTime));
+  return m.get(key)!;
+}
+
+function castStability(n: Natal, windowMin: number, noTime: boolean): Stability {
+  // sample the whole window densely enough that a D10 sign (3°, about 12 minutes of rising) cannot slip between two casts
+  const steps = Math.max(2, Math.min(40, Math.ceil(windowMin / 3)));
+  const offsets = Array.from({ length: 2 * steps + 1 }, (_, i) => ((i - steps) / steps) * Math.max(1, windowMin));
   const casts = offsets.map((m) => (m === 0 ? n : computeNatal(n.utcMs + m * 60_000, n.lat, n.lon)));
   const varga = {} as Stability["varga"];
   for (const v of VARGAS) {

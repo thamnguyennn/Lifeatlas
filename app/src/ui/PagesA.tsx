@@ -81,8 +81,8 @@ export function HouseMapPage({ prepared, selected, onPick }: { prepared: Prepare
   if (!r.houseMap) return null;
   return (
     <>
-      <p className="eyebrow reveal">12 khía cạnh cuộc sống</p>
-      <h2 className="reveal">Mười hai khía cạnh của cuộc sống</h2>
+      <p className="eyebrow reveal">Mười hai lĩnh vực đời sống</p>
+      <h2 className="reveal">12 nhà – 12 khía cạnh cuộc sống</h2>
       <div className="map-intro reveal"><p className="lead"><Gloss text={r.houseMap.intro[0]} /></p></div>
       <div className="map-grid one">
         <div className="card ov-chart reveal">
@@ -208,6 +208,7 @@ export function VargaPage({ prepared, n }: { prepared: Prepared; n: VargaReading
       <p className="eyebrow reveal">Biểu đồ chuyên sâu</p>
       <h2 className="reveal">{v.code} · {v.name}</h2>
       <p className="lead reveal">{v.question}</p>
+      <p className="faint reveal">{v.about}</p>
       <div className="varga">
         <div className="varga-side card reveal">
           <DiamondChart data={{ lagnaSign: v.chart.lagnaSign, planets: v.chart.planets, label: `Lá số ${v.code} (${v.name})` }} />
@@ -215,17 +216,18 @@ export function VargaPage({ prepared, n }: { prepared: Prepared; n: VargaReading
           {v.hora && <HoraBoxes hora={v.hora} />}
         </div>
         <div className="varga-text card prose reveal">
-          <h3>1 · Nhìn chung</h3>
-          <Paras list={v.summary} />
-          <h3>2 · Điểm nổi bật</h3>
+          <h3 className="central-h">Nhận định chung</h3>
+          <p className="central"><Gloss text={v.summary[0]} /></p>
+          <Paras list={v.summary.slice(1)} />
+          <h3>Những điểm nổi bật</h3>
           {v.points.map((pt) => (
             <div key={pt.title} className="varga-point">
               <h4>{pt.title}</h4>
               <Paras list={pt.paragraphs} />
             </div>
           ))}
-          <h3>3 · Độ chắc của phần đọc này</h3>
-          <p className={`trust trust-${v.trust.level === "chắc" ? "ok" : "warn"}`}><Gloss text={v.trust.note} /></p>
+          <h3>3 · Độ ổn định trong sai số giờ sinh</h3>
+          <p className={`trust trust-${v.trust.level === "chắc" ? "ok" : "warn"}`}><b>{v.trust.level === "chắc" ? "Cấu trúc ổn định" : v.trust.level === "không" ? "Chưa đủ dữ liệu" : "Cần thận trọng"}.</b> <Gloss text={v.trust.note} /></p>
           {v.why.length > 0 && (
             <details className="params why-drawer">
               <summary>Vì sao mình nói điều này?</summary>

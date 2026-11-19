@@ -32,7 +32,7 @@ export const VARGA_NOTE: Record<number, string> = {
 export const D2_BALANCE = {
   sun: "Phần lớn hành tinh của bạn nằm ở nhóm Mặt Trời. Chuyện tiền của bạn thiên về tự mình làm và vị thế: bạn kiếm tốt khi được tự quyết, và dễ bứt rứt khi thu nhập hoàn toàn phụ thuộc người khác.",
   moon: "Phần lớn hành tinh của bạn nằm ở nhóm Mặt Trăng. Chuyện tiền của bạn thiên về quan hệ và trao đổi: bạn kiếm tốt khi hiểu người, và nên có một khoản dự phòng vì thu nhập hay lên xuống theo quan hệ và thị trường.",
-  even: "Hành tinh của bạn chia gần đều giữa hai nhóm. Bạn có thể kiếm theo cả hai lối, tự mình làm và qua người khác, nên hợp với nguồn thu pha trộn hơn là dồn vào một chỗ.",
+  even: "Hành tinh của bạn chia gần đều giữa hai nhóm. Bạn có thể kiếm theo cả hai lối, tự mình làm và qua người khác, nên hợp với nhiều nguồn thu song song hơn là dồn vào một chỗ.",
 };
 
 export const D2_LAGNA = {

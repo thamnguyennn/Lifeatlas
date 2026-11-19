@@ -41,7 +41,7 @@ function steer(F: Facts, node: "rahu" | "ketu", noTime: boolean): string {
   const tag = HOUSE_TAG[d.house - 1];
   const lord = d.lorded.length ? ` Vì ${nm} còn cai quản ${joinVi(d.lorded.map((h) => HOUSE_SHORT[h - 1]))}, ${role} ấy cũng chảy về các mảng này.` : "";
   const cond = d.grade === "strong" || d.grade === "good" ? `${nm} ${gradeWord(d)}, nên người dẫn đường này đáng tin.` : d.grade === "weak" ? `${nm} còn yếu, nên người dẫn đường này cần được nuôi thêm bằng việc làm cụ thể.` : `${nm} ở mức vừa, đủ để dẫn đường nhưng không phải chỗ để dựa hết.`;
-  return `${who} nằm trong cung của ${nm}, và ${nm} đang đứng ở nhà ${d.house} (${tag}), nên ${role} này tìm đường qua chuyện ${tag}. ${cond}${lord}`;
+  return `${who} nằm trong cung của ${nm}, và ${nm} đang đứng ở vùng ${tag}, nên ${role} này tìm đường qua chuyện ${tag}. ${cond}${lord}`;
 }
 
 function received(F: Facts, node: "rahu" | "ketu"): string[] {
@@ -63,7 +63,7 @@ function lordOfNakshatra(F: Facts, node: "rahu" | "ketu", noTime: boolean): stri
   const g = F.planets[node].g;
   const l = F.planets[g.nak.lord];
   const nm = nameOf(l.id), who = node === "rahu" ? "Rahu" : "Ketu";
-  return `Chủ của chòm sao ${nak(g.nak.name)} là ${nm}${noTime || !l.house ? "" : `, đang ở nhà ${l.house} (${HOUSE_TAG[l.house - 1]}) và ${gradeWord(l)}`}, nên sắc thái của ${node === "rahu" ? "khát vọng" : "sở trường"} này mang thêm màu của ${nm}.`;
+  return `Chủ của chòm sao ${nak(g.nak.name)} là ${nm}${noTime || !l.house ? "" : `, đang ở vùng ${HOUSE_TAG[l.house - 1]} và ${gradeWord(l)}`}, nên sắc thái của ${node === "rahu" ? "khát vọng" : "sở trường"} này mang thêm màu của ${nm}.`;
 }
 
 function yogaNote(ctx: Ctx, node: "rahu" | "ketu"): string[] {
@@ -151,14 +151,28 @@ export function readNodes(ctx: Ctx): NodesReading {
 
   return {
     intro: AXIS_INTRO,
-    headline: noTime ? `Rahu ở ${SIGNS[R.sign]} · Ketu ở ${SIGNS[K.sign]}` : `Rahu ở nhà ${R.house} · Ketu ở nhà ${K.house}`,
+    headline: noTime ? `Rahu ở ${SIGNS[R.sign]} · Ketu ở ${SIGNS[K.sign]}` : `Rahu ở vùng ${HOUSE_TAG[R.house! - 1]} · Ketu ở vùng ${HOUSE_TAG[K.house! - 1]}`,
     axis,
-    rahu: { title: "Điều bạn đến để mở rộng (Rahu)", paragraphs: rahuP.filter(Boolean) },
-    ketu: { title: "Điều bạn đã thạo (Ketu)", paragraphs: ketuP.filter(Boolean) },
-    bridge: A ? [A.bridge] : [],
+    rahu: { title: "Rahu: nơi bạn muốn mở rộng", paragraphs: rahuP.filter(Boolean) },
+    ketu: { title: "Ketu: nơi bạn chọn lọc và quay vào trong", paragraphs: ketuP.filter(Boolean) },
+    bridge: [...(A ? [A.bridge] : []), ...timing(ctx, F)],
     ask: A ? A.ask : null,
     factors,
   };
 }
 
 void isGood;
+
+/** Where the axis meets time: a Rahu/Ketu period (or one of their dispositors), and the transiting nodes over the natal axis. */
+function timing(ctx: Ctx, F: Facts): string[] {
+  const out: string[] = [];
+  const [maha, antar] = ctx.chain;
+  const dR = SIGN_LORD[F.planets.rahu.sign], dK = SIGN_LORD[F.planets.ketu.sign];
+  const who = (id: GrahaId) => (id === "rahu" ? "Rahu" : id === "ketu" ? "Ketu" : id === dR ? `${nameOf(id)}, hành tinh dẫn Rahu` : `${nameOf(id)}, hành tinh dẫn Ketu`);
+  const hit = [maha, antar].filter(Boolean).find((x) => [ "rahu", "ketu", dR, dK ].includes(x.lord));
+  if (hit) out.push(`Hiện bạn đang ở ${hit.level === 1 ? "đại vận" : "tiểu vận"} của ${who(hit.lord)} (${mmYYYY(hit.startMs)} – ${mmYYYY(hit.endMs)}), nên trục này đang được nhấn mạnh trong đời sống hơn bình thường: những câu hỏi về ${hit.lord === "ketu" || hit.lord === dK ? "điều gì đáng giữ, điều gì nên buông" : "điều mình thật sự muốn với tới"} dễ trở nên cụ thể.`);
+  const tr = ctx.transit.grahas.rahu.sign;
+  if (tr === F.planets.rahu.sign) out.push("Rahu trên bầu trời hiện đang đi qua đúng cung của Rahu lúc bạn sinh, một lần trở về xảy ra khoảng 18 năm một lần; truyền thống xem đây là lúc những khát vọng cũ được đặt lại trên bàn.");
+  else if (tr === F.planets.ketu.sign) out.push("Rahu trên bầu trời hiện đang đi qua cung của Ketu lúc bạn sinh, tức trục đang đảo chiều; những gì quen thuộc có thể bỗng trở nên đáng muốn, và ngược lại.");
+  return out;
+}

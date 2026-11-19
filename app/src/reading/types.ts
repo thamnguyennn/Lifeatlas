@@ -142,6 +142,7 @@ export interface VargaPoint { title: string; paragraphs: string[] }
 
 export interface VargaReading {
   n: 2 | 3 | 4 | 7 | 9 | 10;
+  about: string;
   code: string;
   name: string;
   short: string;
@@ -267,7 +268,7 @@ export interface SkyReading {
 // ---------------------------------------------------------------- everything
 
 export interface Reading {
-  meta: { lagna: string; moon: string; sun: string; moonNak: string; lagnaNak: string; ayanamsa: string; noTime: boolean };
+  meta: { lagna: string; moon: string; sun: string; moonNak: string; lagnaNak: string; ayanamsa: string; noTime: boolean; windowMin: number; lagnaShift: string[] };
   letter: Letter;
   overview: Overview;
   /** The page that opens the twelve houses. Null when the birth time is unknown. */

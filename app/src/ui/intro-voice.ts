@@ -27,13 +27,12 @@ const MALE_HINT = /(nam\s?minh|\bnam\b|male|\bman\b|hùng|hung|đức|duc|khoa|t
 
 /** Best Vietnamese voice the device has: a male one when it can be told apart, otherwise any Vietnamese voice. */
 export function pickVoice(list: SpeechSynthesisVoice[]): { voice: SpeechSynthesisVoice | null; male: boolean } {
-  const vi = list.filter((v) => /^vi\b|^vi[-_]/i.test(v.lang) || /vietnam|tiếng việt/i.test(v.name));
+  // Only natural (neural / online) Vietnamese voices are used; the compact local voices sound robotic, so without a natural
+  // voice the film plays with captions, music and sound effects only.
+  const vi = list.filter((v) => (/^vi\b|^vi[-_]/i.test(v.lang) || /vietnam|tiếng việt/i.test(v.name)) && /natural|online|neural|google/i.test(v.name));
   if (!vi.length) return { voice: null, male: false };
   const male = vi.find((v) => MALE_HINT.test(v.name));
-  if (male) return { voice: male, male: true };
-  // a natural (neural) voice reads better than the compact local one
-  const natural = vi.find((v) => /natural|online|neural/i.test(v.name)) ?? vi[0];
-  return { voice: natural, male: false };
+  return male ? { voice: male, male: true } : { voice: vi[0], male: false };
 }
 
 const words = (s: string) => s.replace(/[.,…]/g, " ").split(/\s+/).filter(Boolean).length;

@@ -10,6 +10,7 @@ import { shadbala, drikBala, beneficSet, SEVEN_IDS, REQUIRED_RUPAS } from "../sr
 import { dashaOrigin, dashaMahas, dashaChildren, dashaChain, dashaReliability, levelTrust, LEVEL_NAME, TIME_WINDOW_MIN, type DNode } from "../src/engine/dasha5.ts";
 import { transitAt, taraOf, stayIn } from "../src/engine/transit.ts";
 import { readCompat } from "../src/reading/compat.ts";
+import { yearCalendar, vedhaBy } from "../src/reading/forecast.ts";
 import { buildParts, flatPages } from "../src/ui/pages.ts";
 
 let passed = 0, failed = 0;
@@ -181,7 +182,8 @@ test("12 Nhà: open and summary are visible, evidence is folded, no dasha sectio
     assert.deepEqual(ids.slice(0, 2), ["open", "summary"], `house ${h.n}`);
     assert.deepEqual(h.sections.filter((s) => !s.fold).map((s) => s.id), ["open", "summary"], `house ${h.n} visible sections`);
     if (i > 0) assert.notEqual(h.pathway, full.houses[i - 1].pathway, `house ${h.n} repeats the opening path of ${h.n - 1}`);
-    assert.ok(h.words >= 280 && h.words <= 1400, `house ${h.n} has ${h.words} words`);
+    assert.ok(h.words >= 100 && h.words <= 900, `house ${h.n} has ${h.words} words`);
+    assert.ok(h.why.length >= 3, `house ${h.n} lists its evidence`);
   }
 });
 
@@ -205,12 +207,13 @@ test("a wide birth-time error lowers the trust of the divisional charts that dep
   for (const v of wide.vargas!.filter((x) => x.trust.level === "thấp")) assert.ok(!/Nhà \d+ của D\d+ là/.test(JSON.stringify(v.points)), `D${v.n} must not be read house by house`);
 });
 
-test("Đại vận: Mahadasha has six layers; Antardasha is read through the Mahadasha lord and does not re-explain houses", () => {
+test("Đại vận: Mahadasha has four synthesised layers; Antardasha is read through the Mahadasha lord and does not re-explain houses", () => {
   const T = full.timeline;
   assert.ok(T.mahas.length >= 5 && T.mahas.length <= 9);
   for (const m of T.mahas) {
     assert.equal(m.antars.length, 9);
-    assert.equal(m.read.layers?.length, 6);
+    assert.equal(m.read.layers?.length, 4);
+    assert.doesNotMatch(m.read.layers!.map((l) => l.text).join(" "), /\bnhà \d+\b/i, "no house numbers in the Mahadasha prose");
     for (const a of m.antars) assert.ok(!a.layers && a.paragraphs.length >= 2);
   }
   assert.equal(T.houseWindows.length, 12);
@@ -225,7 +228,8 @@ test("Dự đoán 2027: twelve months built on a real calendar, with parameters 
   assert.equal(F.year, 2027);
   assert.equal(F.months.length, 12);
   assert.ok(F.key.length >= 4);
-  for (const m of F.months) { assert.ok(m.paragraphs.length === 3 && m.why.length >= 4, m.label); }
+  for (const m of F.months) { assert.ok(m.central.length > 30 && m.why.length >= 4, m.label); }
+  assert.ok(F.months.slice(1).every((m) => m.change.length >= 1), "every month after January says what changed");
   assert.ok(F.months.some((m) => m.events.length > 0));
   assert.ok(F.key.every((e, i, a) => i === 0 || a[i - 1].ms <= e.ms), "calendar is in date order");
   assert.doesNotMatch(JSON.stringify(blind.forecast), /\bnhà \d+\b/i, "no house numbers without birth time");
@@ -244,9 +248,9 @@ test("Khám phá thêm: three groups, eleven topics, plus compatibility", () => 
 
 test("page map: seven parts, no sky page, no month message, no house numbers without birth time", () => {
   const parts = buildParts({ reading: full, noTime: false } as never);
-  assert.deepEqual(parts.map((p) => p.id), ["overview", "houses", "lessons", "vargas", "time", "explore", "y2027"]);
-  assert.ok(!flatPages(parts).some((p) => p.id === "t-sky" || p.id === "today"));
-  assert.equal(flatPages(parts).length, 28);
+  assert.deepEqual(parts.map((p) => p.id), ["overview", "houses", "lessons", "vargas", "time", "y2027", "explore"]);
+  assert.ok(!flatPages(parts).some((p) => p.id === "t-sky" || p.id === "today" || p.id === "t-now"));
+  assert.equal(flatPages(parts).length, 24);
   assert.equal(blind.houses.length, 0);
   assert.equal(blind.vargas, null);
   const text = JSON.stringify({ o: blind.overview, l: blind.nodes, t: blind.timeline, ladder: blind.ladder, sky: blind.sky });
@@ -257,6 +261,29 @@ test("composition is deterministic and free of unfilled placeholders", () => {
   assert.deepEqual(compose(n, NOW, { name: "Minh Anh" }), full);
   assert.doesNotMatch(JSON.stringify(full), /\{[a-z0-9]+\}|undefined|NaN/);
   assert.doesNotMatch(JSON.stringify(blind), /\{[a-z0-9]+\}|undefined|NaN/);
+});
+
+console.log("External references (not this program's own output)");
+test("Lahiri ayanamsa at 2000-01-01 12:00 UT is 23°51′ ± 1′ (Indian Astronomical Ephemeris value 23°51′11″)", () => {
+  const z = computeNatal(Date.UTC(2000, 0, 1, 12, 0), 0, 0);
+  assert.ok(Math.abs(z.ayanamsa - (23 + 51 / 60 + 11 / 3600)) < 1 / 60, `got ${z.ayanamsa}`);
+});
+test("2027 eclipses match NASA's catalogue (6 Feb annular, 20 Feb penumbral, 18 Jul penumbral, 2 Aug total, 17 Aug penumbral)", () => {
+  const ev = yearCalendar(makeCtx(n, NOW, {}), 2027).filter((e) => e.kind === "eclipse");
+  const want = [Date.UTC(2027, 1, 6, 16), Date.UTC(2027, 1, 20, 19), Date.UTC(2027, 6, 18, 16), Date.UTC(2027, 7, 2, 10), Date.UTC(2027, 7, 17, 7)];
+  assert.equal(ev.length, want.length, ev.map((e) => e.date).join(", "));
+  ev.forEach((e, i) => assert.ok(Math.abs(e.ms - want[i]) < 18 * 3600_000, `${e.title} ${e.date}`));
+});
+test("sidereal ingresses match published Lahiri dates: Saturn into Pisces 29 Mar 2025, Jupiter into Gemini 14 May 2025, Saturn into Aries 3 Jun 2027", () => {
+  const c25 = yearCalendar(makeCtx(n, NOW, {}), 2025), c27 = yearCalendar(makeCtx(n, NOW, {}), 2027);
+  const find = (c: typeof c25, t: string) => c.find((e) => e.kind === "ingress" && e.title === t)!;
+  const near = (ms: number, y: number, m: number, d: number) => Math.abs(ms - Date.UTC(y, m - 1, d, 12)) < 2.5 * 86_400_000;
+  assert.ok(near(find(c25, "Sao Thổ sang Song Ngư").ms, 2025, 3, 29));
+  assert.ok(near(find(c25, "Sao Mộc sang Song Tử").ms, 2025, 5, 14));
+  assert.ok(near(find(c27, "Sao Thổ sang Bạch Dương").ms, 2027, 6, 3));
+});
+test("Vedha: the Sun and Saturn never obstruct each other (Phaladeepika exception)", () => {
+  for (let k = 0; k < 40; k++) { const t = transitAt(n, Date.UTC(2027, 0, 1) + k * 9 * 86_400_000); const v = vedhaBy(t, "sun"); assert.notEqual(v, "saturn"); }
 });
 
 console.log(`\n${passed} passed, ${failed} failed`);

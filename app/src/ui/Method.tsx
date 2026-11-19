@@ -9,7 +9,7 @@ export function Method() {
   return (
     <main id="main" className="method">
       <header className="mhead">
-        <p className="eyebrow">Phương pháp · Life Atlas v3.0</p>
+        <p className="eyebrow">Phương pháp · Life Atlas v4</p>
         <h1>Trang này tính và đọc lá số như thế nào</h1>
         <p className="lead">Mọi con số ở đây đều kiểm chứng được. Bạn có thể đem lá số sang phần mềm khác để so với các quy ước bên dưới; nếu cùng quy ước thì kết quả phải khớp.</p>
       </header>
@@ -19,20 +19,21 @@ export function Method() {
         <ol className="steps">
           <li><b>Đổi giờ sinh sang giờ chuẩn quốc tế (UTC).</b> Đây là bước dễ sai nhất, nhất là với người sinh ở Việt Nam trước năm 1975 (xem mục Giờ sinh bên dưới).</li>
           <li><b>Tính vị trí thật của các hành tinh và cung mọc</b> bằng thuật toán thiên văn, rồi dựng 12 nhà, điểm SAV, sức mạnh hành tinh (Shadbala), sức mạnh nhà (Bhava Bala), mối quan hệ năm tầng (Panchadha Maitri), đại vận năm bậc và yoga theo quy tắc cổ điển Parashara.</li>
-          <li><b>Tổng hợp luận giải theo cấu trúc lá số.</b> Hệ thống luận giải v3.0 phân tích đa biến từng yếu tố của lá số (mối liên hệ giữa Cung mọc, Mặt Trời và Mặt Trăng; sáu lớp cấu trúc của từng nhà; đối chiếu D1 với D9 và D10; cùng hai lăng kính thời gian từ Mặt Trăng và Cung mọc) rồi chọn hướng kể chuyện phù hợp. Vì mọi quy tắc đều tất định, cùng một lá số và cùng một ngày luôn cho cùng một bài đọc.</li>
+          <li><b>Tổng hợp luận giải theo cấu trúc lá số.</b> Hệ thống luận giải phân tích đa biến từng yếu tố của lá số (mối liên hệ giữa Cung mọc, Mặt Trời và Mặt Trăng; sáu lớp cấu trúc của từng nhà; đối chiếu D1 với D9 và D10; cùng hai lăng kính thời gian từ Mặt Trăng và Cung mọc) rồi chọn hướng kể chuyện phù hợp. Vì mọi quy tắc đều tất định, cùng một lá số và cùng một ngày luôn cho cùng một bài đọc.</li>
         </ol>
       </section>
 
       <section className="sec prose-sec">
-        <h2>Bài đọc được chia thành sáu phần</h2>
-        <p>Mỗi phần là một dãy trang ngắn. Thanh phía trên cho bạn nhảy thẳng tới phần bạn tò mò; cuối mỗi trang có nút sang trang kế, và nút quay lại của trình duyệt cũng lùi từng trang. Khi in, tất cả các trang được in liền nhau.</p>
+        <h2>Bài đọc được chia thành bảy chương</h2>
+        <p>Mỗi chương có một việc riêng và không kể lại chương khác. Phần luận giải hiển thị mặc định; số liệu nằm trong mục “Vì sao mình nói điều này?”.</p>
         <ol className="steps">
-          <li><b>Tổng quan.</b> Sau câu mở đầu, bạn có thể đọc về cách mình bắt đầu một việc, điều khiến mình muốn theo đuổi và điều giúp mình thấy an lòng. Mục “Các cung trong lời đọc này” giải thích những vị trí liên quan.</li>
-          <li><b>Mười hai khía cạnh của cuộc sống.</b> Mỗi nhà một trang tập trung hoàn toàn vào cấu trúc lá số gốc qua sáu lớp: cung trên nhà, hành tinh cai quản nhà (kèm phẩm cấp và quan hệ Panchadha Maitri), hành tinh đóng trong nhà, góc chiếu Graha Drishti, sức nâng đỡ SAV & Bhava Bala, và các Yoga chạm vào nhà. Mỗi nhà phân biệt rõ hai trục độc lập: <em>mức độ biểu hiện</em> (sôi động, vừa phải, yên tĩnh) và <em>độ nâng đỡ</em> (thuận lợi, pha trộn, cần rèn giũa). Toàn bộ phần đại vận và tiểu vận được gom về chương thời gian để tránh lặp lại ở từng nhà.</li>
-          <li><b>Bài học kiếp này.</b> Cặp Rahu và Ketu, hành tinh của linh hồn (Atmakaraka) cùng Karakamsa, và bảy vai trò trong đời (Chara Karaka).</li>
-          <li><b>Biểu đồ chuyên sâu.</b> Ba lá số phụ: D2 (Hora), D9 (Navamsha) và D10 (Dashamsha). D9 và D10 được đọc trong mối đối chiếu trực tiếp với lời hứa của lá số gốc D1 (Vargottama, sự chuyển dịch phẩm cấp và vị trí của hành tinh cai quản nhà 1, nhà 7, nhà 10 từ D1 sang D9/D10).</li>
-          <li><b>Đại vận và tiểu vận.</b> Toàn bộ luận giải về thời gian được tập trung tại đây: các đại vận Mahadasha và tiểu vận Antardasha (xét cả mối quan hệ với hành tinh cai quản cung mọc và độ chín trong D9), tổng hợp các giai đoạn kích hoạt 12 nhà trong 20 năm tới, năm bậc thời gian đang chạy cùng lúc, và bầu trời hiện tại (Gochara) được đọc tách bạch qua cả hai lăng kính: từ Mặt Trăng (trải nghiệm cảm xúc, điểm BAV, Sade Sati) và từ Cung mọc (bối cảnh thực tế của các nhà).</li>
-          <li><b>Lời nhắn tháng này.</b> Kết nối đại vận và tiểu vận đang chạy với các hành tinh chậm và vị trí Mặt Trời trong tháng, khép lại bằng một việc nhỏ thực tế và một câu hỏi tự quan sát.</li>
+          <li><b>Tổng quan.</b> Một câu mở đầu dựng từ những dấu ấn nổi bật nhất của lá số, rồi cung mọc, Mặt Trời và Mặt Trăng đọc trong quan hệ với nhau, bốn nguyên tố, chu kỳ trăng, hành tinh trụ cột và những lĩnh vực nổi bật.</li>
+          <li><b>12 nhà – 12 khía cạnh cuộc sống.</b> Mỗi nhà được phân tích qua năm bước (bản chất nhà, chủ nhà, hành tinh trong nhà và góc chiếu, Bhava Bala/SAV/yoga, tổng hợp); mỗi bằng chứng là một trọng số có dấu, và bài luận chỉ nói điều các bằng chứng cộng lại.</li>
+          <li><b>Bài học kiếp này.</b> Rahu, Ketu và trục giữa chúng, với bảng 12 yếu tố, liên hệ đại vận và chuyển vận hiện tại.</li>
+          <li><b>Biểu đồ chuyên sâu.</b> D2, D3, D4, D7, D9, D10, mỗi biểu đồ có sơ đồ kim cương, nhận định từ D1 đối chiếu với lá số chia, và độ ổn định trong sai số giờ sinh.</li>
+          <li><b>Đại vận và tiểu vận.</b> Mahadasha đọc theo chủ đề, điều kiện thuận, yếu tố trái chiều và các lĩnh vực liên kết; Antardasha đọc qua quan hệ với chủ đại vận và những gì nó đổi so với bối cảnh.</li>
+          <li><b>Dự báo năm 2027.</b> Lịch thiên văn thật của năm (đổi cung, nghịch hành, nhật/nguyệt thực, chạm điểm gốc, đổi tiểu vận) đặt lên lá số, từng tháng.</li>
+          <li><b>Khám phá thêm.</b> Mười hai câu hỏi thực tế, kể cả so sánh hai lá số theo Ashtakoota.</li>
         </ol>
         <ul className="plain-list">
           <li><b>Mục “Vì sao mình nói điều này?” ở mỗi chương.</b> Mọi nhận định quan trọng trong Tổng quan, 12 nhà, D9/D10, Đại vận và Gochara đều có phần giải thích căn cứ kỹ thuật gập gọn ngay bên dưới để người đọc kiểm chứng.</li>
@@ -57,7 +58,7 @@ export function Method() {
               <Row a="Sức mạnh hành tinh (Shadbala)" b="Sáu loại sức mạnh theo Brihat Parashara Hora Shastra, cách trình bày của B.V. Raman: Sthana (vị trí), Dig (hướng), Kala (thời điểm sinh), Cheshta (chuyển động), Naisargika (bản chất riêng) và Drik (ánh nhìn nhận được), tính cho bảy hành tinh từ Mặt Trời đến Sao Thổ." />
               <Row a="Sức mạnh nhà (Bhava Bala)" b="Cộng ba phần: sức của hành tinh cai quản nhà (Adhipati), sức theo hướng của chính nhà (Dig), và ánh nhìn rơi vào nhà (Drishti). Trang dùng thứ hạng giữa mười hai nhà kết hợp với điểm SAV." />
               <Row a="Chuyển động hiện tại (Gochara)" b="Đọc song song từ hai gốc: từ Mặt Trăng lúc sinh (Chandra Lagna — phản ánh tâm trạng, cảm xúc và Sade Sati/Kantaka/Ashtama Shani, điều chỉnh bằng điểm BAV) và từ Cung mọc (Udaya Lagna — phản ánh mảng việc thực tế trong 12 nhà và điểm SAV)." />
-              <Row a="Lá số phụ" b="D2 (Hora), D9 (Navamsha), D10 (Dashamsha). Đặt cạnh lá số gốc D1 để xét sự đồng thuận hay chuyển hóa về phẩm cấp và vị trí nhà." />
+              <Row a="Lá số phụ" b="D2 Hora (Parashari: cung lẻ 15° đầu thuộc Sư Tử, sau thuộc Cự Giải; cung chẵn ngược lại), D3 Drekkana (1-5-9), D4 Chaturthamsha (1-4-7-10), D7 Saptamsha (lẻ từ chính nó, chẵn từ cung thứ 7), D9 Navamsha, D10 Dashamsha (lẻ từ chính nó, chẵn từ cung thứ 9). Đặt cạnh lá số gốc D1 để xét sự đồng thuận hay chuyển hóa về phẩm cấp và vị trí nhà." />
             </tbody>
           </table>
         </div>

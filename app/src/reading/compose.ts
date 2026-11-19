@@ -3,6 +3,7 @@
 // made by a rule that is written down in the "Phương pháp" page.
 import { SIGNS, NAKSHATRA_VI, fmtDeg } from "../engine/constants.ts";
 import { makeCtx, withTime, type ComposeOptions, type Ctx } from "./ctx.ts";
+import { stability } from "./stability.ts";
 import { readExplore } from "./explore.ts";
 import { readForecast } from "./forecast.ts";
 import { readVargas } from "./vargas3.ts";
@@ -33,7 +34,8 @@ export function composeFrom(ctx: Ctx): Reading {
       lagna: SIGNS[n.lagna.sign], moon: SIGNS[n.grahas.moon.sign], sun: SIGNS[n.grahas.sun.sign],
       moonNak: NAKSHATRA_VI[n.grahas.moon.nak.name] ?? n.grahas.moon.nak.name,
       lagnaNak: NAKSHATRA_VI[n.lagna.nak.name] ?? n.lagna.nak.name,
-      ayanamsa: fmtDeg(n.ayanamsa), noTime,
+      ayanamsa: fmtDeg(n.ayanamsa), noTime, windowMin: ctx.windowMin,
+      lagnaShift: noTime ? [] : stability(n, ctx.windowMin).lagna.map((x) => SIGNS[x]),
     },
     letter: readLetter(ctx),
     overview: readOverview(ctx),

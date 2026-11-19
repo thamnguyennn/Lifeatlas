@@ -23,6 +23,7 @@ async function fill(pg, d, m, y, hh, mm, place) {
     ok(!/xem lá số mẫu/i.test(body) && !body.includes("Jyotish trong vài câu"), `${label}: no sample button, no Jyotish card`);
     ok((await pg.locator("body").innerHTML()).includes("30 phút"), `${label}: birth-time error selector`);
     ok((await pg.locator("body").innerHTML()).includes("khoảng lặng"), `${label}: author note at the bottom`);
+    ok((await pg.locator("select option").allInnerTexts()).filter((t) => /phút|Không rõ giờ sinh/.test(t)).length === 6, `${label}: six birth-time error options`);
     await fill(pg, "23", "5", "1990", "1", "40", "hue");
     await pg.click("button:has-text('Mở lá số')"); await pg.waitForTimeout(1500);
     let seen = 0;
@@ -38,15 +39,27 @@ async function fill(pg, d, m, y, hh, mm, place) {
       if (!(await nx.count()) || (await nx.innerText()).includes("Về lời mở đầu")) break;
       await nx.click(); await pg.waitForTimeout(300);
     }
-    ok(seen >= 27, `${label}: walked ${seen} pages`);
+    ok(seen >= 23, `${label}: walked ${seen} pages`);
     if (label === "desktop") {
       await pg.click(".rnav .parts a:has-text('Khám phá thêm')"); await pg.waitForTimeout(400);
-      ok((await pg.locator(".rpage").innerText()).includes("So sánh hai lá số"), "explore: compatibility page opens");
+      ok((await pg.locator(".x-card").count()) === 12, "explore: 12 topic cards");
+      await pg.locator(".x-card", { hasText: "Năng khiếu" }).click(); await pg.waitForTimeout(400);
+      ok((await pg.locator(".topic-view .central").count()) === 1 && (await pg.locator(".facet").count()) >= 2, "explore: a topic opens with a central conclusion and facets");
+      await pg.click(".topic-view .back"); await pg.waitForTimeout(300);
+      await pg.locator(".x-card", { hasText: "Độ hòa hợp" }).click(); await pg.waitForTimeout(400);
+      ok((await pg.locator(".rpage").innerText()).includes("Độ hòa hợp của hai lá số"), "explore: compatibility page opens");
       await fill(pg, "2", "11", "1992", "7", "20", "ha noi");
       await pg.locator(".rpage button:has-text('Mở lá số')").click(); await pg.waitForTimeout(1200);
       ok((await pg.locator(".rpage").innerText()).includes("/36"), "compatibility shows a score out of 36");
       await pg.click(".rnav .parts a:has-text('Biểu đồ chuyên sâu')"); await pg.waitForTimeout(400);
-      ok((await pg.locator(".rpage svg").count()) >= 1, "D-chart page has a diamond chart");
+      let charts = 0;
+      for (const code of ["D2", "D3", "D4", "D7", "D9", "D10"]) { await pg.click(`.rnav .subpages a:text-is('${code}')`); await pg.waitForTimeout(300); if ((await pg.locator(".rpage .varga svg").count()) >= 1) charts++; }
+      ok(charts === 6, `all six D-charts show a diamond chart (${charts})`);
+      await pg.click(".rnav .parts a:has-text('Dự báo 2027')"); await pg.waitForTimeout(400);
+      ok((await pg.locator(".month-tabs .mt").count()) === 12, "2027: twelve month tabs");
+      await pg.locator(".month-tabs .mt").nth(7).click(); await pg.waitForTimeout(300);
+      ok(/tháng 8/i.test(await pg.locator(".fc-month-view").innerText()) && (await pg.locator(".fc-dates li").count()) >= 1, "2027: switching to August shows its dates");
+      ok(!(await pg.locator("body").innerText()).includes("Lời nhắn tháng này"), "no 'Lời nhắn tháng này'");
     }
     await pg.screenshot({ path: `/tmp/claude-0/smoke-${label}.png` });
     await c.close();

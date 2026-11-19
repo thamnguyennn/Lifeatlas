@@ -51,8 +51,8 @@ export function HouseTiles({ houses, onPick }: { houses: HouseReading[]; onPick:
 function SectionView({ s, onYoga }: { s: Section; onYoga: (id: string) => void }) {
   return (
     <section className={`hsec hs-${s.id}`}>
-      <h3>{s.title}</h3>
-      {s.paragraphs.map((p, i) => <p key={i}><Gloss text={p} /></p>)}
+      {s.id !== "open" && <h3>{s.title}</h3>}
+      {s.paragraphs.map((p, i) => <p key={i} className={s.id === "summary" && i === 0 ? "central" : s.id === "open" ? "hs-intro" : undefined}><Gloss text={p} /></p>)}
       {s.blocks && (
         <div className="hblocks">
           {s.blocks.map((b, i) => (
@@ -89,7 +89,7 @@ export function HousePage({ h, onYoga, printing = false }: { h: HouseReading; on
         {shown.map((s) => <SectionView key={s.id} s={s} onYoga={onYoga} />)}
       </div>
       <details className="layers" open={printing}>
-        <summary>{HOUSE_SECTION_TITLES.layers}</summary>
+        <summary>Vì sao mình nói điều này?</summary>
         <div className="prose">
           <ul className="why">{h.why.length ? h.why.map((w, i) => <li key={i}>{w}</li>) : <li>Không có yếu tố nào cộng hoặc trừ điểm.</li>}</ul>
           {layers.map((s) => <SectionView key={s.id} s={s} onYoga={onYoga} />)}

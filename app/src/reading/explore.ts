@@ -1,134 +1,301 @@
-// "Khám phá thêm": câu hỏi cụ thể về bản thân, đọc từ lá số thay vì từ từng cấu trúc. Mỗi chủ đề có một nhận định, hai ba điểm
-// nổi bật và phần "Vì sao mình nói điều này?". Mọi câu đều đi ra từ facts.ts: nhà nào vững, hành tinh nào khỏe, yoga nào đi qua.
-import { SIGNS, type GrahaId } from "../engine/constants.ts";
+// "Khám phá thêm": practical questions answered from the whole chart. Each topic is a set of facets (a capability, or a
+// sub-question). A facet scores itself from the facts (planet condition, houses, lords, yogas) and keeps the evidence it used.
+// Only facets with enough evidence are shown; the central conclusion is built from the facets that came out on top.
+// The prose talks about the person (what it looks like, what helps it grow, what limits it); the planets and houses are in `why`.
+import { SIGNS, SIGN_LORD, FRIENDS, ENEMIES, mod, type GrahaId } from "../engine/constants.ts";
 import { vargaChart } from "../engine/vargas.ts";
 import type { Ctx } from "./ctx.ts";
-import { buildFacts, effectiveYoga, isGood, HOUSE_SHORT, type Facts, type PlanetFact } from "./facts.ts";
-import { nameOf, joinVi, lowerFirst } from "./util.ts";
+import { buildFacts, effectiveYoga, type Facts, type PlanetFact } from "./facts.ts";
+import { HOUSE_TAG } from "./content/houses-signs.ts";
+import { ELEMENT_OF } from "./content/overview.ts";
+import { DIGNITY_VI } from "./shared.ts";
+import { nameOf, joinVi } from "./util.ts";
 
+export interface ExploreFacet { title: string; text: string }
 export interface ExploreTopic {
   id: string;
   title: string;
   ask: string;
   lead: string;
-  points: { title: string; text: string }[];
+  points: ExploreFacet[];
   why: string[];
-  /** The topic needs the birth time (houses); false means it still reads with only the planets. */
   needsTime: boolean;
 }
 export interface ExploreGroup { id: string; title: string; intro: string; topics: ExploreTopic[] }
 
-interface Spec {
-  id: string; title: string; ask: string; houses: number[]; planets: GrahaId[];
-  /** What each planet stands for in this topic. */
-  lens: Partial<Record<GrahaId, string>>;
-  strong: string; weak: string; mid: string;
-  needsTime?: boolean;
+const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+const area = (h: number) => HOUSE_TAG[h - 1];
+
+// ------------------------------------------------------------------ evidence helpers
+
+interface Sig { s: number; why: string[]; good: string[]; bad: string[] }
+const sig = (): Sig => ({ s: 0, why: [], good: [], bad: [] });
+
+function planet(S: Sig, F: Facts, id: GrahaId, w: number, helps: string, hurts?: string) {
+  const p = F.planets[id];
+  const v = (p.grade === "strong" ? 1 : p.grade === "good" ? 0.6 : p.grade === "weak" ? -0.6 : 0.1) * w;
+  S.s += v;
+  S.why.push(`${nameOf(id)}: ${SIGNS[p.sign]}${p.house ? `, nhà ${p.house}` : ""}, ${DIGNITY_VI[p.dignity].toLowerCase()}, điểm ${p.score.toFixed(1)}${p.g.combust ? ", cháy sáng" : ""}.`);
+  if (v > 0.3) S.good.push(helps);
+  if (v < 0 && hurts) S.bad.push(hurts);
+  if (p.g.combust && hurts) S.bad.push(hurts);
+}
+function house(S: Sig, F: Facts, h: number, w: number, helps: string, hurts?: string) {
+  if (F.noTime) return;
+  const hf = F.houses[h - 1];
+  const v = (hf.tier === "top" ? 0.8 : hf.tier === "low" ? -0.6 : 0.1) * w + (hf.sav >= 30 ? 0.2 : hf.sav <= 24 ? -0.2 : 0) * w;
+  S.s += v;
+  S.why.push(`Nhà ${h} (${SIGNS[hf.sign]}): chủ ${nameOf(hf.lord)} ở nhà ${hf.lordHouse}, SAV ${hf.sav}${hf.bhava ? `, Bhava Bala hạng ${hf.bhava.rank}` : ""}${hf.occupants.length ? `, có ${joinVi(hf.occupants.map(nameOf))}` : ""}.`);
+  if (v > 0.3) S.good.push(helps);
+  if (v < -0.2 && hurts) S.bad.push(hurts);
+}
+function inHouses(S: Sig, F: Facts, id: GrahaId, hs: number[], w: number, note: string) {
+  const p = F.planets[id];
+  if (p.house && hs.includes(p.house)) { S.s += w; S.good.push(note); S.why.push(`${nameOf(id)} ở nhà ${p.house}.`); }
+}
+function yoga(S: Sig, F: Facts, test: (id: string) => boolean, w: number, note: string) {
+  const ys = F.n.yogas.filter((y) => effectiveYoga(y) && test(y.id));
+  if (ys.length) { S.s += w; S.good.push(note); S.why.push(`Yoga: ${joinVi(ys.map((y) => y.name))}.`); }
+}
+const friendly = (a: GrahaId, b: GrahaId) => a === b || (!!FRIENDS[a]?.includes(b) && !ENEMIES[b]?.includes(a));
+const hostile = (a: GrahaId, b: GrahaId) => !!ENEMIES[a]?.includes(b) || !!ENEMIES[b]?.includes(a);
+
+interface FacetDef { title: string; eval: (F: Facts, ctx: Ctx) => Sig; show: string; grow: string; limit: string }
+interface Built { title: string; score: number; text: string; why: string[] }
+
+function runFacets(F: Facts, ctx: Ctx, defs: FacetDef[], min = 0.9, max = 3): Built[] {
+  const all = defs.map((d) => { const S = d.eval(F, ctx); return { d, S }; }).sort((a, b) => b.S.s - a.S.s);
+  let chosen = all.filter((x) => x.S.s >= min).slice(0, max);
+  if (chosen.length < 2) chosen = all.slice(0, 2);
+  return chosen.map(({ d, S }) => {
+    const why = S.good.length ? `Điều làm nên nó: ${joinVi([...new Set(S.good)].slice(0, 3))}.` : "";
+    const lim = S.bad.length ? ` Điều có thể hạn chế: ${joinVi([...new Set(S.bad)].slice(0, 2))}; ${d.limit}` : "";
+    return { title: d.title, score: S.s, text: `${d.show} ${why} ${d.grow}${lim}`.replace(/\s+/g, " ").trim(), why: S.why };
+  });
 }
 
-const SPECS: Spec[] = [
-  { id: "talent", title: "Năng khiếu", ask: "Bạn học nhanh, sáng tạo hay giỏi nhất ở kiểu việc nào?", houses: [1, 3, 5, 9], planets: ["mercury", "jupiter", "venus", "mars"],
-    lens: { mercury: "học, phân tích và diễn đạt", jupiter: "hiểu sâu, dạy và định hướng", venus: "thẩm mỹ và sáng tạo", mars: "thực hành kỹ thuật và hành động", sun: "lãnh đạo và tạo dấu ấn", saturn: "tổ chức và bền bỉ" },
-    strong: "Bạn có nhiều năng khiếu có chỗ dựa thật, nên cứ thử là sẽ thấy mình có đà.", weak: "Năng khiếu của bạn không lộ sớm; chúng đến từ luyện tập đều hơn là thiên phú.", mid: "Năng khiếu của bạn nghiêng rõ về vài hướng, các hướng còn lại cần tập thêm." },
-  { id: "career", title: "Nghề nghiệp", ask: "Môi trường, vai trò và nhóm nghề nào hợp với bạn?", houses: [2, 6, 10, 11], planets: ["sun", "saturn", "mercury", "mars"],
-    lens: { sun: "vai trò đứng ra chịu trách nhiệm, quản lý", saturn: "việc cần kỷ luật, hệ thống, quy trình", mercury: "nghiên cứu, kinh doanh, giao tiếp", mars: "việc cần sức bật, kỹ thuật, cạnh tranh", jupiter: "giáo dục, tư vấn, hướng dẫn", venus: "sáng tạo, dịch vụ, làm đẹp" },
-    strong: "Lá số cho bạn nhiều chỗ dựa trong chuyện nghề: bạn có thể đi xa trong những vai trò đòi trách nhiệm.", weak: "Nghề của bạn cần xây bằng kỹ năng thật và nếp làm việc đều; chỗ dựa có sẵn không nhiều.", mid: "Nghề nghiệp của bạn có vài mạch tốt, hợp với việc chọn đúng một hướng và đi sâu." },
-  { id: "money", title: "Tài chính", ask: "Bạn tạo dựng và giữ nguồn lực theo cách nào?", houses: [2, 5, 9, 11], planets: ["jupiter", "venus", "mercury", "saturn"],
-    lens: { jupiter: "tích lũy và may mắn tài chính", venus: "tiền đến từ quan hệ, thẩm mỹ, dịch vụ", mercury: "tiền từ trí óc, buôn bán, thông tin", saturn: "tiền bền, chậm mà chắc", mars: "tiền từ sức bật, đất đai", sun: "tiền từ vị thế" },
-    strong: "Nền tài chính của bạn có nhiều chỗ dựa; điều cần là quản lý đều để chúng phát huy.", weak: "Tài chính của bạn dễ thất thường hơn mức trung bình; kế hoạch rõ ràng và quỹ dự phòng quan trọng hơn người khác.", mid: "Tài chính của bạn có thuận có khó; thu nhập thường tốt hơn khả năng giữ hoặc ngược lại." },
-  { id: "leader", title: "Lãnh đạo", ask: "Bạn dẫn dắt người khác theo kiểu nào?", houses: [1, 3, 10], planets: ["sun", "mars", "jupiter", "saturn"],
-    lens: { sun: "uy tín và sự hiện diện", mars: "quyết đoán và dám làm trước", jupiter: "dẫn dắt bằng tầm nhìn và sự công bằng", saturn: "dẫn dắt bằng kỷ luật và sự bền", mercury: "dẫn dắt bằng lời nói và sự rõ ràng", moon: "dẫn dắt bằng sự thấu hiểu" },
-    strong: "Bạn có đủ nền để đứng đầu một nhóm, và người khác có xu hướng tin ở bạn.", weak: "Bạn ít tự nhiên ở vị trí đứng đầu; sự dẫn dắt của bạn mạnh nhất khi ở cạnh người cùng làm.", mid: "Sự dẫn dắt của bạn có phong cách riêng, hợp với những tình huống cụ thể hơn là mọi tình huống." },
-  { id: "study", title: "Học tập", ask: "Bạn tiếp thu và nhớ điều gì tốt nhất, và cách học nào hợp?", houses: [4, 5, 9], planets: ["mercury", "jupiter", "moon"],
-    lens: { mercury: "ghi nhớ, phân tích và diễn đạt", jupiter: "hiểu bản chất và học lên cao", moon: "học khi thấy an toàn và hứng thú", saturn: "học sâu bằng kiên nhẫn", venus: "học qua hình ảnh, nghệ thuật" },
-    strong: "Nền học tập của bạn tốt: bạn tiếp thu nhanh khi có hứng và có người dẫn.", weak: "Học tập với bạn cần một phương pháp riêng; học theo khuôn chung dễ nản.", mid: "Bạn học giỏi ở một số lĩnh vực và mất hứng ở lĩnh vực khác; chọn đúng môn quan trọng hơn học nhiều." },
-  { id: "health", title: "Sức khỏe và nhịp sống", ask: "Năng lượng của bạn đến từ đâu, và nhịp sống nào hợp với bạn?", houses: [1, 6, 8, 12], planets: ["sun", "moon", "mars", "saturn"],
-    lens: { sun: "sinh lực chung", moon: "tâm trí, giấc ngủ và nhịp sinh hoạt", mars: "sức bật và việc vận động", saturn: "độ bền, khả năng duy trì thói quen", mercury: "thần kinh và tiêu hóa nhẹ", jupiter: "sự hồi phục" },
-    strong: "Nền sinh lực của bạn khá tốt và hồi phục nhanh khi nghỉ đúng cách.", weak: "Năng lượng của bạn dễ hao nếu sống thiếu nhịp; ngủ, ăn và nghỉ đều quan trọng hơn mức thường.", mid: "Sinh lực của bạn lên xuống theo nhịp; biết lúc nào cần nghỉ là chìa khóa.",
-    },
-  { id: "family", title: "Gia đình", ask: "Gia đình đóng vai trò gì trong đời bạn, và bạn tạo ra điều gì cho nhà mình?", houses: [2, 4, 12], planets: ["moon", "sun", "jupiter", "venus"],
-    lens: { moon: "mẹ và cảm giác an toàn", sun: "cha và nền nếp", jupiter: "sự che chở và hậu phương", venus: "sự gắn bó và hòa thuận", mars: "anh em và nhà đất", saturn: "trách nhiệm với gia đình" },
-    strong: "Gia đình là chỗ dựa thật của bạn, và bạn cũng là người giữ nhịp cho nhà mình.", weak: "Gia đình là bài học nhiều hơn là chỗ tựa; bạn học dựng cho mình một mái ấm theo cách riêng.", mid: "Gia đình vừa là nguồn nâng đỡ vừa là chỗ có nhiều chuyện phải dung hòa." },
-  { id: "dharma", title: "Dharma", ask: "Điều gì cho cuộc đời bạn một hướng đi, và bạn thấy có ý nghĩa nhất khi làm gì?", houses: [1, 5, 9, 10], planets: ["jupiter", "sun", "saturn"],
-    lens: { jupiter: "niềm tin và điều bạn coi là đúng", sun: "mục đích và điều bạn muốn để lại", saturn: "trách nhiệm dài hạn", moon: "điều làm lòng bạn yên", venus: "điều bạn thấy đẹp và đáng gìn giữ" },
-    strong: "Hướng đi của bạn khá rõ khi bạn lắng nghe chính mình; lá số cho nhiều chỗ dựa cho điều ấy.", weak: "Hướng đi của bạn không rõ ngay; nó hiện ra dần qua trải nghiệm hơn là có sẵn từ đầu.", mid: "Hướng đi của bạn có vài mạch ý nghĩa song song; bạn cần chọn mạch nào đáng đi lâu nhất." },
-  { id: "love", title: "Phong cách yêu", ask: "Bạn yêu và muốn được yêu như thế nào?", houses: [5, 7, 11], planets: ["venus", "moon", "mars", "jupiter"],
-    lens: { venus: "cách bạn yêu và muốn được yêu", moon: "nhu cầu an toàn trong tình cảm", mars: "đam mê và sự chủ động", jupiter: "sự chân thành và tin vào nhau", mercury: "yêu qua trò chuyện", saturn: "yêu chậm và chắc" },
-    strong: "Tình cảm của bạn có nhiều chỗ dựa; bạn biết cho đi và nhận lại tương đối cân bằng.", weak: "Tình cảm là chỗ cần chăm với bạn; bạn dễ giữ khoảng cách hoặc khó mở lòng ngay.", mid: "Phong cách yêu của bạn có những nét rất rõ cùng vài vùng cần học hỏi." },
-  { id: "marriage", title: "Hôn nhân", ask: "Bạn cần gì trong một mối quan hệ cam kết lâu dài?", houses: [2, 7, 8], planets: ["venus", "jupiter", "saturn"],
-    lens: { venus: "sự gắn bó và hòa hợp", jupiter: "sự đồng hành và niềm tin chung", saturn: "sự bền bỉ và trách nhiệm", mars: "đam mê và va chạm", moon: "cảm giác an toàn cùng nhau" },
-    strong: "Nền hôn nhân trong lá số khá vững; điều cần là chọn người cùng nhịp và nói rõ điều mình cần.", weak: "Chuyện cam kết đến chậm hoặc cần nhiều chăm sóc; chọn kỹ và đi từ từ có lợi cho bạn.", mid: "Chuyện cam kết có thuận có khó; nó tốt dần khi bạn hiểu rõ mình." },
-  { id: "inner", title: "Mâu thuẫn nội tâm", ask: "Trong bạn có những giằng co nào, và chúng đến từ đâu?", houses: [1, 4, 8, 12], planets: ["moon", "saturn", "mars", "rahu"],
-    lens: { moon: "điều lòng bạn cần", saturn: "sự tự nghiêm khắc và nỗi lo", mars: "cơn nóng và sự bực bội", rahu: "khát vọng lớn hơn mức hiện tại", ketu: "cảm giác tách rời, buông", sun: "cái tôi và sự công nhận" },
-    strong: "Bạn có nhiều giằng co nhưng cũng đủ sức nội tâm để nhìn thẳng vào chúng.", weak: "Bạn nhạy với những giằng co bên trong; viết ra, nói ra và có nhịp nghỉ rõ giúp bạn nhẹ đi nhiều.", mid: "Những giằng co của bạn có tên gọi rõ ràng; nhận ra chúng là bước đầu để bớt bị chúng dẫn." },
+// ------------------------------------------------------------------ B4 talents
+
+const TALENTS: FacetDef[] = [
+  { title: "Tư duy phân tích và giải quyết vấn đề", show: "Bạn có xu hướng nhìn một việc bằng cách tách nó ra từng phần, tìm chỗ không khớp và sửa cho đúng.", grow: "Năng lực này lớn nhanh khi bạn có những bài toán thật để giải, có dữ liệu, có phản hồi rõ ràng.", limit: "khi quá tải, óc phân tích dễ quay sang lo nghĩ và soi lỗi chính mình.",
+    eval: (F) => { const S = sig(); planet(S, F, "mercury", 1.2, "trí óc sắc", "trí óc dễ bị quá tải"); house(S, F, 6, 0.8, "khả năng xử lý vấn đề hằng ngày tốt", "áp lực công việc hằng ngày lớn"); inHouses(S, F, "mercury", [3, 6, 10, 11], 0.4, "trí óc được đặt ở chỗ cần làm việc thực tế"); planet(S, F, "saturn", 0.4, "sự kiên nhẫn với chi tiết"); yoga(S, F, (id) => id === "budhaditya" || id === "mahapurusha_bhadra", 0.6, "một tổ hợp cổ điển về trí tuệ"); return S; } },
+  { title: "Sáng tạo và thẩm mỹ", show: "Bạn nhạy với cái đẹp, với cách một thứ được làm ra và cảm giác nó để lại.", grow: "Nó phát triển khi bạn có thời gian tự do để thử, và có người thật sự xem hoặc dùng thứ bạn làm ra.", limit: "khi phải chứng minh ngay, sự sáng tạo dễ tắc lại.",
+    eval: (F) => { const S = sig(); planet(S, F, "venus", 1.2, "cảm nhận thẩm mỹ tốt", "gu thẩm mỹ cần thời gian định hình"); house(S, F, 5, 0.9, "nguồn sáng tạo dồi dào", "niềm vui sáng tạo dễ bị việc khác lấn át"); planet(S, F, "moon", 0.5, "trí tưởng tượng giàu"); inHouses(S, F, "venus", [1, 4, 5, 7, 10], 0.4, "thẩm mỹ hiện ra rõ trong đời sống"); yoga(S, F, (id) => id === "mahapurusha_malavya", 0.7, "một tổ hợp cổ điển về nghệ thuật và duyên dáng"); return S; } },
+  { title: "Giao tiếp và ngôn ngữ", show: "Bạn có khả năng diễn đạt điều mình nghĩ cho người khác hiểu, bằng lời nói hoặc chữ viết.", grow: "Nó mạnh lên khi bạn viết, dạy, thuyết trình hoặc làm việc cần thuyết phục người khác.", limit: "lời nói đôi khi nhanh hơn sự cân nhắc.",
+    eval: (F) => { const S = sig(); planet(S, F, "mercury", 1, "trí óc linh hoạt", "lời nói dễ vội"); house(S, F, 2, 0.6, "lời nói có trọng lượng", "lời nói dễ gây hiểu lầm"); house(S, F, 3, 0.7, "khả năng viết và trao đổi tốt", "cần luyện để tự tin diễn đạt"); planet(S, F, "jupiter", 0.3, "hiểu biết rộng để nói có nội dung"); return S; } },
+  { title: "Tổ chức và quản lý", show: "Bạn có xu hướng thấy được toàn cảnh, sắp xếp người và việc theo thứ tự, và chịu trách nhiệm đến cùng.", grow: "Nó phát huy khi bạn được giao một phạm vi rõ ràng và quyền quyết định tương xứng.", limit: "dễ ôm việc của người khác vì thấy mình làm nhanh hơn.",
+    eval: (F) => { const S = sig(); planet(S, F, "saturn", 1, "sức bền và tính hệ thống", "khó duy trì kỷ luật lâu"); planet(S, F, "sun", 0.8, "ý chí dẫn dắt", "ngại đứng ra chịu trách nhiệm"); house(S, F, 10, 0.8, "vị trí nghề nghiệp có chỗ dựa", "vị trí nghề nghiệp đến chậm"); yoga(S, F, (id) => id === "mahapurusha_shasha" || id.startsWith("raja"), 0.6, "tổ hợp về vị thế và quyền điều hành"); return S; } },
+  { title: "Kỹ năng kỹ thuật và thực hành", show: "Bạn học tốt bằng tay: làm, sửa, lắp ráp, vận hành, và thấy hài lòng khi một thứ chạy đúng.", grow: "Nó lớn lên qua thực hành lặp lại và những dự án có kết quả nhìn thấy được.", limit: "sự sốt ruột có thể khiến bạn bỏ qua bước chuẩn bị.",
+    eval: (F) => { const S = sig(); planet(S, F, "mars", 1.2, "sức bật và sự quyết đoán", "sự nóng vội"); house(S, F, 3, 0.7, "đôi tay chủ động", "cần một mục tiêu rõ mới bắt tay vào"); house(S, F, 6, 0.4, "khả năng làm việc nặng"); inHouses(S, F, "mars", [3, 6, 10, 11], 0.5, "sức bật được đặt ở chỗ cần làm thật"); yoga(S, F, (id) => id === "mahapurusha_ruchaka", 0.7, "một tổ hợp cổ điển về năng lực hành động"); return S; } },
+  { title: "Học hỏi và nghiên cứu", show: "Bạn có xu hướng muốn hiểu tận gốc, và có thể đi sâu vào một lĩnh vực lâu hơn người khác.", grow: "Nó phát huy khi bạn có người thầy giỏi hoặc một câu hỏi đủ lớn để theo trong nhiều năm.", limit: "dễ đọc nhiều mà ít đúc kết thành việc làm.",
+    eval: (F) => { const S = sig(); planet(S, F, "jupiter", 1.1, "khả năng hiểu sâu", "niềm tin vào kiến thức sách vở cần được kiểm chứng"); house(S, F, 9, 0.6, "may mắn với thầy và việc học cao", "việc học cao thường gián đoạn"); house(S, F, 5, 0.5, "trí tuệ sáng"); house(S, F, 8, 0.4, "sự tò mò với những điều ẩn sâu"); inHouses(S, F, "ketu", [8, 12, 4, 9], 0.3, "khuynh hướng đi vào chiều sâu"); yoga(S, F, (id) => id === "mahapurusha_hamsa" || id === "gajakesari", 0.6, "một tổ hợp cổ điển về hiểu biết"); return S; } },
 ];
 
-const GROUPS: { id: string; title: string; intro: string; ids: string[] }[] = [
-  { id: "relations", title: "Kết nối và các mối quan hệ", intro: "Cách bạn yêu, cam kết, và hợp với ai.", ids: ["love", "marriage"] },
-  { id: "potential", title: "Tiềm năng và con đường phát triển", intro: "Điều bạn làm tốt và nơi nó dẫn bạn tới.", ids: ["talent", "career", "money", "leader", "study"] },
-  { id: "inside", title: "Đời sống và chiều sâu nội tâm", intro: "Năng lượng, gia đình, ý nghĩa và những giằng co bên trong.", ids: ["health", "family", "dharma", "inner"] },
-];
+// ------------------------------------------------------------------ B5 career
 
-const tierWord = { top: "vững", mid: "ở mức giữa bảng", low: "mỏng hơn các nhà khác" } as const;
-const gradeWord = (p: PlanetFact) => (p.grade === "strong" ? "rất vững" : p.grade === "good" ? "khá vững" : p.grade === "weak" ? "còn yếu" : "ở mức vừa");
+const CAREER_GROUPS: Record<GrahaId, { role: string; fields: string }> = {
+  sun: { role: "người đứng ra chịu trách nhiệm, quản lý, ra quyết định", fields: "quản lý, hành chính, cơ quan nhà nước, lãnh đạo dự án" },
+  moon: { role: "người chăm sóc, kết nối với công chúng", fields: "chăm sóc sức khỏe, dịch vụ khách hàng, giáo dục trẻ em, ẩm thực, nhân sự" },
+  mars: { role: "người xử lý việc khó, làm kỹ thuật, cạnh tranh", fields: "kỹ thuật, xây dựng, cơ khí, thể thao, an ninh, phẫu thuật" },
+  mercury: { role: "người phân tích, trao đổi, buôn bán", fields: "kinh doanh, kế toán, công nghệ thông tin, truyền thông, viết lách, dữ liệu" },
+  jupiter: { role: "người hướng dẫn, tư vấn, đưa ra định hướng", fields: "giáo dục, tư vấn, luật, tài chính, nghiên cứu học thuật" },
+  venus: { role: "người tạo trải nghiệm dễ chịu, làm đẹp, kết nối", fields: "nghệ thuật, thiết kế, thời trang, làm đẹp, ngoại giao, tổ chức sự kiện" },
+  saturn: { role: "người vận hành hệ thống, làm việc dài hơi", fields: "vận hành, sản xuất, quản trị quy trình, kỹ thuật hạ tầng, nghiên cứu dài hạn" },
+  rahu: { role: "người đi trước ở những lĩnh vực mới", fields: "công nghệ mới, môi trường quốc tế, truyền thông số, những ngành chưa có khuôn" },
+  ketu: { role: "người làm chuyên sâu, ít phô trương", fields: "nghiên cứu chuyên sâu, phần mềm, chữa lành, tâm linh, công việc độc lập" },
+};
 
-function build(ctx: Ctx, F: Facts, s: Spec): ExploreTopic {
-  const noTime = F.noTime;
-  const ps = s.planets.map((id) => F.planets[id]);
-  const hs = noTime ? [] : s.houses.map((h) => F.houses[h - 1]);
-  const goodP = ps.filter(isGood).length, goodH = hs.filter((h) => h.tier === "top").length, lowH = hs.filter((h) => h.tier === "low").length;
-  const net = goodP / ps.length + (hs.length ? (goodH - lowH) / hs.length : 0) / 1;
-  const lead = net >= 0.75 ? s.strong : net <= 0.1 ? s.weak : s.mid;
-  const points: ExploreTopic["points"] = [];
-
-  const best = [...ps].sort((a, b) => b.score - a.score)[0], worst = [...ps].sort((a, b) => a.score - b.score)[0];
-  points.push({ title: `${nameOf(best.id)}: chỗ mạnh nhất`, text: `${nameOf(best.id)} đại diện cho ${s.lens[best.id] ?? "chủ đề này"}; trong lá số của bạn nó ${gradeWord(best)}${best.house ? `, đứng ở nhà ${best.house} (${HOUSE_SHORT[best.house - 1]})` : `, ở ${SIGNS[best.sign]}`}. Đây là mạch bạn nên dựa vào đầu tiên.` });
-  if (worst.id !== best.id && (worst.grade === "weak" || worst.grade === "mixed")) points.push({ title: `${nameOf(worst.id)}: chỗ cần chăm`, text: `${nameOf(worst.id)} đại diện cho ${s.lens[worst.id] ?? "chủ đề này"} và ${gradeWord(worst)}${worst.house ? `, ở nhà ${worst.house} (${HOUSE_SHORT[worst.house - 1]})` : ""}. Phần này không tự đến; hãy cho nó thời gian và nếp luyện đều.` });
-  if (hs.length) {
-    const top = [...hs].sort((a, b) => (a.tier === "top" ? 0 : a.tier === "mid" ? 1 : 2) - (b.tier === "top" ? 0 : b.tier === "mid" ? 1 : 2) || b.sav - a.sav)[0];
-    const low = [...hs].reverse().find((h) => h.tier === "low");
-    points.push({ title: `Nhà ${top.n}: ${HOUSE_SHORT[top.n - 1]}`, text: `Nhà ${top.n} (${HOUSE_SHORT[top.n - 1]}) có nền ${tierWord[top.tier]}; chủ nhà là ${nameOf(top.lord)} ở nhà ${top.lordHouse}${top.occupants.length ? `, và có ${joinVi(top.occupants.map(nameOf))} ngồi trong nhà` : ""}.${low && low.n !== top.n ? ` Ngược lại nhà ${low.n} (${HOUSE_SHORT[low.n - 1]}) mỏng hơn, nên đó là nơi cần kiên nhẫn hơn.` : ""}` });
-    const ys = F.houses.filter((h) => s.houses.includes(h.n)).flatMap((h) => h.yogas.filter(effectiveYoga)).filter((y, i, a) => a.findIndex((z) => z.id === y.id) === i).slice(0, 2);
-    if (ys.length) points.push({ title: "Tổ hợp hỗ trợ", text: `${joinVi(ys.map((y) => y.name))} đi qua những nhà này, nên ${lowerFirst(s.title)} của bạn có thêm một lớp nâng đỡ ngoài các chỉ báo trên.` });
+function careerTopic(ctx: Ctx, F: Facts): ExploreTopic {
+  const n = ctx.n, noTime = F.noTime;
+  const cand: { id: GrahaId; s: number; why: string }[] = [];
+  const push = (id: GrahaId, s: number, why: string) => { const c = cand.find((x) => x.id === id); if (c) { c.s += s; c.why += `; ${why}`; } else cand.push({ id, s, why }); };
+  if (!noTime) {
+    const h10 = F.houses[9];
+    push(h10.lord, 2 + F.planets[h10.lord].score * 0.3, "chủ nhà 10");
+    for (const o of h10.occupants) push(o, 1.6 + F.planets[o].score * 0.3, "trong nhà 10");
+    for (const o of h10.aspects) if (!h10.occupants.includes(o)) push(o, 0.6, "chiếu nhà 10");
+    const d10 = vargaChart(n, 10);
+    push(SIGN_LORD[d10.lagnaSign], 0.8, "chủ cung mọc D10");
+    for (const id of d10.occupants[9]) push(id, 0.8, "trong nhà 10 của D10");
+    push(F.houses[5].lord, 0.5, "chủ nhà 6 (môi trường làm việc)");
   }
-  const extra = special(ctx, F, s);
-  if (extra) points.push(extra);
+  for (const id of ["sun", "saturn", "mercury", "jupiter", "mars", "venus", "moon"] as GrahaId[]) push(id, F.planets[id].score * 0.25, "sức chung");
+  cand.sort((a, b) => b.s - a.s);
+  const [a, b] = cand;
+  const sign10 = noTime ? null : F.houses[9].sign;
+  const mode = sign10 === null ? null : sign10 % 3; // 0 movable, 1 fixed, 2 dual
+  const env = mode === 0 ? "môi trường có thay đổi, có dự án mới và cho bạn chủ động khởi xướng" : mode === 1 ? "môi trường ổn định, nơi bạn xây được vị trí lâu dài và chuyên môn sâu" : mode === 2 ? "môi trường đa nhiệm, nơi bạn được làm nhiều vai và học liên tục" : "môi trường cho bạn chủ động sắp xếp nhịp làm việc";
+  const team = !noTime && F.houses[6].tier !== "low" && F.houses[10].tier !== "low" ? "Bạn thường làm tốt hơn khi có đối tác hoặc một nhóm ổn định." : "Bạn thường làm tốt khi có một phạm vi tự quản, ít phụ thuộc vào người khác.";
+  const hard: string[] = [];
+  if (!noTime) {
+    const L10 = F.planets[F.houses[9].lord];
+    if (L10.house && [6, 8, 12].includes(L10.house)) hard.push(`con đường nghề có thể phải đi qua ${L10.house === 6 ? "cạnh tranh và áp lực" : L10.house === 8 ? "những lần đổi hướng bất ngờ" : "những lúc phải làm việc xa, ở hậu trường hoặc chờ được ghi nhận"}`);
+    if (L10.grade === "weak") hard.push("sự ghi nhận thường đến chậm hơn công sức");
+    if (F.houses[9].aspects.includes("saturn") || F.houses[9].occupants.includes("saturn")) hard.push("trách nhiệm đến sớm và nặng, đổi lại vị trí bền");
+    if (F.houses[5].tier === "low") hard.push("môi trường làm việc hằng ngày dễ gây mệt; nhịp nghỉ cần được bảo vệ");
+  }
+  const points: ExploreFacet[] = [
+    { title: "Xu hướng làm việc nổi bật", text: `Bạn có xu hướng làm việc như ${CAREER_GROUPS[a.id].role}. Bạn hợp với ${env}. ${team}` },
+    { title: "Vai trò và nhóm nghề đáng khám phá", text: `Nhóm nghề nên thử trước: ${CAREER_GROUPS[a.id].fields}.${b && b.id !== a.id ? ` Một hướng khác có căn cứ, đến từ một cấu trúc khác trong lá số: ${CAREER_GROUPS[b.id].fields}, với vai trò ${CAREER_GROUPS[b.id].role}.` : ""} Đây là gợi ý để khám phá, không phải lời khẳng định về nghề nghiệp thực tế của bạn.` },
+    { title: "Điều kiện có thể gây khó khăn", text: hard.length ? `${cap(joinVi(hard))}. Biết trước điều này giúp bạn chọn môi trường và nhịp phát triển phù hợp hơn là ép mình theo con đường của người khác.` : "Lá số không cho thấy cản trở nổi bật trong chuyện nghề; điều quyết định nhiều hơn là bạn chọn đúng một hướng và đi đủ lâu." },
+  ];
   return {
-    id: s.id, title: s.title, ask: s.ask, lead, points: points.slice(0, 3), needsTime: !!s.needsTime,
-    why: [
-      ...ps.map((p) => `${nameOf(p.id)}: ${SIGNS[p.sign]}${p.house ? `, nhà ${p.house}` : ""}, ${p.dignity}, điểm ${p.score.toFixed(1)} (${p.grade}).`),
-      ...hs.map((h) => `Nhà ${h.n} (${SIGNS[h.sign]}): chủ ${nameOf(h.lord)}, SAV ${h.sav}, nền ${tierWord[h.tier]}.`),
-      noTime ? "Chưa có giờ sinh nên mình chỉ đọc từ vị trí các hành tinh, không đọc các nhà." : "",
-    ].filter(Boolean),
+    id: "career", title: "Con đường nghề nghiệp phù hợp", ask: "Bạn có xu hướng làm việc ra sao, và nhóm nghề nào đáng để khám phá?",
+    lead: `Lá số nghiêng về những công việc mà bạn là ${CAREER_GROUPS[a.id].role}${b && b.id !== a.id ? `, với một hướng phụ là ${CAREER_GROUPS[b.id].role}` : ""}.`,
+    points, needsTime: false,
+    why: [...cand.slice(0, 4).map((c) => `${nameOf(c.id)}: ${c.s.toFixed(1)} (${c.why}).`), ...(sign10 !== null ? [`Cung nhà 10: ${SIGNS[sign10]} (${["chủ động", "cố định", "song tính"][mode!]}).`] : []), noTime ? "Chưa có giờ sinh: chỉ dùng sức chung của các hành tinh." : "Chỉ dùng phương pháp Parashara (nhà 10, chủ nhà 10, hành tinh trong và chiếu nhà 10, D10); không dùng Amatyakaraka của Jaimini."],
   };
 }
 
-function special(ctx: Ctx, F: Facts, s: Spec): { title: string; text: string } | null {
-  const n = ctx.n;
-  if (s.id === "marriage" && !F.noTime) {
-    const d9 = vargaChart(n, 9);
-    return { title: "Lớp cam kết ở D9", text: `Cung mọc của D9 là ${SIGNS[d9.lagnaSign]}; Sao Kim ở D9 là ${SIGNS[d9.planets.venus.sign]} (${d9.planets.venus.dignity}). Đây là lớp cho thấy bạn cam kết thế nào khi trưởng thành. Trang D9 trong phần Biểu đồ chuyên sâu đọc kỹ hơn.` };
-  }
-  if (s.id === "inner") {
-    const m = F.planets.moon, pairs = (["saturn", "mars", "rahu", "ketu"] as GrahaId[]).filter((id) => F.planets[id].sign === m.sign);
-    const asp = (["saturn", "mars"] as GrahaId[]).filter((id) => m.aspectedBy.includes(id));
-    const hard = [...new Set([...pairs, ...asp])];
-    if (hard.length) return { title: "Mặt Trăng đang bị chạm", text: `Mặt Trăng, nơi giữ cảm xúc của bạn, ${pairs.length ? `ở cùng cung với ${joinVi(pairs.map(nameOf))}` : `bị ${joinVi(asp.map(nameOf))} nhìn vào`}. Nó làm tâm trí bạn sâu hơn nhưng cũng dễ căng; bạn nhẹ đi khi có nhịp nghỉ và một nơi để nói ra.` };
-    return { title: "Mặt Trăng khá yên", text: "Mặt Trăng của bạn không bị hành tinh khó nào chạm trực tiếp, nên những giằng co của bạn thiên về do hoàn cảnh hơn là do tính khí." };
-  }
-  if (s.id === "career" && !F.noTime) {
-    const d10 = vargaChart(n, 10);
-    return { title: "Lớp nghề ở D10", text: `Cung mọc của D10 là ${SIGNS[d10.lagnaSign]} và chủ nhà 10 ở D1 (${nameOf(F.houses[9].lord)}) đứng ở ${SIGNS[d10.planets[F.houses[9].lord].sign]} trong D10. Đây là lớp nói về cách bạn gánh vai trò, không phải chức danh.` };
-  }
-  if (s.id === "money" && !F.noTime) {
-    return { title: "Hai nhà của dòng tiền", text: `Nhà 2 (tích lũy) có nền ${tierWord[F.houses[1].tier]}, nhà 11 (thu nhập) có nền ${tierWord[F.houses[10].tier]}. ${F.houses[10].tier === "top" && F.houses[1].tier !== "top" ? "Bạn kiếm tốt hơn giữ; chia ra một phần cố định mỗi lần có thu nhập." : F.houses[1].tier === "top" && F.houses[10].tier !== "top" ? "Bạn giữ tốt hơn kiếm; hãy mở thêm nguồn thu thay vì chỉ tiết kiệm." : "Hai khả năng này ở mức gần nhau."}` };
-  }
-  if (s.id === "health") return { title: "Lưu ý", text: "Phần này nói về nhịp sống và sinh lực theo truyền thống, không thay thế chẩn đoán hay lời khuyên y tế." };
-  return null;
+// ------------------------------------------------------------------ B6 money, B7 leadership, B8 study, C9 health, C10 family, C11 dharma
+
+const MONEY: FacetDef[] = [
+  { title: "Khả năng tạo thu nhập", show: "Bạn có khả năng tạo ra thu nhập từ công sức và các mối quan hệ của mình.", grow: "Thu nhập tăng rõ nhất khi bạn có nhiều hơn một nguồn và biết định giá đúng công sức mình.", limit: "thu nhập có thể thất thường theo giai đoạn.",
+    eval: (F) => { const S = sig(); house(S, F, 11, 1, "nhà thu nhập có điều kiện tốt", "thu nhập không đều"); if (!F.noTime) planet(S, F, F.houses[10].lord, 0.8, "hành tinh giữ chìa khóa thu nhập đứng vững", "hành tinh giữ chìa khóa thu nhập đang yếu"); planet(S, F, "jupiter", 0.4, "sự hanh thông chung"); return S; } },
+  { title: "Khả năng tích lũy và giữ", show: "Bạn có khả năng giữ lại và làm dày dần những gì mình có.", grow: "Tích lũy hiệu quả nhất với bạn là tích lũy đều, theo kế hoạch, thay vì chờ một khoản lớn.", limit: "chi tiêu cảm xúc hoặc trách nhiệm với người thân có thể làm hao hụt.",
+    eval: (F) => { const S = sig(); house(S, F, 2, 1, "nhà tích lũy có điều kiện tốt", "khả năng giữ tiền cần được rèn"); if (!F.noTime) planet(S, F, F.houses[1].lord, 0.8, "hành tinh giữ chìa khóa tích lũy đứng vững", "hành tinh giữ chìa khóa tích lũy đang yếu"); if (!F.noTime && [6, 8, 12].includes(F.houses[1].lordHouse)) { S.s -= 0.5; S.bad.push("tiền tích lũy dễ chảy vào chi phí hoặc biến động"); S.why.push(`Chủ nhà 2 ở nhà ${F.houses[1].lordHouse}.`); } return S; } },
+  { title: "Điều kiện hỗ trợ sự thịnh vượng", show: "Lá số có những liên kết giữa các mảng tiền bạc và các mảng may mắn, một điều kiện truyền thống coi là hỗ trợ sự thịnh vượng.", grow: "Những liên kết này phát huy rõ nhất trong các giai đoạn đời mà hành tinh liên quan nắm vận.", limit: "điều kiện thuận không thay được việc quản lý cẩn thận.",
+    eval: (F) => { const S = sig(); yoga(S, F, (id) => id.startsWith("dhana") || id === "gajakesari" || id.startsWith("raja"), 1.2, "các tổ hợp về tài lộc"); house(S, F, 9, 0.4, "vùng phúc phần có điều kiện tốt"); house(S, F, 5, 0.3, "vùng tư duy và đầu tư có điều kiện tốt"); return S; } },
+  { title: "Cách quản lý tài chính", show: "Cách bạn dùng tiền gắn với tính khí hơn là con số.", grow: "Một quy tắc đơn giản đặt ra từ trước (tỷ lệ tiết kiệm cố định, quỹ dự phòng) hợp với bạn hơn là tự kỷ luật theo cảm hứng.", limit: "những lúc cảm xúc lên xuống dễ kéo theo quyết định tiền bạc vội.",
+    eval: (F) => { const S = sig(); planet(S, F, "saturn", 0.7, "tính thận trọng và kiên nhẫn", "khó giữ kỷ luật tài chính lâu"); planet(S, F, "moon", 0.5, "cảm xúc ổn định", "cảm xúc dễ ảnh hưởng chi tiêu"); house(S, F, 12, -0.4, "", "vùng chi tiêu khá mạnh"); return S; } },
+];
+
+const LEADER: FacetDef[] = [
+  { title: "Sự chủ động", show: "Bạn có xu hướng tự bắt đầu thay vì chờ được giao.", grow: "Nó phát huy khi bạn có một mục tiêu đủ rõ và quyền tự quyết cách làm.", limit: "chủ động quá nhanh có thể bỏ người khác lại phía sau.", eval: (F) => { const S = sig(); planet(S, F, "mars", 1, "sức bật", "sự nóng vội"); house(S, F, 3, 0.8, "đôi tay chủ động", "cần thúc đẩy mới bắt đầu"); if (!F.noTime) planet(S, F, SIGN_LORD[F.n.lagna.sign], 0.6, "hành tinh cai quản cung mọc đứng vững"); return S; } },
+  { title: "Ra quyết định và chịu trách nhiệm", show: "Bạn có khả năng đứng ra quyết định và nhận phần trách nhiệm về mình.", grow: "Nó lớn lên khi bạn được giao trách nhiệm thật, có cả rủi ro thật.", limit: "dễ thành cứng nhắc khi bị thách thức.", eval: (F) => { const S = sig(); planet(S, F, "sun", 1.2, "ý chí rõ ràng", "sự tự tin chưa ổn định"); house(S, F, 10, 0.7, "vị trí nghề nghiệp có chỗ dựa", "vị trí trách nhiệm đến chậm"); yoga(S, F, (id) => id.startsWith("raja"), 0.6, "tổ hợp về vị thế"); return S; } },
+  { title: "Tổ chức và giữ nhịp cho nhóm", show: "Bạn có khả năng giữ cho một nhóm làm việc đều, theo kế hoạch.", grow: "Nó phát huy trong những việc dài hạn, cần quy trình và sự bền bỉ.", limit: "dễ đòi hỏi người khác theo nhịp của mình.", eval: (F) => { const S = sig(); planet(S, F, "saturn", 1.1, "tính hệ thống", "khó duy trì nhịp lâu"); house(S, F, 6, 0.5, "khả năng quản lý việc hằng ngày"); return S; } },
+  { title: "Phối hợp và dẫn dắt bằng sự tin cậy", show: "Bạn dẫn dắt bằng việc làm người khác thấy được lắng nghe và được hướng dẫn.", grow: "Nó phát huy khi bạn ở vai trò cố vấn, người kết nối hoặc trưởng nhóm nhỏ.", limit: "dễ né những cuộc nói chuyện khó để giữ hòa khí.", eval: (F) => { const S = sig(); planet(S, F, "jupiter", 1, "hiểu biết và sự công bằng"); planet(S, F, "venus", 0.5, "sự khéo léo"); house(S, F, 7, 0.5, "khả năng hợp tác"); house(S, F, 11, 0.5, "mạng lưới rộng"); return S; } },
+];
+
+const STUDY: FacetDef[] = [
+  { title: "Cách tiếp nhận kiến thức", show: "", grow: "", limit: "", eval: (F) => { const S = sig(); S.s = 5; S.why.push(`Sao Thủy ở ${SIGNS[F.planets.mercury.sign]}; Mặt Trăng ở ${SIGNS[F.planets.moon.sign]}.`); return S; } },
+  { title: "Tư duy và trí nhớ", show: "Bạn có xu hướng nắm ý nhanh và nhớ tốt những gì mình thấy có ích.", grow: "Ôn lại bằng cách giảng cho người khác là cách giúp bạn nhớ lâu nhất.", limit: "dễ phân tán khi học nhiều thứ cùng lúc.", eval: (F) => { const S = sig(); planet(S, F, "mercury", 1.1, "trí óc nhanh", "trí óc dễ phân tán"); house(S, F, 4, 0.5, "nền học vấn sớm tốt", "môi trường học thuở nhỏ không ổn định"); house(S, F, 5, 0.7, "trí tuệ sáng", "cần phương pháp riêng để học vào"); return S; } },
+  { title: "Năng lực nghiên cứu", show: "Bạn có thể theo một câu hỏi rất lâu và đi tới phần ít người chạm tới.", grow: "Nó phát huy khi bạn có một lĩnh vực đủ sâu và thời gian yên tĩnh.", limit: "đôi khi khó dừng lại để đúc kết.", eval: (F) => { const S = sig(); house(S, F, 8, 0.7, "sự tò mò với điều ẩn sâu"); planet(S, F, "saturn", 0.6, "sự kiên nhẫn"); planet(S, F, "jupiter", 0.6, "khả năng hệ thống hóa kiến thức"); inHouses(S, F, "ketu", [4, 5, 8, 9, 12], 0.4, "khuynh hướng đi vào chiều sâu"); return S; } },
+  { title: "Học cao và người thầy", show: "Việc học cao và những người thầy có vai trò rõ trong đời bạn.", grow: "Một người thầy hoặc người hướng dẫn đúng lúc có thể rút ngắn của bạn nhiều năm.", limit: "việc học cao có thể bị gián đoạn rồi quay lại.", eval: (F) => { const S = sig(); house(S, F, 9, 1, "may mắn với thầy và việc học cao", "con đường học cao không thẳng"); planet(S, F, "jupiter", 0.8, "hiểu biết rộng", "cần tự kiểm chứng điều được dạy"); return S; } },
+];
+const LEARN_STYLE: Record<string, string> = {
+  fire: "Bạn học nhanh nhất khi được làm ngay: thử, sai, sửa, và thấy kết quả sớm. Bài giảng dài mà không có thực hành dễ làm bạn mất hứng.",
+  earth: "Bạn học tốt nhất qua ví dụ cụ thể và từng bước có thứ tự; khi thấy kiến thức dùng được vào đâu, bạn nhớ rất lâu.",
+  air: "Bạn học tốt nhất qua trao đổi: đặt câu hỏi, tranh luận, giảng lại cho người khác. Học một mình dễ làm bạn chán.",
+  water: "Bạn học tốt nhất khi có hứng thú và cảm thấy an toàn; hình ảnh, câu chuyện và người dạy bạn quý có tác dụng lớn.",
+};
+
+const HEALTH: FacetDef[] = [
+  { title: "Sinh lực nền", show: "Theo biểu tượng truyền thống, sinh lực nền của bạn đến từ cung mọc và Mặt Trời.", grow: "Vận động đều và ánh sáng ban ngày giữ sinh lực ở mức tốt nhất.", limit: "những giai đoạn làm việc quá sức sẽ thấy rõ trên cơ thể.", eval: (F) => { const S = sig(); planet(S, F, "sun", 1, "ý chí rõ", "sự tự tin cần thời gian"); house(S, F, 1, 1, "cung mọc có điều kiện tốt", "cung mọc có điều kiện kém hơn các nhà khác"); if (!F.noTime) planet(S, F, SIGN_LORD[F.n.lagna.sign], 0.8, "hành tinh cai quản cung mọc đứng vững", "hành tinh cai quản cung mọc đang yếu"); return S; } },
+  { title: "Nghỉ ngơi và giấc ngủ", show: "Tâm trí và giấc ngủ gắn với Mặt Trăng và vùng thứ mười hai.", grow: "Một giờ đi ngủ cố định và khoảng yên tĩnh mỗi ngày có tác dụng với bạn nhiều hơn mức thường.", limit: "lo nghĩ dễ lấn vào giấc ngủ.", eval: (F) => { const S = sig(); planet(S, F, "moon", 1.1, "cảm xúc ổn định", "cảm xúc nhạy"); house(S, F, 12, 0.6, "khả năng tự hồi phục khi ở một mình", "giấc ngủ dễ bị ảnh hưởng"); return S; } },
+  { title: "Nhịp sinh hoạt và trách nhiệm hằng ngày", show: "Vùng thứ sáu nói về thói quen, trách nhiệm hằng ngày và khả năng chịu áp lực.", grow: "Chia việc thành nhịp đều và có ngày nghỉ thật giúp bạn giữ sức lâu dài.", limit: "dễ coi việc nghỉ là một thứ xa xỉ.", eval: (F) => { const S = sig(); house(S, F, 6, 1, "khả năng chịu áp lực tốt", "áp lực hằng ngày dễ tích tụ"); planet(S, F, "mars", 0.5, "sức bền thể chất", "dễ làm quá sức"); planet(S, F, "saturn", 0.5, "khả năng giữ thói quen", "thói quen khó duy trì"); return S; } },
+];
+
+const FAMILY: FacetDef[] = [
+  { title: "Mẹ, mái nhà và cảm giác thuộc về", show: "Mái nhà và người nuôi dưỡng bạn là nền cảm xúc quan trọng.", grow: "Một không gian sống bạn thật sự thấy là của mình có tác dụng lớn với sự cân bằng của bạn.", limit: "cảm giác yên ổn trong nhà có thể phải tự dựng lại nhiều lần.", eval: (F) => { const S = sig(); house(S, F, 4, 1.1, "vùng nhà cửa có điều kiện tốt", "vùng nhà cửa có điều kiện kém hơn các nhà khác"); planet(S, F, "moon", 0.9, "cảm xúc ổn định", "cảm xúc nhạy"); return S; } },
+  { title: "Gia đình gốc và nếp nhà", show: "Nếp nhà và những giá trị được truyền lại có ảnh hưởng rõ đến cách bạn sống và dùng tiền.", grow: "Giữ lại điều tốt của nếp nhà và tự chọn điều mình không mang theo là một việc trưởng thành quan trọng với bạn.", limit: "kỳ vọng của gia đình gốc có thể nặng.", eval: (F) => { const S = sig(); house(S, F, 2, 1, "gia đình gốc là chỗ dựa", "gia đình gốc có nhiều điều phải dung hòa"); planet(S, F, "jupiter", 0.4, "sự che chở"); return S; } },
+  { title: "Cha và người dẫn dắt", show: "Hình ảnh người cha hoặc người dẫn dắt đầu đời có vai trò định hướng.", grow: "Hiểu được những gì mình nhận và không nhận từ người ấy giúp bạn chọn con đường riêng rõ hơn.", limit: "khác biệt quan điểm với cha hoặc người lớn có thể là chủ đề lặp lại.", eval: (F) => { const S = sig(); house(S, F, 9, 1, "vùng người cha và phúc phần có điều kiện tốt", "vùng người cha có nhiều điều phải tự trải"); planet(S, F, "sun", 0.8, "ý chí rõ", "sự tự tin cần thời gian"); return S; } },
+];
+
+const DHARMA: FacetDef[] = [
+  { title: "Niềm tin và điều bạn coi là đúng", show: "Bạn có một hệ giá trị riêng mà mình muốn sống theo.", grow: "Nó vững nhất khi được kiểm chứng bằng trải nghiệm, không chỉ bằng lời dạy.", limit: "dễ khắt khe với người nghĩ khác.", eval: (F) => { const S = sig(); house(S, F, 9, 1.1, "vùng niềm tin có điều kiện tốt", "niềm tin hình thành qua nhiều nghi ngờ"); planet(S, F, "jupiter", 1, "khả năng tin và hiểu sâu", "niềm tin cần được tự kiểm chứng"); return S; } },
+  { title: "Điều làm cuộc sống có ý nghĩa", show: "Bạn thấy có ý nghĩa nhất khi tạo ra điều gì đó, dạy lại, hoặc nuôi dưỡng một người hay một việc.", grow: "Dành thời gian đều đặn cho việc ấy, kể cả khi nó không mang lại tiền, giữ cho bạn một hướng đi.", limit: "những trách nhiệm thực tế dễ đẩy nó xuống sau cùng.", eval: (F) => { const S = sig(); house(S, F, 5, 1, "vùng sáng tạo có điều kiện tốt"); planet(S, F, "sun", 0.6, "ý chí rõ ràng"); return S; } },
+  { title: "Trách nhiệm dài hạn", show: "Ý nghĩa với bạn gắn với việc giữ lời và làm tròn trách nhiệm.", grow: "Một cam kết dài hạn mà bạn tự chọn cho bạn cảm giác vững vàng hơn mọi sự công nhận bên ngoài.", limit: "dễ gánh trách nhiệm không phải của mình.", eval: (F) => { const S = sig(); planet(S, F, "saturn", 1, "sức bền", "sự kiên trì cần được rèn"); house(S, F, 10, 0.6, "vùng trách nhiệm có điều kiện tốt"); return S; } },
+];
+
+// ------------------------------------------------------------------ A2 love, A3 marriage, C12 inner conflicts
+
+function loveTopic(ctx: Ctx, F: Facts): ExploreTopic {
+  const v = F.planets.venus, m = F.planets.moon, ma = F.planets.mars;
+  const eV = ELEMENT_OF(v.sign), eM = ELEMENT_OF(m.sign);
+  const how: Record<string, string> = { fire: "Tình cảm của bạn thường bắt đầu nhanh và rõ: bạn thích người khiến bạn thấy sống động, và muốn thể hiện bằng hành động.", earth: "Tình cảm của bạn thường lớn dần: bạn tin vào sự có mặt đều đặn, những việc cụ thể và sự chung thủy hơn là lời nói.", air: "Tình cảm của bạn thường bắt đầu từ trò chuyện: bạn cần một người cùng nghĩ, cùng hỏi, và hiểu điều bạn nói.", water: "Tình cảm của bạn thường sâu và chậm mở: bạn cần cảm thấy an toàn trước khi trao lòng, nhưng đã trao thì rất gắn bó." };
+  const need: Record<string, string> = { fire: "cần được chủ động và được tôn trọng sự độc lập", earth: "cần sự ổn định và những lời hứa được giữ", air: "cần không gian để là chính mình và nhiều trao đổi", water: "cần sự gần gũi, quan tâm và cảm giác được che chở" };
+  const pts: ExploreFacet[] = [
+    { title: "Cách tình cảm hình thành", text: `${how[eV]}${v.grade === "weak" ? " Có thể bạn mất khá lâu để tin rằng mình xứng đáng được yêu theo cách mình muốn." : ""}` },
+    { title: "Nhu cầu gắn bó", text: `Về cảm xúc, bạn ${need[eM]}.${eV !== eM ? " Điều bạn bị cuốn hút và điều bạn cần để yên lòng không hoàn toàn trùng nhau, nên người làm bạn rung động chưa chắc là người làm bạn thấy bình yên." : " Điều bạn bị cuốn hút và điều bạn cần để yên lòng khá giống nhau, nên bạn thường biết khá rõ mình muốn gì."}` },
+  ];
+  const diffs: string[] = [];
+  if (v.conj.includes("mars") || (v.house && ma.house && mod(ma.house - v.house, 12) === 6)) diffs.push("đam mê và sự dịu dàng trong bạn cùng mạnh, nên quan hệ có thể vừa nồng nhiệt vừa dễ va chạm");
+  if (v.conj.includes("saturn") || v.aspectedBy.includes("saturn")) diffs.push("bạn nghiêm túc và thận trọng trong tình cảm, đôi khi tới mức giữ khoảng cách quá lâu");
+  if (v.conj.includes("rahu") || v.conj.includes("ketu")) diffs.push("bạn có thể bị cuốn vào những mối quan hệ khác thường, hoặc thấy khó hài lòng trọn vẹn");
+  if (hostile(SIGN_LORD[v.sign], SIGN_LORD[m.sign])) diffs.push("điều bạn muốn trong tình yêu và điều lòng bạn cần đôi khi kéo về hai phía");
+  pts.push({ title: "Những khác biệt có thể xuất hiện", text: diffs.length ? `${diffs.map((x) => cap(x)).join(". ")}. Nói rõ điều này với người bạn thương giúp tránh nhiều hiểu lầm.` : "Lá số không cho thấy giằng co nổi bật trong cách bạn yêu; điều quan trọng là chọn người có cùng nhịp với mình." });
+  return { id: "love", title: "Phong cách yêu", ask: "Bạn yêu thế nào, và cần gì để thấy gắn bó?", lead: `${how[eV].split(":")[0]}, ${eV === eM ? "và" : "nhưng"} về cảm xúc, bạn ${need[eM]}.`, points: pts, needsTime: false,
+    why: [`Sao Kim: ${SIGNS[v.sign]}${v.house ? `, nhà ${v.house}` : ""}, ${DIGNITY_VI[v.dignity].toLowerCase()}, ${v.grade}.`, `Mặt Trăng: ${SIGNS[m.sign]}.`, `Sao Hỏa: ${SIGNS[ma.sign]}.`, `Liên hệ của Sao Kim: ${[...v.conj, ...v.aspectedBy].map(nameOf).join(", ") || "không có"}.`] };
 }
+
+function marriageTopic(ctx: Ctx, F: Facts): ExploreTopic {
+  const n = ctx.n, noTime = F.noTime, pts: ExploreFacet[] = [], why: string[] = [];
+  let lead = "";
+  if (noTime) {
+    lead = "Chưa có giờ sinh nên mình chỉ đọc được phần Sao Kim và Sao Mộc; vùng hôn nhân và lá số D9 cần giờ sinh.";
+    pts.push({ title: "Điều bạn coi trọng trong cam kết", text: `${F.planets.venus.grade === "weak" ? "Bạn cần thời gian để tin vào sự gắn bó lâu dài." : "Bạn coi trọng sự hòa hợp và có khả năng giữ một mối quan hệ lâu dài."}` });
+  } else {
+    const h7 = F.houses[6], L7 = F.planets[h7.lord], d9 = vargaChart(n, 9), d9_7 = mod(d9.lagnaSign + 6, 12), d9L = SIGN_LORD[d9_7];
+    const style: Record<number, string> = { 0: "chủ động, thẳng thắn", 1: "ổn định, chung thủy, coi trọng sự an toàn", 2: "trò chuyện, linh hoạt", 3: "che chở, gần gũi", 4: "tự trọng, rõ ràng vai trò", 5: "chu đáo, thực tế", 6: "công bằng, lịch thiệp", 7: "sâu sắc, trung thành", 8: "tự do, cùng lý tưởng", 9: "trách nhiệm, có kế hoạch", 10: "độc lập, tôn trọng khoảng riêng", 11: "dịu dàng, giàu cảm thông" };
+    lead = `Trong một mối quan hệ lâu dài, bạn có xu hướng tìm sự gắn bó kiểu ${style[h7.sign]}.`;
+    pts.push({ title: "Kiểu quan hệ gắn bó bạn hướng tới", text: `${lead} ${[6, 8, 12].includes(h7.lordHouse) ? "Hành tinh giữ chìa khóa của mảng này đi vào một vùng nhiều thử thách, nên cam kết thường cần đi qua giai đoạn thử thách hoặc điều chỉnh trước khi ổn định; đó không phải dấu hiệu đổ vỡ." : [1, 4, 5, 7, 9, 10, 11].includes(h7.lordHouse) ? "Hành tinh giữ chìa khóa của mảng này đứng ở một vị trí thuận, nên các mối quan hệ cam kết có chỗ đứng rõ trong đời bạn." : "Chuyện cam kết gắn với " + area(h7.lordHouse) + "."}` });
+    const occ = h7.occupants;
+    if (occ.length) pts.push({ title: "Những ảnh hưởng trực tiếp lên quan hệ", text: `${joinVi(occ.map(nameOf))} đứng ngay trong vùng hôn nhân: ${occ.map((o) => ({ sun: "người đồng hành có cá tính mạnh, cần tôn trọng vai trò của nhau", moon: "nhu cầu gần gũi về cảm xúc rất lớn", mars: "đam mê nhưng dễ va chạm; học cách tranh luận mà không làm tổn thương", mercury: "cần một người bạn để trò chuyện", jupiter: "người đồng hành thường hiểu biết và nâng đỡ bạn", venus: "sự hòa hợp và gu thẩm mỹ chung quan trọng", saturn: "cam kết nghiêm túc, có thể đến muộn hoặc với người lớn tuổi hơn", rahu: "sức hút với người khác biệt về văn hóa hoặc hoàn cảnh", ketu: "cần thời gian để thật sự gắn bó; truyền thống không coi đây là dấu hiệu chắc chắn khó kết hôn" } as Record<string, string>)[o]).join("; ")}.` });
+    const d9dig = d9.planets[d9L].dignity;
+    pts.push({ title: "Lớp sâu ở D9", text: `${["exalted", "own", "moolatrikona"].includes(d9dig) ? "Ở D9, hành tinh giữ chìa khóa chuyện đôi lứa đứng vững, nên phần cam kết của bạn có xu hướng chắc dần theo tuổi." : d9dig === "debilitated" ? "Ở D9, hành tinh giữ chìa khóa chuyện đôi lứa đứng ở thế yếu, nên sự bền vững của cam kết cần được chăm bằng nỗ lực của cả hai." : "Ở D9, hành tinh giữ chìa khóa chuyện đôi lứa ở thế trung bình."} D9 không xóa những gì D1 cho thấy; hai tầng được đọc cùng nhau.` });
+    why.push(`Nhà 7: ${SIGNS[h7.sign]}, chủ ${nameOf(h7.lord)} ở nhà ${h7.lordHouse} (${L7.grade}), trong nhà: ${occ.map(nameOf).join(", ") || "không"}, chiếu: ${h7.aspects.map(nameOf).join(", ") || "không"}.`, `D9: cung mọc ${SIGNS[d9.lagnaSign]}, nhà 7 ${SIGNS[d9_7]}, chủ ${nameOf(d9L)} ${d9dig}.`);
+  }
+  why.push(`Sao Kim ${F.planets.venus.grade}, Sao Mộc ${F.planets.jupiter.grade}.`, "Không dự đoán thời điểm kết hôn, ly hôn hay ngoại tình.");
+  return { id: "marriage", title: "Hôn nhân và cam kết lâu dài", ask: "Bạn cần gì trong một mối quan hệ lâu dài?", lead, points: pts, why, needsTime: true };
+}
+
+function innerTopic(ctx: Ctx, F: Facts): ExploreTopic {
+  const n = ctx.n, noTime = F.noTime, found: (ExploreFacet & { why: string })[] = [];
+  if (!noTime) {
+    const eL = ELEMENT_OF(n.lagna.sign), eM = ELEMENT_OF(n.grahas.moon.sign);
+    const bad = (eL === "fire" && eM === "water") || (eL === "water" && eM === "fire") || (eL === "earth" && eM === "air") || (eL === "air" && eM === "earth");
+    if (bad) found.push({ title: "Bên ngoài và bên trong", text: "Cách bạn xuất hiện và điều bạn cần trong lòng đi theo hai nhịp khác nhau, nên người khác có thể đọc sai bạn, và chính bạn cũng có lúc không hiểu vì sao mình mệt dù mọi thứ trông ổn.", why: `Cung mọc ${SIGNS[n.lagna.sign]}, Mặt Trăng ${SIGNS[n.grahas.moon.sign]}.` });
+    const LL = SIGN_LORD[n.lagna.sign], ML = SIGN_LORD[n.grahas.moon.sign];
+    if (hostile(LL, ML)) found.push({ title: "Điều muốn làm và điều lòng cần", text: "Hành tinh dẫn đường cho thân và cho tâm không ưa nhau, nên những gì bạn chọn làm và những gì làm bạn thấy yên thường phải thương lượng; quyết định vội theo một phía dễ để lại cảm giác thiếu.", why: `Chủ cung mọc ${nameOf(LL)}, chủ cung Mặt Trăng ${nameOf(ML)}: không thân.` });
+  }
+  const m = F.planets.moon;
+  const heavy = (["saturn", "rahu", "ketu", "mars"] as GrahaId[]).filter((x) => m.conj.includes(x) || m.aspectedBy.includes(x));
+  if (heavy.length) found.push({ title: "Một tâm trí bị kéo căng", text: `Nơi giữ cảm xúc của bạn chịu tác động của ${joinVi(heavy.map((x) => ({ saturn: "sự tự nghiêm khắc", rahu: "sự không yên", ketu: "cảm giác tách rời", mars: "sự nóng nảy" } as Record<string, string>)[x]))}. Bạn có thể vừa cần người khác vừa muốn được để yên.`, why: `Mặt Trăng cùng cung/nhận chiếu từ ${joinVi(heavy.map(nameOf))}.` });
+  const ms = F.planets.mars, sa = F.planets.saturn;
+  if (ms.sign === sa.sign || ms.aspectedBy.includes("saturn")) found.push({ title: "Đạp ga và đạp phanh", text: "Trong bạn có một phần muốn lao lên ngay và một phần muốn chắc chắn trước; khi hai phần không đồng ý, bạn dễ bực với chính mình.", why: `Sao Hỏa (${SIGNS[ms.sign]}) và Sao Thổ (${SIGNS[sa.sign]}) liên hệ trực tiếp.` });
+  const s = n.grahas.sun.sign, d = mod(n.grahas.moon.sign - s, 12) + 1;
+  if (d === 6 || d === 8) found.push({ title: "Ý chí và cảm xúc", text: "Điều bạn muốn khẳng định và điều bạn cần để yên lòng ít khi gặp nhau, nên bạn có thể đạt được việc mình nhắm tới mà vẫn thấy thiếu.", why: "Mặt Trăng cách Mặt Trời theo thế 6/8." });
+  const retro = (["mercury", "venus", "mars", "jupiter", "saturn"] as GrahaId[]).filter((x) => n.grahas[x].retro);
+  if (retro.length >= 2 && found.length < 3) found.push({ title: "Nghĩ lại nhiều lần", text: "Bạn có xu hướng quay lại xem xét những quyết định đã đưa ra; điều đó cho chiều sâu nhưng cũng khiến bạn khó thấy một việc đã xong.", why: `Nghịch hành lúc sinh: ${joinVi(retro.map(nameOf))}.` });
+  const pts = found.slice(0, 3).map(({ title, text }) => ({ title, text }));
+  return { id: "inner", title: "Những mâu thuẫn nội tâm", ask: "Trong bạn có những giằng co nào, và chúng đến từ đâu?",
+    lead: pts.length ? `Lá số cho thấy ${pts.length} giằng co có căn cứ rõ: ${joinVi(pts.map((p) => p.title.toLowerCase()))}.` : "Lá số không cho thấy giằng co nội tâm nổi bật nào ngoài những điều ai cũng có; những mâu thuẫn bạn cảm thấy có thể đến từ hoàn cảnh nhiều hơn tính khí.",
+    points: pts.length ? pts : [{ title: "Một nội tâm khá thống nhất", text: "Các cấu trúc chính của lá số đi cùng hướng, nên bạn thường biết mình muốn gì; khi thấy giằng co, hãy nhìn vào hoàn cảnh trước." }],
+    why: found.map((f) => f.why), needsTime: false };
+}
+
+// ------------------------------------------------------------------ assembling
+
+function facetTopic(ctx: Ctx, F: Facts, id: string, title: string, ask: string, defs: FacetDef[], leadOf: (b: Built[]) => string, extra?: (b: Built[]) => Built[]): ExploreTopic {
+  let b = runFacets(F, ctx, defs);
+  if (extra) b = extra(b);
+  return { id, title, ask, lead: leadOf(b), points: b.map(({ title, text }) => ({ title, text })), why: [...new Set(b.flatMap((x) => x.why))], needsTime: false };
+}
+
+const GROUPS: { id: string; title: string; intro: string; ids: string[] }[] = [
+  { id: "relations", title: "Kết nối và các mối quan hệ", intro: "Cách bạn yêu, cam kết, và hòa hợp với một người khác.", ids: ["love", "marriage"] },
+  { id: "potential", title: "Tiềm năng và con đường phát triển", intro: "Bạn làm tốt điều gì, và những điều ấy có thể dẫn bạn tới đâu.", ids: ["talent", "career", "money", "leader", "study"] },
+  { id: "inside", title: "Đời sống và chiều sâu nội tâm", intro: "Sinh lực, gia đình, ý nghĩa và những giằng co bên trong.", ids: ["health", "family", "dharma", "inner"] },
+];
 
 export function readExplore(ctx: Ctx): ExploreGroup[] {
   const F = buildFacts(ctx);
-  const byId = new Map(SPECS.map((s) => [s.id, build(ctx, F, s)]));
-  return GROUPS.map((g) => ({ id: g.id, title: g.title, intro: g.intro, topics: g.ids.map((id) => byId.get(id)!) }));
+  const low = (s: string) => s.charAt(0).toLowerCase() + s.slice(1);
+  const T: Record<string, ExploreTopic> = {
+    love: loveTopic(ctx, F),
+    marriage: marriageTopic(ctx, F),
+    talent: facetTopic(ctx, F, "talent", "Năng khiếu và thế mạnh", "Bạn có những năng lực nào có căn cứ rõ trong lá số?", TALENTS, (b) => `Những năng lực có căn cứ rõ nhất trong lá số của bạn là ${joinVi(b.map((x) => low(x.title)))}.`),
+    career: careerTopic(ctx, F),
+    money: facetTopic(ctx, F, "money", "Tiền bạc và sự thịnh vượng", "Bạn tạo dựng, giữ và quản lý nguồn lực theo cách nào?", MONEY, (b) => `Điểm mạnh nhất của bạn về tài chính nằm ở ${low(b[0].title)}${b[1] ? `, kế đó là ${low(b[1].title)}` : ""}. Đây là xu hướng, không phải lời hứa về sự giàu có, và không nên dùng để quyết định đầu tư.`),
+    leader: facetTopic(ctx, F, "leader", "Khả năng lãnh đạo", "Bạn chủ động, ra quyết định và dẫn dắt người khác theo cách nào?", LEADER, (b) => `Phong cách dẫn dắt của bạn dựa trước hết vào ${low(b[0].title)}${b[1] ? ` và ${low(b[1].title)}` : ""}.`),
+    study: facetTopic(ctx, F, "study", "Học tập và trí tuệ", "Bạn tiếp nhận kiến thức thế nào, và cách học nào hợp với bạn?", STUDY, (b) => `${LEARN_STYLE[ELEMENT_OF(F.planets.mercury.sign)].split(";")[0].split(":")[0]}.`, (b) => b.map((x) => x.title === "Cách tiếp nhận kiến thức" ? { ...x, text: `${LEARN_STYLE[ELEMENT_OF(F.planets.mercury.sign)]}${ELEMENT_OF(F.planets.moon.sign) !== ELEMENT_OF(F.planets.mercury.sign) ? ` Về cảm xúc, ${low(LEARN_STYLE[ELEMENT_OF(F.planets.moon.sign)].split(";")[0].split(":")[0].replace("Bạn học", "bạn cũng cần học"))}.` : ""}` } : x)),
+    health: facetTopic(ctx, F, "health", "Sức khỏe và nhịp sống", "Sinh lực của bạn đến từ đâu, và nhịp sống nào giữ nó tốt nhất?", HEALTH, (b) => `Theo các biểu tượng truyền thống, điều cần chăm nhất cho nhịp sống của bạn là ${low(b[b.length - 1].title)}. Phần này không chẩn đoán bệnh và không thay lời khuyên y tế.`),
+    family: facetTopic(ctx, F, "family", "Gia đình và nguồn cội", "Gia đình có vai trò gì, và điều gì cho bạn cảm giác thuộc về?", FAMILY, (b) => `Trong chuyện gia đình, điều nổi bật nhất ở lá số của bạn là ${low(b[0].title)}.`),
+    dharma: facetTopic(ctx, F, "dharma", "Dharma: giá trị và định hướng sống", "Điều gì cho cuộc đời bạn một hướng đi?", DHARMA, (b) => `Định hướng sống của bạn được nuôi bằng ${low(b[0].title)}${b[1] ? ` và ${low(b[1].title)}` : ""}.`),
+    inner: innerTopic(ctx, F),
+  };
+  return GROUPS.map((g) => ({ id: g.id, title: g.title, intro: g.intro, topics: g.ids.map((id) => T[id]) }));
 }
+
+void friendly;

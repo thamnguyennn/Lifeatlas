@@ -37,7 +37,8 @@ const MAITRI = (a: GrahaId, b: GrahaId): number => {
 const friendly = (a: GrahaId, b: GrahaId) => a === b || (FRIENDS[a]?.includes(b) && FRIENDS[b]?.includes(a)) || (FRIENDS[a]?.includes(b) && !ENEMIES[b]?.includes(a)) || (FRIENDS[b]?.includes(a) && !ENEMIES[a]?.includes(b));
 const relWord = (a: GrahaId, b: GrahaId) => (a === b ? "cùng một hành tinh" : MAITRI(a, b) >= 4 ? "hợp nhau" : MAITRI(a, b) === 3 ? "trung tính với nhau" : "khá khác nhau");
 
-export function readCompat(a: Natal, b: Natal, nameA: string, nameB: string): Compat {
+export function readCompat(a: Natal, b: Natal, nameA: string, nameB: string, opt: { noTimeA?: boolean; noTimeB?: boolean } = {}): Compat {
+  const timed = !opt.noTimeA && !opt.noTimeB;
   const ma = a.grahas.moon, mb = b.grahas.moon;
   const k: Koota[] = [];
   const varna = VARNA[ma.sign] >= VARNA[mb.sign] ? 1 : 0;
@@ -72,9 +73,18 @@ export function readCompat(a: Natal, b: Natal, nameA: string, nameB: string): Co
   const venusA = SIGN_LORD[a.grahas.venus.sign], venusB = SIGN_LORD[b.grahas.venus.sign];
   const points = [
     { title: "Cảm xúc của hai người", text: `Mặt Trăng của ${nameA} ở ${SIGNS[ma.sign]} (${el(ma.sign)}), của ${nameB} ở ${SIGNS[mb.sign]} (${el(mb.sign)}). ${el(ma.sign) === el(mb.sign) ? "Cùng nguyên tố nên hai người nhạy với nhau và hiểu nhanh những điều không nói." : (["Lửa", "Khí"].includes(el(ma.sign)) === ["Lửa", "Khí"].includes(el(mb.sign))) ? "Hai nguyên tố khác nhau nhưng cùng nhịp (chủ động hoặc nhạy cảm), nên dễ bổ sung cho nhau." : "Một người xử lý cảm xúc bằng hành động và trò chuyện, người kia bằng im lặng và cảm nhận; đó là chỗ cần dịch cho nhau."}` },
-    { title: "Cách hai người nhìn đời", text: `Chủ cung mọc của hai bạn là ${nameOf(lordA)} và ${nameOf(lordB)}: ${relWord(lordA, lordB)}. Chủ cung của Sao Kim là ${nameOf(venusA)} và ${nameOf(venusB)}: ${relWord(venusA, venusB)}. ${friendly(lordA, lordB) && friendly(venusA, venusB) ? "Cả cách sống lẫn cách yêu đều có điểm chung." : friendly(lordA, lordB) || friendly(venusA, venusB) ? "Một trong hai điểm này có sự hợp, điểm còn lại cần thời gian làm quen." : "Cả cách sống lẫn cách yêu đều khác nhau; sự hòa hợp ở đây đến từ cố gắng hơn là sẵn có."}` },
+    ...(timed ? [] : []),
+    { title: "Cách hai người nhìn đời", text: timed ? `Chủ cung mọc của hai bạn là ${nameOf(lordA)} và ${nameOf(lordB)}: ${relWord(lordA, lordB)}. Chủ cung của Sao Kim là ${nameOf(venusA)} và ${nameOf(venusB)}: ${relWord(venusA, venusB)}. ${friendly(lordA, lordB) && friendly(venusA, venusB) ? "Cả cách sống lẫn cách yêu đều có điểm chung." : friendly(lordA, lordB) || friendly(venusA, venusB) ? "Một trong hai điểm này có sự hợp, điểm còn lại cần thời gian làm quen." : "Cả cách sống lẫn cách yêu đều khác nhau; sự hòa hợp ở đây đến từ cố gắng hơn là sẵn có."}` : `Chủ cung của Sao Kim là ${nameOf(venusA)} và ${nameOf(venusB)}: ${relWord(venusA, venusB)}. Vì chưa có đủ giờ sinh của cả hai, mình không so cung mọc.` },
     { title: "Lớp sâu hơn (D9)", text: `Ở D9, Mặt Trăng của ${nameA} ở ${SIGNS[d9m(d9a)]} và của ${nameB} ở ${SIGNS[d9m(d9b)]}: ${el(d9m(d9a)) === el(d9m(d9b)) ? "cùng nguyên tố nên khi trưởng thành hai người càng hiểu nhau." : "khác nguyên tố nên sự hòa hợp cần được nuôi bằng thời gian ở cạnh nhau."}` },
   ];
+  const merA = a.grahas.mercury.sign, merB = b.grahas.mercury.sign;
+  points.push({ title: "Giao tiếp", text: `${el(merA) === el(merB) ? "Hai người nghĩ và nói theo cùng một kiểu, nên dễ hiểu ý nhau nhanh." : (["Lửa", "Khí"].includes(el(merA)) === ["Lửa", "Khí"].includes(el(merB))) ? "Cách nghĩ của hai người khác nhau nhưng bổ sung được cho nhau; một người mở ý, người kia làm rõ." : "Một người nói để nghĩ, người kia nghĩ xong mới nói; nên hỏi lại ý nhau trước khi kết luận."}` });
+  const jA = SIGN_LORD[a.grahas.jupiter.sign], jB = SIGN_LORD[b.grahas.jupiter.sign];
+  points.push({ title: "Giá trị sống", text: `${friendly(jA, jB) ? "Điều hai người coi là đúng và đáng theo đuổi khá gần nhau; đây là chỗ dựa khi có bất đồng nhỏ." : "Hai người có thể có thước đo khác nhau về điều đúng và đáng theo đuổi; những quyết định lớn (tiền, con cái, nơi sống) nên được bàn sớm."}` });
+  const vm = (x: Natal, y: Natal) => x.grahas.venus.sign === y.grahas.mars.sign || mod(y.grahas.mars.sign - x.grahas.venus.sign, 12) === 6;
+  points.push({ title: "Tình cảm và sức hút", text: vm(a, b) || vm(b, a) ? "Giữa hai người có sức hút rõ rệt theo truyền thống (Sao Kim của một người gặp Sao Hỏa của người kia); sức hút này mạnh ở giai đoạn đầu và cần sự tôn trọng để bền." : "Sức hút giữa hai người không đến từ một điểm chạm mạnh, nên tình cảm thường lớn dần qua thời gian ở cạnh nhau." });
+  const l7a = SIGN_LORD[mod(a.lagna.sign + 6, 12)], l7b = SIGN_LORD[mod(b.lagna.sign + 6, 12)];
+  points.push({ title: "Cam kết và khả năng đồng hành", text: `${!timed ? "Chưa đủ giờ sinh của cả hai để so nhà 7." : friendly(l7a, l7b) ? "Kỳ vọng về một mối quan hệ cam kết của hai người khá gần nhau." : "Hai người có thể hình dung khác nhau về một mối quan hệ cam kết; nói rõ vai trò và kỳ vọng từ sớm giúp tránh hụt hẫng."} Điểm Ashtakoota là thước đo truyền thống về nền cảm xúc; khả năng đồng hành thực tế còn phụ thuộc cách hai người đối xử và trưởng thành cùng nhau.` });
   const strong = [...k].sort((x, y) => y.got / y.max - x.got / x.max)[0], weak = [...k].sort((x, y) => x.got / x.max - y.got / y.max)[0];
   const summary = [
     `${nameA} và ${nameB} được ${total} trên 36 điểm Ashtakoota, mức “${band}”. Con số này chỉ nói về nền tảng cảm xúc và tính khí, không quyết định một mối quan hệ có bền hay không.`,

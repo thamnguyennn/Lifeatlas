@@ -184,7 +184,7 @@ function Film({ onExit, onClosing }: { onExit: (k: IntroExit) => void; onClosing
           {[0, 2, 4, 6, 8].map((i) => <p key={i}>{CUES[i].text} {CUES[i + 1].text.replace(/^…/, "")}</p>)}
         </div>
       )}
-      {!reduced && !muted && voiceNote && <p className="intro-note" role="status">Thiết bị này chưa có giọng đọc tiếng Việt, nên đoạn phim chỉ có nhạc và hiệu ứng.</p>}
+      {!reduced && !muted && voiceNote && <p className="intro-note" role="status">Thiết bị này chưa có giọng đọc tiếng Việt tự nhiên, nên đoạn phim chạy với phụ đề, nhạc nền và hiệu ứng âm thanh.</p>}
       {!reduced && caps && phase.cue >= 0 && <div className="intro-caps" aria-live="polite"><Caption key={phase.cue} text={CUES[phase.cue].text} out={phase.out} /></div>}
 
       <div className="intro-end" aria-hidden={end === 0}>

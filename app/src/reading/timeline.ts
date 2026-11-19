@@ -179,14 +179,12 @@ export function readPeriod(ctx: Ctx, node: DNode): PeriodRead {
   if (level === 1) {
     const ch = CHAPTER[lord];
     title = `Giai đoạn “${ch.title}”`;
-    const cond = conditionLines(ctx, lord);
+    const R = mahaRead(ctx, lord);
     layers = [
-      { title: "1 · Chủ đề của giai đoạn", text: `${ch.asks} ${fill(DASHA_EVENTS_LEAD, { list: plan.events.slice(0, 4).join("; ") })}` },
-      { title: "2 · Hành tinh này đứng ở đâu, cai quản gì", text: whereLines(ctx, lord, "giai đoạn", false).join(" ") },
-      { title: "3 · Nó mạnh hay yếu", text: cond.length ? cond.join(" ") : `${a} không có điều kiện nào đặc biệt cộng hay trừ sức, nên giai đoạn này đi theo nhịp bình thường của nó.` },
-      { title: "4 · Bức tranh chung và sắc thái", text: `${classicLine(ctx, lord)} ${DASHA_TONE_LINE[periodTone(ctx, lord).tone]}` },
-      { title: "5 · Điều dễ gặp trong đời sống", text: `${ch.scene} ${ch.trap}` },
-      { title: "6 · Việc nên ưu tiên", text: plan.doing.charAt(0).toUpperCase() + plan.doing.slice(1) },
+      { title: "Chủ đề bao trùm", text: R.theme },
+      { title: "Điều kiện thuận lợi", text: R.plus },
+      { title: "Yếu tố trái chiều", text: R.minus },
+      { title: "Các lĩnh vực liên kết với nhau", text: R.links },
     ];
     paragraphs.push(...layers.map((l) => l.text));
     tone = periodTone(ctx, lord).tone;
@@ -194,12 +192,8 @@ export function readPeriod(ctx: Ctx, node: DNode): PeriodRead {
     title = `${a} · ${LEVEL_NAME[level].toLowerCase()} trong ${node.path.slice(0, level - 1).map(nameOf).join(" › ")}`;
     const pair = holder ? pairText(ctx, holder, lord) : [];
     if (level === 2) {
-      // The sub-period is read through its relation to the lord of the period it sits in; the houses were already explained there.
-      if (pair.length) paragraphs.push(pair.join(" "));
-      paragraphs.push(`${plan.about} ${fill(DASHA_EVENTS_LEAD, { list: plan.events.slice(0, 3).join("; ") })}`);
-      const t = antarTone(ctx, holder as GrahaId, lord);
-      tone = t;
-      paragraphs.push(`${DASHA_TONE_LINE[t]} ${fill(DASHA_WATCH, { watch: plan.watch, doing: plan.doing })}`);
+      tone = antarTone(ctx, holder as GrahaId, lord);
+      paragraphs.push(...antarRead(ctx, holder as GrahaId, lord, tone));
     } else if (level === 3) {
       paragraphs.push(`${plan.about} ${fill(DASHA_EVENTS_LEAD, { list: plan.events.slice(0, 2).join("; ") })}`);
       if (pair.length) paragraphs.push(pair.join(" "));
@@ -218,6 +212,80 @@ export function readPeriod(ctx: Ctx, node: DNode): PeriodRead {
     litHouses: houses,
     state: stateOf(ctx.now, node.startMs, node.endMs), tone,
   };
+}
+
+// ---------------------------------------------------------------- Mahadasha and Antardasha, synthesised
+
+const AREA = (h: number) => HOUSE_TAG[h - 1];
+const areaList = (hs: number[]) => { const a = hs.map((h) => `chuyện ${AREA(h)}`); return a.length <= 1 ? a.join("") : a.length === 2 ? `${a[0]} cùng ${a[1]}` : `${a.slice(0, -1).join(", ")}, cùng ${a[a.length - 1]}`; };
+/** The areas a lord brings forward, heaviest first: the houses it rules (trikona and kendra first), then the one it sits in. */
+function areasOf(ctx: Ctx, lord: GrahaId): number[] {
+  if (ctx.noTime) return [];
+  const n = ctx.n, pos = n.grahas[lord].house;
+  let owned = ownedHouses(n, lord);
+  if (!owned.length) owned = ownedHouses(n, n.houses[pos - 1].lord);
+  const w = (h: number) => ([1, 5, 9].includes(h) ? 3 : [4, 7, 10].includes(h) ? 2.5 : [2, 11].includes(h) ? 2 : 1);
+  return [...new Set([pos, ...owned.sort((x, y) => w(y) - w(x))])];
+}
+
+function mahaRead(ctx: Ctx, lord: GrahaId): { theme: string; plus: string; minus: string; links: string } {
+  const n = ctx.n, g = n.grahas[lord], nm = nameOf(lord), ch = CHAPTER[lord];
+  const areas = areasOf(ctx, lord);
+  const pos = ctx.noTime ? null : g.house;
+  const themeBase = firstSentence(ch.asks);
+  const focus = areas.length ? ` Trong lá số của bạn, giai đoạn này đặt ${areaList(areas.slice(0, 3))} vào trọng tâm${pos ? `, và phần lớn diễn ra qua chuyện ${AREA(pos)}` : ""}.` : ` ${nm} đang ở cung ${SIGNS[g.sign]}, nên màu của cung này dẫn nhịp chính.`;
+  const plus: string[] = [], minus: string[] = [];
+  const dig = g.dignity;
+  if (dig === "exalted" || dig === "own" || dig === "moolatrikona") plus.push(`${nm} đang ở vị trí mạnh trong cung, nên những gì giai đoạn này mở ra có sức để thành`);
+  if (dig === "debilitated") minus.push(`${nm} đang ở cung suy, nên kết quả thường đến chậm và đòi nhiều điều chỉnh`);
+  if (dig === "enemy") minus.push(`${nm} đứng trong cung của một hành tinh không thân, nên nhịp của giai đoạn hay bị cản`);
+  if (g.combust && lord !== "sun") minus.push(`${nm} bị Mặt Trời che khuất, nên những gì nó đại diện dễ bị lấn át bởi áp lực bên ngoài`);
+  if (!ctx.noTime) {
+    const LL = SIGN_LORD[n.lagna.sign];
+    if (lord === LL) plus.push("đây là giai đoạn của chính hành tinh cai quản cung mọc, nên bạn có nhiều quyền tự quyết hơn thường lệ");
+    else { const fg = friendGrade(ctx, LL, lord); if (fg === "great" || fg === "friend") plus.push(`${nm} hợp với hành tinh cai quản cung mọc, nên hướng đi của giai đoạn khá thuận với con người bạn`); else if (fg === "great_enemy") minus.push(`${nm} không hợp với hành tinh cai quản cung mọc, nên điều giai đoạn đòi hỏi có lúc ngược với mong muốn tự nhiên của bạn`); }
+    if (KENDRA.includes(g.house) || TRIKONA.includes(g.house)) plus.push(`${nm} đứng ở một ${TRIKONA.includes(g.house) ? "vùng phúc phần" : "trụ cột"} của lá số, nên giai đoạn có chỗ đứng vững`);
+    if (DUSTHANA.includes(g.house)) minus.push(`${nm} đứng ở chuyện ${AREA(g.house)}, một vùng nhiều thử thách, nên giai đoạn hay đi qua những việc khó nói hoặc tốn sức`);
+    const owned = ownedHouses(n, lord);
+    if (owned.some((h) => [5, 9].includes(h)) && owned.some((h) => [4, 7, 10].includes(h))) plus.push(`${nm} cai quản cùng lúc một trụ cột và một vùng phúc phần, một vị thế truyền thống coi là rất thuận cho giai đoạn của nó`);
+    if (owned.some((h) => DUSTHANA.includes(h)) && !owned.some((h) => [1, 5, 9].includes(h))) minus.push(`${nm} cũng cai quản ${areaList(owned.filter((h) => DUSTHANA.includes(h)))}, nên những chuyện ấy thường đi kèm trong giai đoạn`);
+  }
+  const ids: GrahaId[] = ["sun", "moon", "mars", "mercury", "jupiter", "venus", "saturn"];
+  const looks = ids.filter((x) => x !== lord && aspectOffsets(x).includes(mod(g.sign - SIGN_OF(ctx, x), 12) + 1));
+  if (looks.includes("jupiter")) plus.push("Sao Mộc nhìn vào hành tinh chủ vận, thêm sự che chở và người giúp đỡ");
+  if (looks.includes("saturn") && lord !== "saturn") minus.push("Sao Thổ nhìn vào hành tinh chủ vận, nên giai đoạn thêm phần nặng nề và chậm");
+  const yg = n.yogas.filter((y) => y.grahas.includes(lord) && y.strength !== "weak");
+  for (const y of yg.slice(0, 2)) (y.tone === "good" ? plus : minus).push(`${nm} tham gia ${y.name}, nên đây là lúc tổ hợp ấy có dịp thể hiện`);
+  if (!ctx.noTime) {
+    const d9 = vargaChart(n, 9).planets[lord];
+    if (d9.dignity === "exalted" || d9.dignity === "own" || g.vargottama) plus.push(`ở D9 ${nm} vẫn vững, nên những gì đạt được trong giai đoạn này có xu hướng bền`);
+    else if (d9.dignity === "debilitated") minus.push(`ở D9 ${nm} yếu đi, nên điều đạt được cần được chăm để giữ lâu`);
+  }
+  const cap = (x: string) => x.charAt(0).toUpperCase() + x.slice(1);
+  const plusT = plus.length ? plus.slice(0, 3).map((x) => `${cap(x)}.`).join(" ") : "Không có điều kiện thuận nào nổi bật hơn mức bình thường; giai đoạn đi theo công sức bạn đặt vào.";
+  const minusT = minus.length ? `${minus.slice(0, 3).map((x) => `${cap(x)}.`).join(" ")} ${ch.trap}` : `Không có yếu tố trái chiều nổi bật. ${ch.trap}`;
+  let links = "";
+  if (areas.length >= 2) links = `Chuyện ${AREA(areas[0])} và chuyện ${AREA(areas[1])} đi cùng nhau trong giai đoạn này: thay đổi ở bên này thường kéo theo việc sắp xếp lại bên kia${areas[2] ? `, và chuyện ${AREA(areas[2])} cũng được kéo vào` : ""}. ${ch.scene}`;
+  else links = ch.scene;
+  return { theme: `${themeBase}${focus}`, plus: plusT, minus: minusT, links };
+}
+
+function antarRead(ctx: Ctx, maha: GrahaId, lord: GrahaId, tone: Tone): string[] {
+  const out: string[] = [];
+  const pair = pairText(ctx, maha, lord);
+  if (maha === lord) out.push(`Đây là tiểu vận đầu tiên, khi chính ${nameOf(lord)} giữ cả hai tầng: chủ đề của đại vận hiện ra rõ nhất và thuần nhất trong khoảng này.`);
+  else if (pair.length) out.push(pair.join(" "));
+  const A = areasOf(ctx, maha), B = areasOf(ctx, lord);
+  if (A.length && B.length && maha !== lord) {
+    const common = B.filter((h) => A.includes(h));
+    const fresh = B.filter((h) => !A.includes(h));
+    const bits: string[] = [];
+    if (common.length) bits.push(`Cả hai hành tinh cùng chạm vào ${areaList(common.slice(0, 2))}, nên đây là mảng nổi bật nhất của khoảng thời gian này`);
+    if (fresh.length) bits.push(`${common.length ? "điều mới" : "Điều mới"} so với bối cảnh đại vận là ${areaList(fresh.slice(0, 2))} được đưa lên`);
+    if (bits.length) out.push(`${bits.join("; ")}.`);
+  } else if (maha !== lord) out.push(`${DASHA_PLANET[lord].about}`);
+  out.push(`${DASHA_TONE_LINE[tone]} ${fill(DASHA_WATCH, { watch: DASHA_PLANET[lord].watch, doing: DASHA_PLANET[lord].doing })}`);
+  return out;
 }
 
 function antarTone(ctx: Ctx, holder: GrahaId, lord: GrahaId): Tone {

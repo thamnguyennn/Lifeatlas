@@ -31,7 +31,7 @@ export function buildParts(p: Prepared): PartDef[] {
   add("overview", "Tổng quan", [{ id: "ov", nav: "Tổng quan", label: "Tổng quan" }]);
 
   if (!noTime) {
-    add("houses", "12 khía cạnh", [
+    add("houses", "12 nhà – 12 khía cạnh cuộc sống", [
       { id: "h-map", nav: "Bản đồ", label: "Mười hai khía cạnh" },
       ...r.houses.map((h) => ({ id: `h-${h.n}`, nav: String(h.n), label: `Nhà ${h.n}: ${h.tag}` })),
     ]);
@@ -45,14 +45,11 @@ export function buildParts(p: Prepared): PartDef[] {
 
   add("time", "Đại vận và tiểu vận", [
     { id: "t-chapters", nav: "Các giai đoạn đời", label: "Các giai đoạn đời" },
-    { id: "t-now", nav: "Bạn đang ở đâu", label: "Bạn đang ở đâu, và Gochara" },
   ]);
 
-  add("explore", "Khám phá thêm", [
-    { id: "x-compat", nav: "So sánh hai lá số", label: "So sánh hai lá số" },
-    ...r.explore.map((g) => ({ id: `x-${g.id}`, nav: g.title.split(" và ")[0], label: g.title })),
-  ]);
-  add("y2027", "Dự đoán 2027", [{ id: "y2027", nav: "2027", label: "Dự đoán 2027" }]);
+  add("y2027", "Dự báo 2027", [{ id: "y2027", nav: "2027", label: "Dự báo năm 2027" }]);
+
+  add("explore", "Khám phá thêm", [{ id: "x-hub", nav: "Khám phá thêm", label: "Khám phá thêm" }]);
   return out;
 }
 

@@ -15,6 +15,7 @@ import { Glyph, SignGlyph } from "./Glyph.tsx";
 import { signIndex } from "../engine/constants.ts";
 import { TONE_TEXT } from "./format.ts";
 import { Emblem } from "./Emblem.tsx";
+import { HOUSE_SHORT } from "../reading/facts.ts";
 
 const Paras = ({ list }: { list: string[] }) => <>{list.map((p, i) => <p key={i}><Gloss text={p} /></p>)}</>;
 const pad = (n: number) => String(n).padStart(2, "0");
@@ -105,7 +106,7 @@ function MahaCard({ ctx, m, open, onToggle, setRef }: { ctx: Ctx; m: MahaRow; op
         <Emblem id={m.lord} size={40} title="" className="dg" />
         <span className="dt"><strong>Đại vận {m.name}</strong><small>{m.from} – {m.to} · <span className="nw">tuổi {m.ageFrom}–{m.ageTo}</span></small></span>
         {m.litHouses && m.litHouses.length > 0 && (
-          <span className="chip lit-houses">Nhà {m.litHouses.join(", ")}</span>
+          <span className="chip lit-houses">{m.litHouses.slice(0, 2).map((h) => HOUSE_SHORT[h - 1]).join(" · ")}</span>
         )}
         <span className={`chip state-${m.state}`}>{stateText}</span>
         <span className={`chip tone-${m.tone}`}>{TONE_TEXT[m.tone]}</span>
@@ -135,6 +136,8 @@ export function ChaptersPage({ prepared, now }: { prepared: Prepared; now: numbe
   const cap = 90;
   const curIdx = Math.max(0, t.mahas.findIndex((d) => d.state === "now"));
   const [open, setOpen] = useState<number>(curIdx);
+  const curM = t.mahas[curIdx]?.state === "now" ? t.mahas[curIdx] : null;
+  const curA = curM?.antars.find((a) => a.state === "now") ?? null;
   const refs = useRef<(HTMLElement | null)[]>([]);
   const pct = (a: number) => `${Math.max(0, Math.min(100, (a / cap) * 100))}%`;
   const go = (i: number) => { setOpen(i); setTimeout(() => refs.current[i]?.scrollIntoView({ behavior: "smooth", block: "center" }), 60); };
@@ -143,6 +146,13 @@ export function ChaptersPage({ prepared, now }: { prepared: Prepared; now: numbe
       <p className="eyebrow reveal">Đại vận và tiểu vận</p>
       <h2 className="reveal">Các giai đoạn đời của bạn</h2>
       <p className="faint reveal"><Gloss text={t.intro} /></p>
+      {curM && (
+        <div className="now-card card reveal" role="group" aria-label="Giai đoạn hiện tại">
+          <div><small>Đại vận hiện tại</small><b>{curM.name}</b><span>{curM.from} – {curM.to}</span></div>
+          {curA && <div><small>Tiểu vận hiện tại</small><b>{curA.lordName}</b><span>{curA.from} – {curA.to}</span></div>}
+          <button type="button" className="btn ghost" onClick={() => go(curIdx)}>Đọc giai đoạn này ↓</button>
+        </div>
+      )}
       {noTime && <p className="birthline reveal">Vì chưa có giờ sinh, các mốc thời gian có thể lệch.</p>}
       <div className="timeline reveal" aria-label="Các đại vận theo tuổi">
         <div className="tl-bar">
@@ -163,20 +173,6 @@ export function ChaptersPage({ prepared, now }: { prepared: Prepared; now: numbe
       <div className="dlist">
         {t.mahas.map((m, i) => <MahaCard key={i} ctx={ctx} m={m} open={open === i} onToggle={() => setOpen(open === i ? -1 : i)} setRef={(el) => { refs.current[i] = el; }} />)}
       </div>
-      {!noTime && t.houseWindows && t.houseWindows.length > 0 && (
-        <section className="card prose house-windows reveal">
-          <h3>Khi nào từng khía cạnh được đánh thức trong 20 năm tới</h3>
-          <p className="faint">Toàn bộ dòng thời gian kích hoạt 12 nhà được gom về đây để bạn nhìn trọn vẹn sự chuyển giao giữa các mảng đời mà không bị lặp lại ở từng trang nhà.</p>
-          <div className="hw-grid">
-            {t.houseWindows.map((hw) => (
-              <div key={hw.n} className="hw-item">
-                <h4>Nhà {hw.n} · {hw.tag} <small>({hw.lordName})</small></h4>
-                <p><Gloss text={hw.windows.length ? hw.windows.join(" · ") : "Chạy nền ổn định qua các đại vận hiện tại."} /></p>
-              </div>
-            ))}
-          </div>
-        </section>
-      )}
       <details className="params reveal">
         <summary>Xem cách tính các giai đoạn</summary>
         <p className="birthline">{t.birth}</p>
@@ -290,24 +286,54 @@ export function NowPage({ prepared, day, dayMs, onDay }: { prepared: Prepared; d
 
 // ------------------------------------------------------------------ the sky today
 // ------------------------------------------------------------------ explore more
-export function ExploreGroupPage({ prepared, gid }: { prepared: Prepared; gid: string }) {
-  const g = prepared.reading.explore.find((x) => x.id === gid);
-  if (!g) return null;
+const ICON: Record<string, string> = { compat: "∞", love: "♡", marriage: "◎", talent: "✦", career: "◆", money: "◈", leader: "▲", study: "✧", health: "☼", family: "⌂", dharma: "☸", inner: "☯" };
+
+function TopicView({ t, onBack }: { t: { id: string; title: string; ask: string; lead: string; points: { title: string; text: string }[]; why: string[]; needsTime: boolean }; onBack: () => void }) {
+  return (
+    <article className="topic-view swap-in">
+      <button type="button" className="btn ghost back" onClick={onBack}>← Tất cả chủ đề</button>
+      <p className="eyebrow">{ICON[t.id]} Khám phá thêm</p>
+      <h3 className="topic-title">{t.title}</h3>
+      <p className="topic-ask">{t.ask}</p>
+      <p className="central"><Gloss text={t.lead} /></p>
+      <div className="facets">
+        {t.points.map((p) => <section key={p.title} className="card facet"><h4>{p.title}</h4><p><Gloss text={p.text} /></p></section>)}
+      </div>
+      {t.why.length > 0 && <details className="params why-drawer"><summary>Vì sao mình nói điều này?</summary><ul className="why">{t.why.map((w, k) => <li key={k}>{w}</li>)}</ul></details>}
+    </article>
+  );
+}
+
+export function ExploreHub({ prepared }: { prepared: Prepared }) {
+  const [open, setOpen] = useState<string | null>(null);
+  const groups = prepared.reading.explore;
+  const all = groups.flatMap((g) => g.topics);
+  const go = (id: string | null) => { setOpen(id); setTimeout(() => document.querySelector(".rpage")?.scrollIntoView({ block: "start", behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" }), 30); };
+  if (open === "compat") return <><button type="button" className="btn ghost back" onClick={() => go(null)}>← Tất cả chủ đề</button><CompatPage prepared={prepared} /></>;
+  const t = all.find((x) => x.id === open);
+  if (t) return <TopicView t={t} onBack={() => go(null)} />;
   return (
     <>
-      <p className="eyebrow reveal">Khám phá thêm</p>
-      <h2 className="reveal">{g.title}</h2>
-      <p className="lead reveal">{g.intro}</p>
-      <div className="fc-months">
-        {g.topics.map((t, i) => (
-          <details key={t.id} className="card fc-month reveal" open={i === 0}>
-            <summary><b>{t.title}</b> · {t.ask}</summary>
-            <p><Gloss text={t.lead} /></p>
-            {t.points.map((p) => <div key={p.title} className="varga-point"><h4>{p.title}</h4><p><Gloss text={p.text} /></p></div>)}
-            <details className="params mini"><summary>Vì sao mình nói điều này?</summary><ul className="why">{t.why.map((w, k) => <li key={k}>{w}</li>)}</ul></details>
-          </details>
-        ))}
-      </div>
+      <p className="eyebrow reveal">Câu hỏi của bạn</p>
+      <h2 className="reveal">Khám phá thêm</h2>
+      <p className="lead reveal">Những câu hỏi cụ thể về bản thân và cuộc sống, được trả lời từ nhiều phần của lá số cùng lúc. Chọn một chủ đề để mở.</p>
+      {groups.map((g, gi) => (
+        <section key={g.id} className={`x-group g-${g.id} reveal`}>
+          <header><h3>{g.title}</h3><p className="faint">{g.intro}</p></header>
+          <div className="x-cards">
+            {gi === 0 && (
+              <button type="button" className="x-card" onClick={() => go("compat")}>
+                <span className="x-ico" aria-hidden="true">{ICON.compat}</span><b>Độ hòa hợp của hai lá số</b><small>Nhập thông tin người thứ hai để so sánh</small>
+              </button>
+            )}
+            {g.topics.map((x) => (
+              <button key={x.id} type="button" className="x-card" onClick={() => go(x.id)}>
+                <span className="x-ico" aria-hidden="true">{ICON[x.id]}</span><b>{x.title}</b><small>{x.ask}</small>
+              </button>
+            ))}
+          </div>
+        </section>
+      ))}
     </>
   );
 }
@@ -316,11 +342,11 @@ export function CompatPage({ prepared }: { prepared: Prepared }) {
   const [other, setOther] = useState<Prepared | null>(null);
   const [err, setErr] = useState("");
   const nameA = prepared.values.name?.trim() || "Bạn";
-  const c = useMemo(() => (other ? readCompat(prepared.natal, other.natal, nameA, other.values.name?.trim() || "Người kia") : null), [other, prepared, nameA]);
+  const c = useMemo(() => (other ? readCompat(prepared.natal, other.natal, nameA, other.values.name?.trim() || "Người kia", { noTimeA: prepared.noTime, noTimeB: other.noTime }) : null), [other, prepared, nameA]);
   return (
     <>
       <p className="eyebrow reveal">Khám phá thêm</p>
-      <h2 className="reveal">So sánh hai lá số</h2>
+      <h2 className="reveal">Độ hòa hợp của hai lá số</h2>
       <p className="lead reveal">Nhập ngày, giờ và nơi sinh của một người nữa để xem hai lá số hòa hợp đến đâu về cảm xúc, tính khí và sự đồng hành. Dữ liệu chỉ xử lý trên máy bạn.</p>
       {!c && (
         <div className="card block reveal compat-form">
@@ -347,26 +373,54 @@ export function CompatPage({ prepared }: { prepared: Prepared }) {
 // ------------------------------------------------------------------ 2027
 export function ForecastPage({ prepared }: { prepared: Prepared }) {
   const F = prepared.reading.forecast;
+  const [sel, setSel] = useState(() => { const d = new Date(); return d.getFullYear() === F.year ? d.getMonth() : 0; });
+  const m = F.months[sel];
+  const KIND: Record<string, string> = { ingress: "Đổi cung", retro: "Đi lùi", direct: "Đi thẳng", hit: "Chạm điểm gốc", eclipse: "Thực", dasha: "Vận", moon8: "Mặt Trăng" };
   return (
     <>
       <p className="eyebrow reveal">Năm tới</p>
-      <h2 className="reveal">Dự đoán {F.year}</h2>
-      <div className="card block prose reveal"><Paras list={F.intro} /></div>
-      <h3 className="sub-h reveal">Những mốc lớn của bầu trời</h3>
-      <ul className="fc-key reveal">
-        {F.key.map((e) => <li key={e.ms + e.title}><b>{e.date}</b> · {e.title}<small>{e.text}</small></li>)}
-      </ul>
-      <h3 className="sub-h reveal">Từng tháng</h3>
-      <div className="fc-months">
-        {F.months.map((m) => (
-          <details key={m.month} className={`card fc-month tone-${m.tone} reveal`} open={m.month === 1}>
-            <summary><b>{m.label}</b> · {m.headline}</summary>
-            <Paras list={m.paragraphs} />
-            {m.events.length > 0 && <ul className="fc-ev">{m.events.map((e) => <li key={e.ms + e.title}><b>{e.date.slice(0, 5)}</b> {e.title}</li>)}</ul>}
-            <details className="params mini"><summary>Vì sao mình nói điều này?</summary><ul className="why">{m.why.map((w, i) => <li key={i}>{w}</li>)}</ul></details>
-          </details>
+      <h2 className="reveal">Dự báo năm {F.year}</h2>
+      <div className="intro-card reveal"><Paras list={F.intro} /></div>
+      <div className="month-tabs reveal" role="tablist" aria-label="Chọn tháng">
+        {F.months.map((x, i) => (
+          <button key={x.month} type="button" role="tab" aria-selected={i === sel} className={`mt tone-${x.tone} ${i === sel ? "on" : ""}`} onClick={() => setSel(i)}>
+            <b>{x.month}</b><small>{x.headline.length > 18 ? x.headline.slice(0, 16) + "…" : x.headline}</small>
+          </button>
         ))}
       </div>
+      <article key={m.month} className="fc-month-view swap-in" role="tabpanel" aria-label={m.label}>
+        <header className="fc-head"><p className="eyebrow">{m.label} / {F.year}</p><h3>{m.headline}</h3></header>
+        <p className="central"><Gloss text={m.central} /></p>
+        {m.areas.length > 0 && (
+          <div className="fc-areas">
+            {m.areas.map((a) => (
+              <section key={a.house} className={`card area tone-${a.tone}`}>
+                <h4>{a.title}</h4>
+                <p><Gloss text={a.text} /></p>
+              </section>
+            ))}
+          </div>
+        )}
+        {m.events.length > 0 && (
+          <section className="fc-dates">
+            <h4>Các mốc trong tháng</h4>
+            <ol>{m.events.map((e) => <li key={e.ms + e.title}><time>{e.date.slice(0, 5)}</time><span className={`kind k-${e.kind}`}>{KIND[e.kind]}</span><div><b>{e.title}</b><small>{e.text}</small></div></li>)}</ol>
+          </section>
+        )}
+        {m.change.length > 0 && (
+          <section className="fc-change"><h4>Điều thay đổi so với tháng trước</h4><ul>{m.change.map((c, i) => <li key={i}>{c}</li>)}</ul></section>
+        )}
+        <details className="params why-drawer"><summary>Vì sao mình nói điều này?</summary><ul className="why">{m.why.map((w, i) => <li key={i}>{w}</li>)}</ul></details>
+        <div className="fc-nav">
+          <button type="button" className="btn ghost" disabled={sel === 0} onClick={() => setSel(sel - 1)}>← {sel > 0 ? F.months[sel - 1].label : ""}</button>
+          <button type="button" className="btn ghost" disabled={sel === 11} onClick={() => setSel(sel + 1)}>{sel < 11 ? F.months[sel + 1].label : ""} →</button>
+        </div>
+      </article>
+      <details className="params reveal">
+        <summary>Phương pháp tính và các mốc lớn cả năm</summary>
+        <ul className="why">{F.method.map((x, i) => <li key={i}>{x}</li>)}</ul>
+        <ul className="fc-key">{F.key.map((e) => <li key={e.ms + e.title}><b>{e.date}</b> · {e.title}</li>)}</ul>
+      </details>
       <aside className="callout check reveal"><p>{F.trustNote}</p></aside>
     </>
   );

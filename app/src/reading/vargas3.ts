@@ -19,6 +19,8 @@ import { nameOf, joinVi, lowerFirst } from "./util.ts";
 export interface VargaPoint { title: string; paragraphs: string[] }
 export interface VargaReading {
   n: VargaN;
+  /** What the chart is for, said once (not chart-specific). */
+  about: string;
   code: string;
   name: string;
   short: string;
@@ -43,6 +45,7 @@ export const VARGA_META: Record<VargaN, { code: string; name: string; short: str
   10: { code: "D10", name: "Dashamsha", short: "nghề nghiệp và vai trò", question: "Bạn có xu hướng đảm nhận trách nhiệm, vai trò và phát triển chuyên môn như thế nào?", how: "D10 (Dashamsha) chia mỗi cung làm mười phần 3 độ: cung lẻ đếm từ chính nó, cung chẵn đếm từ cung thứ chín. D10 là lớp phụ của nhà 10; mình không dùng nó để đoán một chức danh." },
 };
 
+const tierPhrase = (t: "top" | "mid" | "low") => (t === "top" ? "điều kiện tốt" : t === "low" ? "điều kiện kém hơn phần lớn các nhà khác" : "điều kiện ở mức trung bình");
 const RANK: Record<Dignity, number> = { exalted: 4, moolatrikona: 3, own: 3, friend: 2, neutral: 1, none: 1, enemy: 0, debilitated: -1 };
 const DIG_WORD: Record<Dignity, string> = { exalted: "cung vượng", moolatrikona: "cung gốc", own: "cung của chính nó", friend: "cung của một hành tinh bạn", neutral: "một cung trung tính", none: "", enemy: "cung của một hành tinh không thân", debilitated: "cung suy" };
 const KEY: Record<string, string> = { sun: "ý chí", moon: "cảm xúc", mars: "sức bật", mercury: "trí óc", jupiter: "niềm tin", venus: "tình cảm", saturn: "kỷ luật", rahu: "khát vọng vượt khuôn", ketu: "sự buông bỏ và trực giác" };
@@ -132,8 +135,8 @@ function d10(x: Ctx3): { summary: string[]; points: VargaPoint[]; why: string[] 
     if (wealth.length) pts.push({ s: 2, title: "Thành quả từ nghề", text: [`${joinVi(wealth.map(nameOf))} đứng ở nhà thu nhập của D10, nên thành quả vật chất từ nghề gắn với ${joinVi(wealth.map((id) => KEY[id]))}.`] });
   }
   const mism = F.houses[9].tier === "top" && x.read && [6, 8, 12].includes(vc.planets[l10].house);
-  if (mism) pts.push({ s: 3.2, title: "D1 và D10 chưa cùng nhịp", text: ["Ở D1, nhà 10 có nền vững, nhưng chủ nhà 10 đứng ở một nhà khó của D10. Điều đó không phủ nhận D1: nó nói rằng vị thế bạn có được cần đi cùng kỹ năng và sự bền bỉ thì mới giữ vững."] });
-  const summary = [`D10 đặt cạnh nhà 10 của D1: ${F.houses[9].tier === "top" ? "nhà nghề nghiệp ở lá số chính có nền vững" : F.houses[9].tier === "low" ? "nhà nghề nghiệp ở lá số chính có nền mỏng hơn các nhà khác" : "nhà nghề nghiệp ở lá số chính ở mức giữa bảng"}, và ${s10 >= 1 ? "D10 cho thấy chủ nhà ấy khỏe hơn, nên phần nghề của bạn có xu hướng rõ nét hơn theo năm tháng" : s10 <= -1 ? "D10 cho thấy chủ nhà ấy yếu hơn, nên điều hứa ở lá số chính cần được kiểm chứng bằng kỹ năng thật" : "D10 giữ nguyên sức của chủ nhà ấy, nên hướng đi giữa hai lá số nhất quán"}. Đây là bản đồ về cách bạn làm việc, không phải lời đoán chức danh.`];
+  if (mism) pts.push({ s: 3.2, title: "D1 và D10 chưa cùng nhịp", text: ["Ở D1, nhà 10 có điều kiện tốt, nhưng chủ nhà 10 đứng ở một nhà khó của D10. Điều đó không phủ nhận D1: nó nói rằng vị thế bạn có được cần đi cùng kỹ năng và sự bền bỉ thì mới giữ vững."] });
+  const summary = [`D10 đặt cạnh nhà 10 của D1: ${F.houses[9].tier === "top" ? "nhà nghề nghiệp ở lá số chính có điều kiện tốt" : F.houses[9].tier === "low" ? "nhà nghề nghiệp ở lá số chính có điều kiện kém hơn phần lớn các nhà khác" : "nhà nghề nghiệp ở lá số chính ở mức giữa bảng"}, và ${s10 >= 1 ? "D10 cho thấy chủ nhà ấy khỏe hơn, nên phần nghề của bạn có xu hướng rõ nét hơn theo năm tháng" : s10 <= -1 ? "D10 cho thấy chủ nhà ấy yếu hơn, nên điều hứa ở lá số chính cần được kiểm chứng bằng kỹ năng thật" : "D10 giữ nguyên sức của chủ nhà ấy, nên hướng đi giữa hai lá số nhất quán"}. Đây là bản đồ về cách bạn làm việc, không phải lời đoán chức danh.`];
   return { summary, points: top(pts, 3), why: [
     `D10 lagna: ${SIGNS[vc.lagnaSign]}.`,
     `Chủ nhà 10 (D1): ${nameOf(l10)}, D1 ${SIGNS[n.grahas[l10].sign]} (${n.grahas[l10].dignity}) → D10 ${SIGNS[vSign(x, l10)]} (${vc.planets[l10].dignity}).`,
@@ -147,7 +150,7 @@ function d7(x: Ctx3): { summary: string[]; points: VargaPoint[]; why: string[] }
   const { F, vc, c } = x, n = c.n;
   const pts: Pt[] = [];
   const L5 = F.houses[4].lord_, jup = F.planets.jupiter;
-  pts.push({ s: 3, title: "Sao Mộc, hành tinh của con cháu", text: [`Trong truyền thống, Sao Mộc là hành tinh đại diện cho con cái. Ở D1 nó ${jup.grade === "strong" ? "rất vững" : jup.grade === "good" ? "khá vững" : jup.grade === "weak" ? "còn yếu" : "ở mức vừa"}; ở D7, ${place(x, "jupiter")}${vHouse(x, "jupiter") ? `, nhà ${vHouse(x, "jupiter")}` : ""}. ${shift(x, "jupiter") >= 1 ? "Nó mạnh lên ở D7, nên phần che chở và dạy dỗ thế hệ sau của bạn có nền tốt." : shift(x, "jupiter") <= -1 ? "Nó yếu hơn ở D7, nên chuyện nuôi dạy cần thêm sự kiên nhẫn chủ động." : "Sức của nó giữ nguyên, nên nhịp chăm sóc và dạy dỗ của bạn ổn định."}`] });
+  pts.push({ s: 3, title: "Sao Mộc, hành tinh của con cháu", text: [`Trong truyền thống, Sao Mộc là hành tinh đại diện cho con cái. Ở D1 nó ${jup.grade === "strong" ? "rất vững" : jup.grade === "good" ? "khá vững" : jup.grade === "weak" ? "còn yếu" : "ở mức vừa"}; ở D7, ${place(x, "jupiter")}${vHouse(x, "jupiter") ? `, nhà ${vHouse(x, "jupiter")}` : ""}. ${shift(x, "jupiter") >= 1 ? "Nó mạnh lên ở D7, nên phần che chở và dạy dỗ thế hệ sau của bạn có chỗ dựa tốt." : shift(x, "jupiter") <= -1 ? "Nó yếu hơn ở D7, nên chuyện nuôi dạy cần thêm sự kiên nhẫn chủ động." : "Sức của nó giữ nguyên, nên nhịp chăm sóc và dạy dỗ của bạn ổn định."}`] });
   const l5 = L5.id;
   pts.push({ s: 2.8, title: "Chủ nhà 5", text: [`Ở D1, chủ nhà 5 là ${nameOf(l5)}${F.planets[l5].house ? `, nhà ${F.planets[l5].house}` : ""}, đang ${F.planets[l5].grade === "weak" ? "còn yếu" : isGood(F.planets[l5]) ? "khá vững" : "ở mức vừa"}. Ở D7, ${place(x, l5)}${vHouse(x, l5) ? `, nhà ${vHouse(x, l5)} (${HOUSE_TAG[vHouse(x, l5)! - 1]})` : ""}.`] });
   for (const id of ["sun", "moon", "mars", "mercury", "jupiter", "venus", "saturn"] as GrahaId[]) { if (id === "jupiter") continue; const m = movement(x, id, "con cái và sự tiếp nối", "D7"); if (m) pts.push(m); }
@@ -157,7 +160,7 @@ function d7(x: Ctx3): { summary: string[]; points: VargaPoint[]; why: string[] }
     const occ = vc.occupants[4];
     pts.push({ s: occ.length ? 2.9 : 1.5, title: "Nhà 5 của D7", text: [occ.length ? `Nhà 5 của D7 là cung ${SIGNS[fifth]}, có ${joinVi(occ.map(nameOf))} ngồi trong đó, nên chuyện con cái và sự tiếp nối mang thêm màu của ${joinVi(occ.map((id) => KEY[id]))}.` : `Nhà 5 của D7 là cung ${SIGNS[fifth]}, chưa có hành tinh nào ngồi trong đó, nên chuyện này đi theo ${nameOf(fifthLord)}, ${place(x, fifthLord)}.`] });
   }
-  const summary = ["D7 là lá số về những gì bạn nuôi dưỡng và để lại: con ruột, học trò và cả những người bạn dẫn dắt. Nó không cho biết bạn có bao nhiêu con hay khi nào, và mình không đọc nó theo cách ấy; nó nói về cách bạn chăm sóc thế hệ sau và những điều kiện hỗ trợ việc đó.", `Đọc chung với nhà 5 của D1 (nền ${F.houses[4].tier === "top" ? "vững" : F.houses[4].tier === "low" ? "mỏng hơn các nhà khác" : "ở mức giữa"}) thì phần nuôi dạy của bạn ${F.houses[4].tier === "low" ? "cần chủ động hơn" : "có chỗ dựa khá tự nhiên"}.`];
+  const summary = ["D7 là lá số về những gì bạn nuôi dưỡng và để lại: con ruột, học trò và cả những người bạn dẫn dắt. Nó không cho biết bạn có bao nhiêu con hay khi nào, và mình không đọc nó theo cách ấy; nó nói về cách bạn chăm sóc thế hệ sau và những điều kiện hỗ trợ việc đó.", `Đọc chung với nhà 5 của D1 (${tierPhrase(F.houses[4].tier)}) thì phần nuôi dạy của bạn ${F.houses[4].tier === "low" ? "cần chủ động hơn" : "có chỗ dựa khá tự nhiên"}.`];
   return { summary, points: top(pts, 3), why: [
     `D7 lagna: ${SIGNS[vc.lagnaSign]}.`,
     `Sao Mộc: D1 ${SIGNS[n.grahas.jupiter.sign]} (${n.grahas.jupiter.dignity}) → D7 ${SIGNS[vSign(x, "jupiter")]} (${vc.planets.jupiter.dignity}).`,
@@ -171,7 +174,7 @@ function d4(x: Ctx3): { summary: string[]; points: VargaPoint[]; why: string[] }
   const { F, vc, c } = x, n = c.n;
   const pts: Pt[] = [];
   const L4 = F.houses[3].lord_, l4 = L4.id;
-  pts.push({ s: 3, title: "Chủ nhà 4", text: [`Ở D1, chủ nhà 4 là ${nameOf(l4)}${F.planets[l4].house ? `, nhà ${F.planets[l4].house}` : ""}, đang ${L4.grade === "weak" ? "còn yếu" : isGood(L4) ? "khá vững" : "ở mức vừa"}. Ở D4, ${place(x, l4)}${vHouse(x, l4) ? `, nhà ${vHouse(x, l4)}` : ""}. ${shift(x, l4) >= 1 ? "Nó mạnh lên ở D4, nên cảm giác có chỗ để về sẽ rõ dần." : shift(x, l4) <= -1 ? "Nó yếu hơn ở D4, nên nền nhà cửa cần được dựng bằng kế hoạch rõ ràng, đừng chỉ dựa vào hoàn cảnh." : "Sức của nó giữ nguyên giữa hai lá số."}`] });
+  pts.push({ s: 3, title: "Chủ nhà 4", text: [`Ở D1, chủ nhà 4 là ${nameOf(l4)}${F.planets[l4].house ? `, nhà ${F.planets[l4].house}` : ""}, đang ${L4.grade === "weak" ? "còn yếu" : isGood(L4) ? "khá vững" : "ở mức vừa"}. Ở D4, ${place(x, l4)}${vHouse(x, l4) ? `, nhà ${vHouse(x, l4)}` : ""}. ${shift(x, l4) >= 1 ? "Nó mạnh lên ở D4, nên cảm giác có chỗ để về sẽ rõ dần." : shift(x, l4) <= -1 ? "Nó yếu hơn ở D4, nên sự ổn định về nhà cửa cần được dựng bằng kế hoạch rõ ràng, đừng chỉ dựa vào hoàn cảnh." : "Sức của nó giữ nguyên giữa hai lá số."}`] });
   const kar = (["moon", "mars", "venus"] as GrahaId[]).map((id) => ({ id, d: shift(x, id) }));
   const best = kar.sort((a, b) => b.d - a.d)[0];
   pts.push({ s: 2.4 + Math.abs(best.d) * 0.2, title: "Các hành tinh đại diện cho chốn an cư", text: [`Mặt Trăng (nơi chốn, người nuôi dưỡng), Sao Hỏa (đất đai) và Sao Kim (tiện nghi, phương tiện) đại diện cho chuyện này; ở D4, ${joinVi(["moon", "mars", "venus"].map((id) => place(x, id as GrahaId)))}. ${best.d >= 1 ? `${nameOf(best.id)} là chỗ tựa mạnh nhất.` : "Không hành tinh nào nổi trội hẳn, nên chuyện này đi theo công sức hơn là may mắn có sẵn."}`] });
@@ -181,7 +184,7 @@ function d4(x: Ctx3): { summary: string[]; points: VargaPoint[]; why: string[] }
     pts.push({ s: 2.3, title: "Sự ổn định", text: [`Cung mọc của D4 là ${SIGNS[vc.lagnaSign]}, do ${nameOf(lagLord)} cai quản; ${place(x, lagLord)}. Nhà 4 của D4 là cung ${SIGNS[fourth]}${vc.occupants[3].length ? `, có ${joinVi(vc.occupants[3].map(nameOf))}` : ", chưa có hành tinh ngồi trong"}, do ${nameOf(fourthLord)} cai quản.`] });
     pts.push({ s: 2, title: "Phúc vận cho chuyện an cư", text: [`Chủ nhà 9 của D4 là ${nameOf(ninthLord)}, ${place(x, ninthLord)}. Đọc cạnh nhà 9 của D1 (niềm tin và vận may), đây là chỗ chỉ ra việc ổn định chỗ ở của bạn ${RANK[vc.planets[ninthLord].dignity] >= 2 ? "có thêm sự nâng đỡ từ phúc phần" : "chủ yếu do bạn tự gây dựng"}.`] });
   }
-  const summary = ["D4 gom lại những yếu tố tạo cảm giác bạn có một nơi để về: nhà cửa, đất đai, xe cộ và những tài sản đứng yên một chỗ. Mình đọc nó cạnh nhà 4 của D1, không dùng nó để đoán việc mua bán cụ thể.", `Nhà 4 ở lá số chính có nền ${F.houses[3].tier === "top" ? "vững" : F.houses[3].tier === "low" ? "mỏng hơn các nhà khác" : "ở mức giữa bảng"}, và D4 ${shift(x, l4) >= 1 ? "bổ sung thêm sức cho chủ nhà ấy" : shift(x, l4) <= -1 ? "cho thấy chủ nhà ấy cần được chăm hơn" : "giữ nguyên bức tranh ấy"}.`];
+  const summary = ["D4 gom lại những yếu tố tạo cảm giác bạn có một nơi để về: nhà cửa, đất đai, xe cộ và những tài sản đứng yên một chỗ. Mình đọc nó cạnh nhà 4 của D1, không dùng nó để đoán việc mua bán cụ thể.", `Nhà 4 ở lá số chính có ${tierPhrase(F.houses[3].tier)}, và D4 ${shift(x, l4) >= 1 ? "bổ sung thêm sức cho chủ nhà ấy" : shift(x, l4) <= -1 ? "cho thấy chủ nhà ấy cần được chăm hơn" : "giữ nguyên bức tranh ấy"}.`];
   return { summary, points: top(pts, 3), why: [
     `D4 lagna: ${SIGNS[vc.lagnaSign]}.`,
     `Chủ nhà 4 (D1): ${nameOf(l4)}, D1 ${SIGNS[n.grahas[l4].sign]} → D4 ${SIGNS[vSign(x, l4)]} (${vc.planets[l4].dignity}).`,
@@ -195,7 +198,7 @@ function d3(x: Ctx3): { summary: string[]; points: VargaPoint[]; why: string[] }
   const pts: Pt[] = [];
   const L3 = F.houses[2].lord_, l3 = L3.id, mars = F.planets.mars;
   pts.push({ s: 3, title: "Sao Hỏa và nghị lực", text: [`Sao Hỏa là hành tinh của sức bật và của anh chị em. Ở D1 nó ${mars.grade === "strong" ? "rất vững" : mars.grade === "good" ? "khá vững" : mars.grade === "weak" ? "còn yếu" : "ở mức vừa"}; ở D3, ${place(x, "mars")}${vHouse(x, "mars") ? `, nhà ${vHouse(x, "mars")}` : ""}. ${shift(x, "mars") >= 1 ? "Nó mạnh lên ở D3, nên bản lĩnh hành động của bạn càng dùng càng chắc." : shift(x, "mars") <= -1 ? "Nó yếu hơn ở D3, nên sức bật của bạn cần được nuôi bằng vận động đều và mục tiêu rõ." : "Sức của nó giữ nguyên giữa hai lá số."}`] });
-  pts.push({ s: 2.7, title: "Chủ nhà 3", text: [`Chủ nhà 3 ở D1 là ${nameOf(l3)}${F.planets[l3].house ? `, nhà ${F.planets[l3].house}` : ""}; ở D3, ${place(x, l3)}${vHouse(x, l3) ? `, nhà ${vHouse(x, l3)} (${HOUSE_TAG[vHouse(x, l3)! - 1]})` : ""}. ${shift(x, l3) >= 1 ? "Nó mạnh lên, nên sự tự lập của bạn có nền tốt." : shift(x, l3) <= -1 ? "Nó yếu hơn, nên sự tự lập của bạn đến từ rèn luyện hơn là có sẵn." : ""}`.trim()] });
+  pts.push({ s: 2.7, title: "Chủ nhà 3", text: [`Chủ nhà 3 ở D1 là ${nameOf(l3)}${F.planets[l3].house ? `, nhà ${F.planets[l3].house}` : ""}; ở D3, ${place(x, l3)}${vHouse(x, l3) ? `, nhà ${vHouse(x, l3)} (${HOUSE_TAG[vHouse(x, l3)! - 1]})` : ""}. ${shift(x, l3) >= 1 ? "Nó mạnh lên, nên sự tự lập của bạn có chỗ dựa tốt." : shift(x, l3) <= -1 ? "Nó yếu hơn, nên sự tự lập của bạn đến từ rèn luyện hơn là có sẵn." : ""}`.trim()] });
   for (const id of ["sun", "moon", "mercury", "jupiter", "venus", "saturn"] as GrahaId[]) { const m = movement(x, id, "nghị lực và người đồng lứa", "D3"); if (m) pts.push(m); }
   if (x.read) {
     const lagLord = vHouseLord(x, 1), third = vHouseSign(x, 3), thirdLord = vHouseLord(x, 3), eleventh = vc.occupants[10];
@@ -203,7 +206,7 @@ function d3(x: Ctx3): { summary: string[]; points: VargaPoint[]; why: string[] }
     pts.push({ s: vc.occupants[2].length ? 2.8 : 1.6, title: "Nhà 3 của D3", text: [vc.occupants[2].length ? `Nhà 3 của D3 là cung ${SIGNS[third]}, có ${joinVi(vc.occupants[2].map(nameOf))} ngồi trong đó, nên quan hệ với anh chị em và người cùng chí hướng mang màu của ${joinVi(vc.occupants[2].map((id) => KEY[id]))}.` : `Nhà 3 của D3 là cung ${SIGNS[third]}, do ${nameOf(thirdLord)} cai quản, ${place(x, thirdLord)}.`] });
     if (eleventh.length) pts.push({ s: 1.9, title: "Anh chị em lớn và bạn bè thân", text: [`Nhà 11 của D3 có ${joinVi(eleventh.map(nameOf))}, nên những người đi trước hoặc cùng thế hệ thân thiết với bạn mang thêm màu của ${joinVi(eleventh.map((id) => KEY[id]))}.`] });
   }
-  const summary = ["D3 là tấm gương soi lòng can đảm của bạn: nguồn ý chí giúp bạn tự đứng lên, cách bạn ứng phó trở ngại và những người sát vai như anh chị em, bạn đồng lứa. Mình đọc nó cạnh nhà 3 của D1 và Sao Hỏa.", `Nhà 3 ở lá số chính có nền ${F.houses[2].tier === "top" ? "vững" : F.houses[2].tier === "low" ? "mỏng hơn các nhà khác" : "ở mức giữa bảng"}; D3 ${shift(x, "mars") >= 1 || shift(x, l3) >= 1 ? "bổ sung thêm sức cho phần này" : shift(x, "mars") <= -1 || shift(x, l3) <= -1 ? "cho thấy phần này cần được rèn" : "giữ nguyên bức tranh ấy"}.`];
+  const summary = ["D3 là tấm gương soi lòng can đảm của bạn: nguồn ý chí giúp bạn tự đứng lên, cách bạn ứng phó trở ngại và những người sát vai như anh chị em, bạn đồng lứa. Mình đọc nó cạnh nhà 3 của D1 và Sao Hỏa.", `Nhà 3 ở lá số chính có ${tierPhrase(F.houses[2].tier)}; D3 ${shift(x, "mars") >= 1 || shift(x, l3) >= 1 ? "bổ sung thêm sức cho phần này" : shift(x, "mars") <= -1 || shift(x, l3) <= -1 ? "cho thấy phần này cần được rèn" : "giữ nguyên bức tranh ấy"}.`];
   return { summary, points: top(pts, 3), why: [
     `D3 lagna: ${SIGNS[vc.lagnaSign]}.`,
     `Sao Hỏa: D1 ${SIGNS[n.grahas.mars.sign]} (${n.grahas.mars.dignity}) → D3 ${SIGNS[vSign(x, "mars")]} (${vc.planets.mars.dignity}).`,
@@ -229,11 +232,32 @@ function d2(x: Ctx3): { summary: string[]; points: VargaPoint[]; why: string[]; 
   pts.push({ s: 2.8, title: "Những hành tinh của tiền bạc", text: [`Chủ nhà 2 là ${nameOf(l2)}, chủ nhà 11 ${l11 === l2 ? "cũng là nó" : "là " + nameOf(l11)}; Sao Mộc và Sao Kim là hai hành tinh tự nhiên của nguồn lực. Ở D2: ${joinVi(uniq.map((id) => `${nameOf(id)} ở hora ${hora(id)}`))}. ${one ? "Tất cả nghiêng về một hora, nên cách bạn tạo và dùng tiền khá nhất quán." : "Chúng chia ra hai hora, nên bạn có hai mạch thu nhập khác nhau và hay phải cân giữa tự làm và nhờ quan hệ."}`] });
   pts.push({ s: 2.2 + (fitS.length + fitM.length) * 0.2, title: "Hành tinh đứng đúng hora", text: [fitS.length + fitM.length ? `${joinVi([...fitS, ...fitM].map(nameOf))} đứng đúng hora quen thuộc của mình theo Parashara, nên phần tiền bạc gắn với ${joinVi([...fitS, ...fitM].map((id) => KEY[id]))} khá thuận tay.` : "Không hành tinh nào đứng đúng hora quen thuộc của mình theo Parashara, nên cách bạn kiếm tiền khó theo một công thức có sẵn và thường phải tự tìm lối riêng."] });
   const L2 = F.houses[1], L11 = F.houses[10];
-  const summary = [`D2 chỉ trả lời một câu hỏi hẹp: bạn tạo lập và giữ nguồn lực theo kiểu nào. Mình đọc nó cạnh nhà 2 (tích lũy) và nhà 11 (thu nhập, thành quả) của D1: nhà 2 có nền ${L2.tier === "top" ? "vững" : L2.tier === "low" ? "mỏng hơn các nhà khác" : "ở mức giữa bảng"}, nhà 11 có nền ${L11.tier === "top" ? "vững" : L11.tier === "low" ? "mỏng hơn các nhà khác" : "ở mức giữa bảng"}. Khả năng kiếm, khả năng giữ và cách quản lý là ba chuyện khác nhau, và D2 chỉ cho biết chuyện đầu tiên rõ hơn hai chuyện còn lại.`];
+  const summary = [`D2 chỉ trả lời một câu hỏi hẹp: bạn tạo lập và giữ nguồn lực theo kiểu nào. Mình đọc nó cạnh nhà 2 (tích lũy) và nhà 11 (thu nhập, thành quả) của D1: nhà 2 có ${tierPhrase(L2.tier)}, nhà 11 có ${tierPhrase(L11.tier)}. Khả năng kiếm, khả năng giữ và cách quản lý là ba chuyện khác nhau, và D2 chỉ cho biết chuyện đầu tiên rõ hơn hai chuyện còn lại.`];
   return { summary, points: top(pts, 3), why: [
     `Hora Mặt Trời: ${sun.length ? joinVi(sun.map(nameOf)) : "không có"}. Hora Mặt Trăng: ${moon.length ? joinVi(moon.map(nameOf)) : "không có"}.`,
     `Cung mọc ở hora ${vargaSign(n.lagna.lon, 2) === 4 ? "Mặt Trời" : "Mặt Trăng"}.`,
   ], hora: { sun, moon } };
+}
+
+// ------------------------------------------------------------------ the judgement that opens every chart: D1 and the varga together
+
+const TOPIC_OF: Record<VargaN, { house: number; word: string }> = {
+  2: { house: 2, word: "tiền bạc và nguồn lực" }, 3: { house: 3, word: "sự chủ động và quan hệ anh chị em" }, 4: { house: 4, word: "nhà cửa và sự ổn định" },
+  7: { house: 5, word: "con cái và việc nuôi dạy" }, 9: { house: 7, word: "hôn nhân và cam kết" }, 10: { house: 10, word: "nghề nghiệp và trách nhiệm" },
+};
+
+function judge(x: Ctx3): string {
+  const T = TOPIC_OF[x.n], hf = x.F.houses[T.house - 1], L = hf.lord, d = shift(x, L), code = `D${x.n}`;
+  const d1 = hf.tier === "top" ? "good" : hf.tier === "low" ? "low" : x.c.tones[T.house - 1] === "good" ? "good" : x.c.tones[T.house - 1] === "hard" ? "low" : "mid";
+  const nm = nameOf(L);
+  if (d1 === "good" && d >= 1) return `Ở lá số chính, chuyện ${T.word} đã có điều kiện tốt, và ${code} xác nhận điều đó: ${nm}, hành tinh giữ chìa khóa của mảng này, còn mạnh hơn ở tầng sâu, nên đây là mảng bạn có thể tin cậy theo thời gian.`;
+  if (d1 === "good" && d <= -1) return `Ở lá số chính, chuyện ${T.word} có điều kiện tốt, nhưng ${code} cho thấy ${nm} yếu đi ở tầng sâu hơn: điều kiện bên ngoài thuận, còn khả năng giữ nó bền lâu cần được rèn.`;
+  if (d1 === "low" && d >= 1) return `Ở lá số chính, chuyện ${T.word} không thật thuận, nhưng ${code} cho thấy ${nm} vững hơn ở tầng sâu: mảng này thường cải thiện rõ theo thời gian và công sức.`;
+  if (d1 === "low" && d <= -1) return `Cả lá số chính lẫn ${code} đều cho thấy chuyện ${T.word} cần được xây từng bước; điểm tựa có sẵn không nhiều, nên kế hoạch và sự kiên nhẫn quan trọng hơn may mắn.`;
+  const base = d1 === "good" ? "điều kiện khá thuận" : d1 === "low" ? "điều kiện cần nhiều công sức" : "có thuận có khó";
+  if (d >= 1) return `Ở lá số chính, chuyện ${T.word} ${base === "có thuận có khó" ? "có thuận có khó" : `có ${base}`}; ${code} cho thấy ${nm}, hành tinh giữ chìa khóa của mảng này, khỏe hơn ở tầng sâu, nên phần này có xu hướng vững lên theo năm tháng.`;
+  if (d <= -1) return `Ở lá số chính, chuyện ${T.word} ${base === "có thuận có khó" ? "có thuận có khó" : `có ${base}`}; ${code} cho thấy ${nm}, hành tinh giữ chìa khóa của mảng này, yếu đi ở tầng sâu, nên điều có được cần được giữ bằng công sức đều đặn.`;
+  return `${code} giữ gần nguyên bức tranh của lá số chính về chuyện ${T.word}: ${base}, và ${nm}, hành tinh giữ chìa khóa của mảng này, không đổi sức giữa hai tầng.`;
 }
 
 // ------------------------------------------------------------------ assembling
@@ -251,7 +275,10 @@ export function readVargas(ctx: Ctx): VargaReading[] {
     const planets = {} as Record<GrahaId, number>;
     for (const id of Object.keys(vc.planets) as GrahaId[]) planets[id] = vc.planets[id].sign;
     out.push({
-      n: v, ...meta, trust, summary: body.summary, points: body.points, why: body.why,
+      n: v, ...meta, trust,
+      about: [2, 3, 4, 7].includes(v) ? body.summary[0] : meta.how.split(". ")[0] + ".",
+      summary: [judge(x), ...(v === 9 ? body.summary : []), ...(x.read || v === 2 ? [] : [`Vì cung mọc của ${meta.code} có thể đổi trong sai số giờ sinh, mình chỉ đối chiếu sức của các hành tinh giữa hai tầng, không đọc theo nhà.`])],
+      points: body.points, why: [...body.why, `Chủ nhà ${TOPIC_OF[v].house} (D1): ${nameOf(F.houses[TOPIC_OF[v].house - 1].lord)}, D1 ${vc.planets[F.houses[TOPIC_OF[v].house - 1].lord].d1Dignity} → ${meta.code} ${vc.planets[F.houses[TOPIC_OF[v].house - 1].lord].dignity}.`],
       chart: { lagnaSign: vc.lagnaSign, planets },
       ...(v === 2 ? { hora: (body as ReturnType<typeof d2>).hora } : {}),
     });

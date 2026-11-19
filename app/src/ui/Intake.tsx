@@ -194,7 +194,8 @@ export function Intake({ initial, onSubmit }: { initial?: FormValues; onSubmit: 
                 <option value={5}>Trong khoảng ±5 phút</option>
                 <option value={15}>Trong khoảng ±15 phút</option>
                 <option value={30}>Trong khoảng ±30 phút</option>
-                <option value={60}>Lớn hơn 30 phút</option>
+                <option value={60}>Trên 30 phút</option>
+                <option value={120}>Không rõ giờ sinh chính xác</option>
               </select>
             </label>
           </div>
