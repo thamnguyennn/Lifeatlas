@@ -1255,3 +1255,41 @@ details[open] > :not(summary) { animation: swapIn .35s var(--ease) both; }
   .rpage p, .rpage li { font-size: 1rem; }
 }
 @media (max-width: 380px) { .x-cards { grid-template-columns: 1fr; } }
+
+.err-pick { border: 0; padding: 0; margin: .9rem 0 0; }
+.err-pick legend { font-size: .86rem; color: var(--text-dim); margin-bottom: .45rem; }
+.err-opts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .45rem; }
+.err-opt { position: relative; display: flex; align-items: center; gap: .5rem; min-height: 44px; padding: .5rem .7rem; border-radius: 12px; border: 1px solid var(--line); background: var(--surface); cursor: pointer; font-size: .88rem; line-height: 1.3; transition: border-color .2s, background .2s; }
+.err-opt input { appearance: none; width: 1.05rem; height: 1.05rem; flex: none; border-radius: 4px; border: 1.5px solid var(--gold); margin: 0; display: grid; place-content: center; }
+.err-opt input::after { content: ""; width: .55rem; height: .55rem; border-radius: 2px; background: var(--gold-2); transform: scale(0); transition: transform .15s; }
+.err-opt input:checked::after { transform: scale(1); }
+.err-opt.on { border-color: var(--gold); background: color-mix(in srgb, var(--gold) 14%, var(--surface)); }
+.err-opt:focus-within { outline: 2px solid var(--gold); outline-offset: 2px; }
+@media (max-width: 640px) { .err-opts { grid-template-columns: 1fr 1fr; } }
+
+/* ------------------------------------------------------------------ section themes and icons */
+.ov-block { position: relative; overflow: hidden; border-left: 3px solid var(--acc, var(--gold)); }
+.ov-block::before { content: ""; position: absolute; inset: 0; pointer-events: none; background: radial-gradient(120% 90% at 100% 0%, color-mix(in srgb, var(--acc, var(--gold)) 13%, transparent), transparent 60%); }
+.ov-block > * { position: relative; }
+.ov-keys { --acc: #e7c88f; } .ov-elements { --acc: #e58a6e; } .ov-moonCycle { --acc: #a9c4ff; } .ov-pillars { --acc: #6fd2b8; } .ov-focus { --acc: #b9a2f0; }
+.ov-head { display: flex; align-items: center; gap: .9rem; margin-bottom: .8rem; }
+.ov-head h3 { margin: 0 !important; color: var(--text); }
+.ov-head .key-role { margin: .15rem 0 0; color: var(--text-faint); font-size: .9rem; }
+.ov-ico { flex: none; display: grid; place-items: center; min-width: 48px; height: 48px; padding: 0 .3rem; border-radius: 14px; background: color-mix(in srgb, var(--acc) 14%, transparent); color: var(--acc); }
+.focus-ico { font-size: 1.5rem; }
+.pl-row { display: flex; gap: .25rem; }
+.pg.c-sun { color: var(--c-sun); } .pg.c-moon { color: var(--c-moon); } .pg.c-mars { color: var(--c-mars); } .pg.c-mercury { color: var(--c-mercury); }
+.pg.c-jupiter { color: var(--c-jupiter); } .pg.c-venus { color: var(--c-venus); } .pg.c-saturn { color: var(--c-saturn); }
+.key-signs { list-style: none; padding: 0; margin: 0 0 1rem; display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: .6rem; }
+.key-signs li { display: flex; align-items: center; gap: .6rem; padding: .6rem .8rem; border-radius: 12px; background: color-mix(in srgb, var(--acc) 10%, var(--surface)); border: 1px solid color-mix(in srgb, var(--acc) 25%, transparent); color: var(--acc); }
+.key-signs small { display: block; font-size: .75rem; color: var(--text-faint); letter-spacing: .04em; }
+.key-signs b { color: var(--text); font-weight: 600; }
+.el-row { list-style: none; padding: 0; margin: 0 0 1rem; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .5rem; }
+.el-row li { display: flex; flex-direction: column; align-items: center; gap: .2rem; padding: .6rem .3rem; border-radius: 12px; background: var(--surface); border: 1px solid var(--line-soft); }
+.el-row li span { font-size: .82rem; color: var(--text-dim); } .el-row li b { font-size: 1.1rem; color: var(--text); }
+.el-row .el-fire { color: #ef8a66; } .el-row .el-earth { color: #c8b26e; } .el-row .el-air { color: #8fc7ea; } .el-row .el-water { color: #7fa6f0; }
+.varga-title { display: flex; align-items: center; gap: .6rem; }
+.dlayer { padding: .7rem .9rem; border-radius: 12px; background: color-mix(in srgb, var(--surface) 70%, transparent); border-left: 3px solid var(--gold); }
+.dlayer:nth-of-type(2) { border-left-color: var(--good); } .dlayer:nth-of-type(3) { border-left-color: var(--hard); } .dlayer:nth-of-type(4) { border-left-color: var(--lav); }
+.hs-summary h3 { color: var(--gold-2); }
+.month-tabs .mt small { white-space: normal; overflow-wrap: anywhere; }

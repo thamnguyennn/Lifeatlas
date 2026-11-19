@@ -384,7 +384,7 @@ export function ForecastPage({ prepared }: { prepared: Prepared }) {
       <div className="month-tabs reveal" role="tablist" aria-label="Chọn tháng">
         {F.months.map((x, i) => (
           <button key={x.month} type="button" role="tab" aria-selected={i === sel} className={`mt tone-${x.tone} ${i === sel ? "on" : ""}`} onClick={() => setSel(i)}>
-            <b>{x.month}</b><small>{x.headline.length > 18 ? x.headline.slice(0, 16) + "…" : x.headline}</small>
+            <b>{x.month}</b><small>{x.headline}</small>
           </button>
         ))}
       </div>
@@ -421,7 +421,7 @@ export function ForecastPage({ prepared }: { prepared: Prepared }) {
         <ul className="why">{F.method.map((x, i) => <li key={i}>{x}</li>)}</ul>
         <ul className="fc-key">{F.key.map((e) => <li key={e.ms + e.title}><b>{e.date}</b> · {e.title}</li>)}</ul>
       </details>
-      <aside className="callout check reveal"><p>{F.trustNote}</p></aside>
+      {F.trustNote && <aside className="callout check reveal"><p>{F.trustNote}</p></aside>}
     </>
   );
 }

@@ -200,13 +200,15 @@ function HoraBoxes({ hora }: { hora: NonNullable<VargaReading["hora"]> }) {
   );
 }
 
+const VARGA_KEY: Record<number, GrahaId> = { 2: "jupiter", 3: "mars", 4: "moon", 7: "jupiter", 9: "venus", 10: "sun" };
+
 export function VargaPage({ prepared, n }: { prepared: Prepared; n: VargaReading["n"] }) {
   const v = prepared.reading.vargas?.find((x) => x.n === n);
   if (!v) return null;
   return (
     <>
       <p className="eyebrow reveal">Biểu đồ chuyên sâu</p>
-      <h2 className="reveal">{v.code} · {v.name}</h2>
+      <h2 className={`reveal varga-title vt-${v.n}`}><Glyph name={VARGA_KEY[v.n]} size={34} className={`pg c-${VARGA_KEY[v.n]}`} /> {v.code} · {v.name}</h2>
       <p className="lead reveal">{v.question}</p>
       <p className="faint reveal">{v.about}</p>
       <div className="varga">

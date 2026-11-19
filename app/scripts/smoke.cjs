@@ -23,7 +23,7 @@ async function fill(pg, d, m, y, hh, mm, place) {
     ok(!/xem lá số mẫu/i.test(body) && !body.includes("Jyotish trong vài câu"), `${label}: no sample button, no Jyotish card`);
     ok((await pg.locator("body").innerHTML()).includes("30 phút"), `${label}: birth-time error selector`);
     ok((await pg.locator("body").innerHTML()).includes("khoảng lặng"), `${label}: author note at the bottom`);
-    ok((await pg.locator("select option").allInnerTexts()).filter((t) => /phút|Không rõ giờ sinh/.test(t)).length === 6, `${label}: six birth-time error options`);
+    ok((await pg.locator(".err-opt").count()) === 6, `${label}: six birth-time error options`);
     await fill(pg, "23", "5", "1990", "1", "40", "hue");
     await pg.click("button:has-text('Mở lá số')"); await pg.waitForTimeout(1500);
     let seen = 0;

@@ -21,6 +21,11 @@ export const SAMPLE: FormValues = {
   place: { name: "Huế", lat: 16.4637, lon: 107.5909, country: "VN" },
 };
 
+const ERR_OPTS = [
+  { v: 1, text: "Trong khoảng ±1 phút" }, { v: 5, text: "Trong khoảng ±5 phút" }, { v: 15, text: "Trong khoảng ±15 phút" },
+  { v: 30, text: "Trong khoảng ±30 phút" }, { v: 60, text: "Trên 30 phút" }, { v: 120, text: "Không rõ giờ sinh chính xác" },
+];
+
 function Segmented<T extends string>({ value, onChange, options, label }: {
   value: T; onChange: (v: T) => void; options: { v: T; text: string }[]; label: string;
 }) {
@@ -184,22 +189,24 @@ export function Intake({ initial, onSubmit }: { initial?: FormValues; onSubmit: 
         <legend>Giờ sinh</legend>
         <Segmented<TimeKind> label="Cách nhập giờ" value={timeKind} onChange={setTimeKind}
           options={[{ v: "exact", text: "Giờ chính xác" }, { v: "canh", text: "Canh giờ" }, { v: "unknown", text: "Không rõ giờ" }]} />
-        {timeKind === "exact" && (
+        {timeKind === "exact" && (<>
           <div className="row3 time">
             <label className="mini"><span>Giờ (0–23)</span><input id={`${uid}-hh`} className="input" inputMode="numeric" maxLength={2} placeholder="hh" value={hh} onChange={(e) => setHh(e.target.value.replace(/\D/g, ""))} aria-label="Giờ" /></label>
             <label className="mini"><span>Phút</span><input id={`${uid}-mm`} className="input" inputMode="numeric" maxLength={2} placeholder="mm" value={mm} onChange={(e) => setMm(e.target.value.replace(/\D/g, ""))} aria-label="Phút" /></label>
-            <label className="mini wide"><span>Sai số giờ sinh có thể có</span>
-              <select id={`${uid}-err`} className="input" value={errMin} onChange={(e) => setErrMin(Number(e.target.value))} aria-label="Sai số giờ sinh có thể có">
-                <option value={1}>Trong khoảng ±1 phút</option>
-                <option value={5}>Trong khoảng ±5 phút</option>
-                <option value={15}>Trong khoảng ±15 phút</option>
-                <option value={30}>Trong khoảng ±30 phút</option>
-                <option value={60}>Trên 30 phút</option>
-                <option value={120}>Không rõ giờ sinh chính xác</option>
-              </select>
-            </label>
+
           </div>
-        )}
+          <fieldset className="err-pick">
+            <legend>Sai số giờ sinh có thể có</legend>
+            <div className="err-opts" role="radiogroup">
+              {ERR_OPTS.map((o) => (
+                <label key={o.v} className={`err-opt ${errMin === o.v ? "on" : ""}`}>
+                  <input type="radio" name={`${uid}-err`} value={o.v} checked={errMin === o.v} onChange={() => setErrMin(o.v)} />
+                  <span>{o.text}</span>
+                </label>
+              ))}
+            </div>
+          </fieldset>
+        </>)}
         {timeKind === "canh" && (
           <select id={`${uid}-canh`} className="input" value={canhId} onChange={(e) => setCanhId(e.target.value)} aria-label="Canh giờ">
             {CANH_GIO.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}

@@ -277,10 +277,6 @@ export function readForecast(ctx: Ctx): Forecast {
       "Nhật thực/nguyệt thực: trăng non cách nút dưới 17°, trăng tròn cách nút dưới 11,5°.",
       "Chạm điểm gốc: Mộc, Thổ, Rahu, Ketu trùng hoặc đối hành tinh gốc/điểm mọc trong 1,5°.",
     ],
-    trustNote: noTime
-      ? "Chưa có giờ sinh nên mình tính các mảng đời theo Mặt Trăng của bạn thay vì cung mọc."
-      : ctx.windowMin > 15
-        ? "Giờ sinh còn sai số khá lớn: các mốc thiên văn không đổi, nhưng mảng đời (tính từ cung mọc) và ranh giới tiểu vận có thể lệch; hãy đọc các tháng như xu hướng."
-        : "Các mốc thiên văn không phụ thuộc giờ sinh; với sai số bạn chọn, mảng đời và ranh giới tiểu vận gần như không đổi.",
+    trustNote: noTime ? "Chưa có giờ sinh nên mình tính các mảng đời theo Mặt Trăng của bạn thay vì cung mọc." : "",
   };
 }

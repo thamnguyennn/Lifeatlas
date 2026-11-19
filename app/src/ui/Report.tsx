@@ -170,12 +170,6 @@ export function Report({ prepared, onEdit, onChoose, now }: {
           </div>
         </aside>
       )}
-      {!noTime && r.meta.lagnaShift.length > 1 && (
-        <aside className="callout check reveal">
-          <strong>Trong sai số giờ sinh bạn chọn, cung mọc có thể là {r.meta.lagnaShift.join(" hoặc ")}</strong>
-          <p>Bài đọc dùng giờ bạn nhập. Những phần dựa vào cung mọc (12 nhà, các biểu đồ chia, nhà trong dự báo) nên được đọc như một khả năng, không phải điều chắc chắn. Những phần không phụ thuộc cung mọc, như Mặt Trăng và các giai đoạn đời lớn, ít bị ảnh hưởng hơn.</p>
-        </aside>
-      )}
       {noTime && (
         <aside className="callout check reveal">
           <strong>Chưa có giờ sinh nên chưa dựng được cung mọc và 12 nhà</strong>

@@ -1,8 +1,8 @@
 // The Overview page: a letter, one sentence about the whole chart, then the blocks of the overview.
 import type { Prepared } from "./logic.ts";
 import { Gloss } from "./Gloss.tsx";
-import { SignGlyph } from "./Glyph.tsx";
-import { signIndex } from "../engine/constants.ts";
+import { Glyph, SignGlyph } from "./Glyph.tsx";
+import { signIndex, SIGNS as SIGN_VI } from "../engine/constants.ts";
 import { StrengthBars, PlanetTable } from "./PagesA.tsx";
 import type { OverviewBlock } from "../reading/types.ts";
 
@@ -18,21 +18,58 @@ function Why({ lines }: { lines: string[] }) {
   );
 }
 
+const EL_NAME: Record<string, string> = { fire: "Lửa", earth: "Đất", air: "Khí", water: "Nước" };
+/** The four alchemical triangles: fire and air point up, water and earth point down; air and earth carry a bar. */
+export function ElementIcon({ e, size = 22 }: { e: string; size?: number }) {
+  const up = e === "fire" || e === "air", bar = e === "air" || e === "earth";
+  return (
+    <svg className={`el-ico el-${e}`} width={size} height={size} viewBox="0 0 24 24" aria-hidden="true">
+      <path d={up ? "M12 3 L21 20 H3 Z" : "M12 21 L3 4 H21 Z"} fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
+      {bar && <path d={up ? "M7 14 H17" : "M7 10 H17"} stroke="currentColor" strokeWidth="1.8" />}
+    </svg>
+  );
+}
+/** The Moon as it looked at birth: the lit part drawn from the Sun–Moon distance. */
+export function MoonPhase({ elong, size = 44 }: { elong: number; size?: number }) {
+  const r = 18, k = Math.cos((elong * Math.PI) / 180); // 1 new, -1 full
+  const waxing = elong < 180;
+  const rx = Math.abs(k) * r;
+  const lit = `M22 4 A18 18 0 0 ${waxing ? 1 : 0} 22 40 A${rx} 18 0 0 ${(k > 0) === waxing ? 0 : 1} 22 4 Z`;
+  return (
+    <svg className="moon-ico" width={size} height={size} viewBox="0 0 44 44" aria-hidden="true">
+      <circle cx="22" cy="22" r="18" fill="color-mix(in srgb, var(--bg-2) 80%, black)" stroke="var(--line)" />
+      <path d={lit} fill="var(--c-moon, #cfe0ff)" opacity="0.92" />
+    </svg>
+  );
+}
+
+function BlockIcons({ b }: { b: OverviewBlock }) {
+  const m = b.meta;
+  if (b.id === "keys" && m?.signs) return (
+    <ul className="key-signs">{m.signs.map((x) => <li key={x.label}><SignGlyph sign={x.sign} size={30} /><span><small>{x.label}</small><b>{SIGN_VI[x.sign]}</b></span></li>)}</ul>
+  );
+  if (b.id === "elements" && m?.elements) return (
+    <ul className="el-row">{Object.entries(m.elements).map(([e, c]) => <li key={e} className={`el-${e}`}><ElementIcon e={e} /><span>{EL_NAME[e]}</span><b>{c}</b></li>)}</ul>
+  );
+  if (b.id === "moonCycle" && m?.elong !== undefined) return <MoonPhase elong={m.elong} />;
+  if (b.id === "pillars" && m?.planets?.length) return <span className="pl-row">{m.planets.map((id) => <Glyph key={id} name={id} size={30} className={`pg c-${id}`} />)}</span>;
+  if (b.id === "focus") return <span className="focus-ico" aria-hidden="true">◈</span>;
+  return null;
+}
+
 function Block({ b, prepared }: { b: OverviewBlock; prepared: Prepared }) {
   const { reading: r } = prepared;
-  const keystone = b.id === "lagna" || b.id === "sun" || b.id === "moon";
   return (
-    <article className={`card ov-block ov-${b.id}${keystone ? " key" : ""} reveal`}>
-      <header>
-        {b.sign && <SignGlyph sign={signIndex(b.sign)} size={42} className="key-g" />}
+    <article className={`card ov-block ov-${b.id} reveal`}>
+      <header className="ov-head">
+        {b.id !== "keys" && b.id !== "elements" && <span className="ov-ico"><BlockIcons b={b} /></span>}
         <div>
-          {keystone && <p className="eyebrow">{b.title}</p>}
-          {keystone ? <h3>{b.sign ?? "Mặt Trăng"}</h3> : <h3>{b.title}</h3>}
+          <h3>{b.title}</h3>
           {b.role && <p className="key-role">{b.role}</p>}
         </div>
       </header>
+      {(b.id === "keys" || b.id === "elements") && <BlockIcons b={b} />}
       <Paras list={b.paragraphs} />
-      {b.facts && <p className="ov-facts">{b.facts}</p>}
       {b.id === "pillars" && r.overview.strength && (
         <details className="params">
           <summary>Xem sức mạnh bảy hành tinh</summary>
@@ -60,11 +97,6 @@ export function OverviewPage({ prepared }: { prepared: Prepared }) {
       <article className="letter card reveal">
         <p className="greet">{L.greeting}</p>
         <blockquote className="headline">{L.line}</blockquote>
-        <ul className="skychips lg" aria-label="Ba điểm gốc của lá số">
-          {L.chips.map((c) => (
-            <li key={c.label}><SignGlyph sign={signIndex(c.value)} size={22} /><span>{c.label}<b>{c.value}</b><small className="chip-role">{c.role}</small></span></li>
-          ))}
-        </ul>
       </article>
       <div className="ov-blocks">
         {r.overview.blocks.map((b) => <Block key={b.id} b={b} prepared={prepared} />)}

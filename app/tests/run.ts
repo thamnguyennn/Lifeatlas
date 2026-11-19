@@ -167,7 +167,7 @@ test("Mở lá số uses one complete sentence and no technical numbers", () => 
 });
 test("Tổng quan has the agreed blocks and respects missing birth time", () => {
   const ids = full.overview.blocks.map((b) => b.id);
-  for (const id of ["lagna", "sun", "moon", "elements", "moonCycle", "pillars", "focus"]) assert.ok(ids.includes(id as never), `block ${id}`);
+  for (const id of ["keys", "elements", "moonCycle", "pillars", "focus"]) assert.ok(ids.includes(id as never), `block ${id}`);
   assert.equal(full.overview.strength?.rows?.length ?? full.overview.strength?.length, 7);
   assert.equal(full.overview.planets.length, 9);
   assert.ok(!blind.overview.blocks.some((b) => b.id === "focus" && b.paragraphs.join(" ").match(/\bnhà \d+/i)), "no house numbers without birth time");

@@ -17,7 +17,9 @@ import { nameOf, joinVi, fill, greetName, lowerFirst } from "./util.ts";
 import type { PlanetRow, StrengthRow } from "./types.ts";
 
 export interface OverviewBlock {
-  id: "lagna" | "sun" | "moon" | "link" | "elements" | "moonCycle" | "pillars" | "focus";
+  id: "keys" | "lagna" | "sun" | "moon" | "link" | "elements" | "moonCycle" | "pillars" | "focus";
+  /** Small data for the icons of the block. */
+  meta?: { signs?: { label: string; sign: number }[]; planets?: GrahaId[]; elements?: Record<string, number>; elong?: number };
   title: string;
   /** What the point stands for, shown under the title. */
   role?: string;
@@ -322,6 +324,36 @@ function moonBlock(ctx: Ctx, f: Facts): OverviewBlock {
   };
 }
 
+// ------------------------------------------------------------------ the three keystones in one block, read together
+
+function keysBlock(ctx: Ctx, f: Facts): OverviewBlock {
+  const n = ctx.n, sun = f.planets.sun, moon = f.planets.moon;
+  const paras: string[] = [];
+  const self = `nhìn nhận giá trị của mình qua ${SELF[sun.sign]}`;
+  const heart = ctx.uncertainMoon ? "" : `bên trong, bạn ${HEART[moon.sign]}`;
+  if (!ctx.noTime) {
+    const lag = n.lagna.sign;
+    paras.push(`Bạn bước vào đời theo cách của một người ${FACE[lag]}; bạn ${self}${heart ? `, còn ${heart}` : ""}.`);
+    const rLS = elRel(ELEMENT_OF(lag), ELEMENT_OF(sun.sign));
+    const sm = sunMoonLine(ctx, f);
+    const link = rLS === "same" ? "Vẻ ngoài và điều bạn muốn khẳng định đi cùng một hướng" : rLS === "friend" ? "Cách bạn bước vào việc thường mở đường cho điều bạn muốn khẳng định" : "Ấn tượng đầu tiên bạn tạo ra có thể khác với điều bạn thật sự muốn được nhận ra";
+    paras.push(`${link}. ${sm && !sm.text.startsWith("Mặt Trời và Mặt Trăng không đứng") ? sm.text : ""}`.trim());
+    const L = SIGN_LORD[lag], p = f.planets[L];
+    const where = p.house === 1 ? "nằm ngay trong cung mọc, nên sức sống và hướng đi của bạn tụ về chính bản thân" : `đi về vùng ${area(p.house!)}, nên đó là nơi bạn đặt nhiều tâm sức`;
+    const cond = p.grade === "strong" ? "Hành tinh này đứng rất vững, nên điểm tựa ấy đáng tin." : p.grade === "good" ? "Hành tinh này đứng khá vững." : p.grade === "weak" ? "Hành tinh này đang ở thế yếu, nên kết quả ở đó thường đến chậm và cần nhiều công sức." : "";
+    paras.push(`${nameOf(L)}, hành tinh cai quản cung mọc, ${where}. ${cond} Mặt Trăng ở chòm sao ${nakName(moon.g.nak.name)} thêm cho cảm xúc của bạn một nét riêng: ${lowerFirst(NAKSHATRA_TEXT[moon.g.nak.index].split(": ").slice(1).join(": ") || NAKSHATRA_TEXT[moon.g.nak.index])}`.replace(/\s+/g, " "));
+  } else {
+    paras.push(`Bạn ${self}${heart ? `, còn ${heart}` : ""}.`);
+    const sm = sunMoonLine(ctx, f);
+    if (sm) paras.push(sm.text);
+  }
+  const signs = [...(ctx.noTime ? [] : [{ label: "Cung mọc", sign: n.lagna.sign }]), { label: "Mặt Trời", sign: sun.sign }, ...(ctx.uncertainMoon ? [] : [{ label: "Mặt Trăng", sign: moon.sign }])];
+  return {
+    id: "keys", title: "Cung mọc, Mặt Trời và Mặt Trăng", role: "cách bạn bước vào đời, điều bạn muốn khẳng định và điều lòng bạn cần", paragraphs: paras, meta: { signs },
+    why: [...(ctx.noTime ? [] : lagnaBlock(ctx, f).why), ...sunBlock(ctx, f).why, ...moonBlock(ctx, f).why].filter((x, i, a) => a.indexOf(x) === i),
+  };
+}
+
 // ------------------------------------------------------------------ elements, moon cycle
 
 const EL_MORE: Record<Element, string> = {
@@ -355,7 +387,7 @@ function elementsBlock(ctx: Ctx, f: Facts): OverviewBlock {
     if (low) paras.push(`${EL_LOW[low]}. Ít hành tinh ở một nguyên tố không có nghĩa là bạn thiếu phẩm chất đó; nó chỉ ít khi là phản xạ đầu tiên.`);
   }
   return {
-    id: "elements", title: "Bốn nguyên tố: Lửa, Đất, Khí, Nước", paragraphs: paras,
+    id: "elements", title: "Bốn nguyên tố: Lửa, Đất, Khí, Nước", paragraphs: paras, meta: { elements: counts },
     why: [order.map((e) => `${ELEMENT_VI[e]} ${counts[e]}`).join(" · ") + (ctx.noTime ? " (bảy hành tinh)" : " (bảy hành tinh và cung mọc)"),
       ...order.map((e) => `${ELEMENT_VI[e]}: ${by[e].length ? joinVi(by[e].map(nameOf)) : "không có hành tinh"}${!ctx.noTime && ELEMENT_OF(n.lagna.sign) === e ? ", cung mọc" : ""}.`)],
   };
@@ -376,7 +408,7 @@ function moonCycleBlock(ctx: Ctx, f: Facts): OverviewBlock {
   if (dark) paras.push(help ? "Mặt Trăng lúc ấy còn gần Mặt Trời nên ánh sáng chưa nhiều, nhưng vị thế của nó trong cung hoặc sự nâng đỡ từ Sao Mộc bù lại phần lớn, nên tâm trí bạn không thiếu chỗ tựa." : "Mặt Trăng lúc ấy còn gần Mặt Trời nên ánh sáng chưa nhiều. Jyotish xem đó là một Mặt Trăng nhạy: cảm xúc của bạn dễ chịu ảnh hưởng của mệt mỏi và hoàn cảnh, nên giấc ngủ và nhịp nghỉ có ý nghĩa nhiều hơn với bạn so với người khác.");
   else paras.push("Mặt Trăng lúc ấy đã đủ xa Mặt Trời để có nhiều ánh sáng, một điều kiện Jyotish coi là thuận cho sự ổn định của tâm trí; phần còn lại tùy vào vị trí và những hành tinh đi cùng nó.");
   return {
-    id: "moonCycle", title: "Chu kỳ trăng", paragraphs: paras,
+    id: "moonCycle", title: "Chu kỳ trăng", paragraphs: paras, meta: { elong: e },
     why: [`Khoảng cách Mặt Trăng–Mặt Trời ${e.toFixed(1)}°, tithi thứ ${tithi}/30, ${bright ? "Shukla Paksha" : "Krishna Paksha"} (${phaseName(e).toLowerCase()}).`,
       `Paksha Bala: Mặt Trăng cách Mặt Trời ${Math.min(e, 360 - e).toFixed(0)}° (${dark ? "dưới 72°, ánh sáng ít" : "trên 72°, đủ sáng"}).`,
       help ? "Có yếu tố bù: Mặt Trăng được Sao Mộc nhìn hoặc đi cùng, hoặc ở cung mạnh." : ""].filter(Boolean),
@@ -399,10 +431,11 @@ function pillarsBlock(ctx: Ctx, f: Facts): OverviewBlock {
   const pillars = seven.filter((id) => isGood(f.planets[id])).sort((a, b) => weight(b) - weight(a)).slice(0, 2);
   const paras: string[] = [];
   if (!pillars.length) paras.push("Không hành tinh nào trong lá số của bạn nổi trội hẳn. Sức được chia khá đều, nên không có một năng lực nào được dựng sẵn để dựa vào; điều bạn phát triển được thường đến từ việc chọn và luyện một hướng cụ thể.");
+  let saidAmb = 0;
   pillars.forEach((id, i) => {
     const p = f.planets[id];
     const yk = p.role === "yogakaraka" ? " Với cung mọc của bạn, nó còn cai quản cùng lúc một nhà trụ cột và một nhà phúc phần, nên sức của nó dễ chuyển thành kết quả." : "";
-    const ambiguous = !ctx.noTime && p.role === "dusthana" ? " Cần nói rõ: nó mạnh nhưng cũng cai quản những mảng nhiều thử thách, nên sức mạnh ấy thường lộ ra khi bạn phải xử lý khó khăn hơn là khi mọi thứ suôn sẻ." : "";
+    const ambiguous = !ctx.noTime && p.role === "dusthana" ? (saidAmb++ === 0 ? " Cần nói rõ: nó mạnh nhưng cũng cai quản những mảng nhiều thử thách, nên sức mạnh ấy thường lộ ra khi bạn phải xử lý khó khăn hơn là khi mọi thứ suôn sẻ." : " Hành tinh này cũng mạnh theo cách ấy: sức của nó hiện rõ nhất khi gặp việc khó.") : "";
     const why = p.dignity === "exalted" ? "đứng ở vị trí mạnh nhất của nó" : p.dignity === "own" || p.dignity === "moolatrikona" ? "đứng trong cung nhà của chính nó" : p.g.digBala ? "đứng đúng phương vị hợp nhất với nó" : p.g.vargottama ? "giữ nguyên vị trí ở lá số D9" : "được nâng đỡ tốt";
     const via = p.house ? `, và thường phát huy qua chuyện ${area(p.house)}` : "";
     paras.push(i === 0
@@ -412,7 +445,7 @@ function pillarsBlock(ctx: Ctx, f: Facts): OverviewBlock {
   const weak = seven.map((id) => f.planets[id]).filter((p) => p.grade === "weak").sort((a, b) => a.score - b.score)[0];
   if (weak) paras.push(`Ngược lại, ${nameOf(weak.id)} đang ở thế yếu, nên ${CAPACITY[weak.id]} ở bạn thường cần thời gian và hoàn cảnh phù hợp mới thể hiện hết.`);
   return {
-    id: "pillars", title: "Hành tinh trụ cột nâng đỡ", paragraphs: paras,
+    id: "pillars", title: "Hành tinh trụ cột nâng đỡ", paragraphs: paras, meta: { planets: pillars },
     why: [
       ...seven.map((id) => { const p = f.planets[id]; return `${nameOf(id)}: ${DIGNITY_VI[p.dignity]}${p.sb ? `, Shadbala ${Math.round(p.sb.ratio * 100)}%` : ""}${p.g.digBala ? ", Dig Bala" : ""}${p.g.vargottama ? ", Vargottama" : ""}${p.g.combust ? ", cháy sáng" : ""}${!ctx.noTime && p.lorded.length ? `, cai quản nhà ${p.lorded.join(", ")}` : ""}.`; }),
       "Chọn trụ cột theo phẩm vị, Shadbala, vai trò chức năng (yogakaraka, chủ cung mọc) và việc tham gia yoga thuận; không theo thứ hạng Shadbala đơn thuần.",
@@ -517,8 +550,7 @@ export function readLetter(ctx: Ctx): Letter {
 export function readOverview(ctx: Ctx): Overview {
   const f = buildFacts(ctx);
   const blocks: OverviewBlock[] = [];
-  if (!ctx.noTime) blocks.push(lagnaBlock(ctx, f));
-  blocks.push(sunBlock(ctx, f), moonBlock(ctx, f), elementsBlock(ctx, f), moonCycleBlock(ctx, f), pillarsBlock(ctx, f));
+  blocks.push(keysBlock(ctx, f), elementsBlock(ctx, f), moonCycleBlock(ctx, f), pillarsBlock(ctx, f));
   let share: Overview["focusShare"] = null;
   if (!ctx.noTime) { const fb = focusBlock(ctx, f); blocks.push(fb.block); share = fb.share; }
   const strength: StrengthRow[] | null = ctx.sb ? ctx.sb.order.map((id) => { const p = ctx.sb!.planets[id]; return { id, name: nameOf(id), pct: Math.round(p.ratio * 100), band: p.band, rank: p.rank }; }) : null;
