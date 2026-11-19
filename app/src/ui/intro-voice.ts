@@ -52,6 +52,7 @@ export class IntroVoice {
     try {
       const a = new Audio();
       a.preload = "auto";
+      if (location.protocol === "file:") throw new Error("no file probe");
       a.src = "voiceover.mp3";
       a.addEventListener("canplaythrough", () => { this.fileOk = true; }, { once: true });
       a.addEventListener("error", () => { this.fileOk = false; }, { once: true });

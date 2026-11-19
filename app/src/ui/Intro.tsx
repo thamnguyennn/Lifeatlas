@@ -79,8 +79,12 @@ function Film({ onExit, onClosing }: { onExit: (k: IntroExit) => void; onClosing
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const barRef = useRef<HTMLDivElement>(null);
   const skipRef = useRef<HTMLButtonElement>(null);
-  const audio = useRef(new IntroAudio());
-  const voice = useRef(new IntroVoice());
+  const audio = useRef<IntroAudio>(null as unknown as IntroAudio);
+  if (!audio.current) audio.current = new IntroAudio();
+  const voice = useRef<IntroVoice>(null as unknown as IntroVoice);
+  if (!voice.current) voice.current = new IntroVoice();
+  const [gate, setGate] = useState(true);
+  const gateRef = useRef(true);
   const [voiceNote, setVoiceNote] = useState(false);
   const clock = useRef(0);
   const [phase, setPhase] = useState({ cue: -1, out: false, end: 0 });
@@ -127,7 +131,7 @@ function Film({ onExit, onClosing }: { onExit: (k: IntroExit) => void; onClosing
     (window as unknown as { __introSeek?: (t: number) => void }).__introSeek = (t: number) => { clock.current = realTime(t); };
     const loop = (now: number) => {
       const dt = Math.min(0.1, (now - last) / 1000); last = now;
-      if (!document.hidden) clock.current += dt;
+      if (!document.hidden && !gateRef.current) clock.current += dt;
       const t = filmTime(clock.current);
       try { film.frame(t); } catch { leave("error"); return; }
       audio.current.tick(t);
@@ -149,6 +153,11 @@ function Film({ onExit, onClosing }: { onExit: (k: IntroExit) => void; onClosing
     return () => { cancelAnimationFrame(raf); window.removeEventListener("resize", size); document.removeEventListener("visibilitychange", onVis); a.dispose(); v.dispose(); };
   }, [reduced, leave]);
 
+  const begin = (withSound: boolean) => {
+    gateRef.current = false; setGate(false);
+    if (withSound) { setMuted(false); audio.current.setMuted(false, 0); voice.current.setMuted(false, 0, clock.current); window.setTimeout(() => setVoiceNote(voice.current.status === "none"), 1500); }
+    skipRef.current?.focus({ preventScroll: true });
+  };
   const toggleSound = () => {
     const m = !muted; setMuted(m);
     const t = filmTime(clock.current);
@@ -163,6 +172,13 @@ function Film({ onExit, onClosing }: { onExit: (k: IntroExit) => void; onClosing
   return (
     <div className={`intro${closing ? " closing" : ""}${reduced ? " still" : ""}${lay.short ? " short" : ""}`} role="dialog" aria-modal="true" aria-label="Đoạn mở đầu của Life Atlas" style={style}>
       <canvas ref={canvasRef} aria-hidden="true" />
+      {gate && !reduced && (
+        <div className="intro-gate">
+          <p>Đoạn phim mở đầu dài khoảng 50 giây, có nhạc nền, hiệu ứng âm thanh và lời dẫn.</p>
+          <button type="button" className="ie-cta on gate-sound" autoFocus onClick={() => begin(true)}>▶ Xem với âm thanh</button>
+          <button type="button" className="linkbtn" onClick={() => begin(false)}>Xem không có tiếng</button>
+        </div>
+      )}
       <div className="intro-bar">
         {!reduced && (audio.current.available || voice.current.available) && (
           <button type="button" className="intro-btn" onClick={toggleSound} aria-pressed={!muted} aria-label={muted ? "Bật tiếng" : "Tắt tiếng"}>

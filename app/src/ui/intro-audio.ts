@@ -65,6 +65,25 @@ const HEART: Key = [[0, 0], [23.2, 0], [24, 0.9], [29.5, 0.9], [31, 0.2], [32, 0
 const WATER: Key = [[0, 0], [31.5, 0], [33, 0.8], [38.5, 0.8], [39.5, 0]];
 const CHART_TICKS: [number, number][] = [[24.2, 1], [24.5, 2], [24.8, 3], [25.1, 4], [25.4, 5], [25.7, 6], [26.0, 7], [26.3, 8], [26.6, 9], [26.9, 10], [27.2, 11], [27.5, 12]];
 
+/** iPhones play Web Audio through the ringer channel, which the silent switch mutes. Playing a (silent) media element from the same
+ * click moves the page to the playback channel, so the film is heard even with the switch on. */
+let unlocked: HTMLAudioElement | null = null;
+function unlockMediaSession() {
+  try { (navigator as unknown as { audioSession?: { type: string } }).audioSession && ((navigator as unknown as { audioSession: { type: string } }).audioSession.type = "playback"); } catch { /* not supported */ }
+  if (unlocked) return;
+  try {
+    const rate = 8000, n = rate / 2, buf = new ArrayBuffer(44 + n), v = new DataView(buf);
+    const w = (o: number, t: string) => { for (let i = 0; i < t.length; i++) v.setUint8(o + i, t.charCodeAt(i)); };
+    w(0, "RIFF"); v.setUint32(4, 36 + n, true); w(8, "WAVE"); w(12, "fmt "); v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
+    v.setUint32(24, rate, true); v.setUint32(28, rate, true); v.setUint16(32, 1, true); v.setUint16(34, 8, true); w(36, "data"); v.setUint32(40, n, true);
+    for (let i = 0; i < n; i++) v.setUint8(44 + i, 128);
+    const a = new Audio(URL.createObjectURL(new Blob([buf], { type: "audio/wav" })));
+    a.loop = true; a.volume = 0.01; a.setAttribute("playsinline", "");
+    void a.play().catch(() => { /* ignore */ });
+    unlocked = a;
+  } catch { /* ignore */ }
+}
+
 export class IntroAudio {
   private ac: AudioContext | null = null;
   private master!: GainNode;
@@ -363,8 +382,8 @@ export class IntroAudio {
       if (!m && !this.ac) this.build(t);
       const ac = this.ac;
       if (!ac) return;
-      if (!m) { void ac.resume(); this.lastT = t; this.tickDone.clear(); }
-      this.master.gain.setTargetAtTime(m ? 0 : 0.85, ac.currentTime, m ? 0.15 : 0.5);
+      if (!m) { void ac.resume(); this.lastT = t; this.tickDone.clear(); unlockMediaSession(); }
+      this.master.gain.setTargetAtTime(m ? 0 : 1, ac.currentTime, m ? 0.15 : 0.5);
     } catch { /* no sound is fine: the film still plays with captions */ }
   }
 
@@ -378,7 +397,7 @@ export class IntroAudio {
     this.ac = null;
     try {
       this.master.gain.setTargetAtTime(0, ac.currentTime, 0.2);
-      setTimeout(() => { for (const s of this.sources) { try { s.stop(); } catch { /* already stopped */ } } void ac.close(); }, 700);
+      setTimeout(() => { for (const s of this.sources) { try { s.stop(); } catch { /* already stopped */ } } void ac.close(); try { unlocked?.pause(); unlocked = null; } catch { /* ignore */ } }, 700);
     } catch { /* ignore */ }
   }
 }
