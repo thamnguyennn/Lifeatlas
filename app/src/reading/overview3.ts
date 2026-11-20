@@ -9,7 +9,8 @@ import { buildFacts, isGood, HOUSE_SHORT, type Facts, type PlanetFact } from "./
 import { LAGNA_SIGN, MOON_PHASE_AT_BIRTH, NAKSHATRA_TEXT } from "./content/lagna-nakshatra.ts";
 import { SUN_SIGN, MOON_SIGN, MOON_NAK_LEAD, SUN_DIGNITY, ELEMENT_OF, ELEMENT_VI, ELEMENT_LINES, ELEMENT_BALANCED, KEY_LINK, type Element } from "./content/overview.ts";
 import { conjOf } from "./content/conjunctions.ts";
-import { MOON_PORTRAIT, SUN_PORTRAIT, LAGNA_PORTRAIT, TRIAD_LINE } from "./content/portraits.ts";
+import { MOON_PORTRAIT, SUN_PORTRAIT, LAGNA_PORTRAIT, TRIAD_LINE, type Portrait } from "./content/portraits.ts";
+import { LAGNA_DEEP } from "./content/lagna-pairs.ts";
 import { HOUSE_TAG, AREA_EXAMPLE } from "./content/houses-signs.ts";
 import { PLANETS } from "./content/planets.ts";
 import { DIGNITY_VI, planetFlags } from "./shared.ts";
@@ -336,7 +337,6 @@ function triadLine(ctx: Ctx): string {
   const n = ctx.n, el = (s: number) => ELEMENT_VI[ELEMENT_OF(s)].toLowerCase();
   const sun = n.grahas.sun.sign, moon = n.grahas.moon.sign;
   const out = [fill(TRIAD_LINE.sunMoon[elRel(ELEMENT_OF(sun), ELEMENT_OF(moon))], { a: el(sun), b: el(moon) })];
-  if (!ctx.noTime) out.push(fill(TRIAD_LINE.lagnaMoon[elRel(ELEMENT_OF(n.lagna.sign), ELEMENT_OF(moon))], { a: el(n.lagna.sign), b: el(moon) }));
   return out.join(" ");
 }
 
@@ -558,19 +558,34 @@ export function readLetter(ctx: Ctx): Letter {
   return { greeting: `Gửi ${greetName(ctx.name)},`, line: headline(ctx, f), chips };
 }
 
-/** The rising sign, the Sun and the Moon, each as a named portrait, followed by what is particular to this chart. */
+/** A pair reading ("text || scene") as one paragraph with its scene. */
+const pairText = (raw: string) => { const [t, sc] = raw.split(" || "); return sc ? `${t} Một cảnh quen: ${sc.charAt(0).toLowerCase()}${sc.slice(1)}` : t; };
+/** The rising sign's portrait, widened with what the notebook says this rising sign looks for, fears, does with its body and shows to strangers. */
+function lagnaPortrait(lag: number): Portrait {
+  const P = LAGNA_PORTRAIT[lag], D = LAGNA_DEEP[lag];
+  const [first, start, cornered, cost, lesson] = P.beats;
+  return { ...P, beats: [first, { h: "Điều bạn cả đời đi tìm", p: D.seek }, { h: "Nỗi sợ ít khi nói ra", p: D.fear }, start, cornered,
+    { h: "Cơ thể và sức lực", p: D.body }, { h: "Người lạ và người thân", p: D.seen }, cost, lesson] };
+}
+
+/** The rising sign, the Sun and the Moon, each as a named portrait; the Sun and the Moon are also read against this rising sign. */
 function portraitBlocks(ctx: Ctx, f: Facts): OverviewBlock[] {
   const n = ctx.n, out: OverviewBlock[] = [];
   const rest = (b: OverviewBlock, drop: string) => b.paragraphs.filter((p) => p && p !== drop);
-  if (!ctx.noTime) {
-    const b = lagnaBlock(ctx, f), P = LAGNA_PORTRAIT[n.lagna.sign];
-    out.push({ ...b, title: `Cung mọc ${SIGNS[n.lagna.sign]}`, role: "thân thể và cách bạn bước vào đời", paragraphs: rest(b, LAGNA_SIGN[n.lagna.sign]), portrait: P, meta: { signs: [{ label: "Cung mọc", sign: n.lagna.sign }] } });
+  const lag = ctx.noTime ? null : n.lagna.sign;
+  if (lag !== null) {
+    const b = lagnaBlock(ctx, f);
+    out.push({ ...b, title: `Cung mọc ${SIGNS[lag]}`, role: "thân thể và cách bạn bước vào đời", paragraphs: rest(b, LAGNA_SIGN[lag]), portrait: lagnaPortrait(lag), meta: { signs: [{ label: "Cung mọc", sign: lag }] } });
   }
-  const sb = sunBlock(ctx, f), S = SUN_PORTRAIT[n.grahas.sun.sign];
-  out.push({ ...sb, title: `Mặt Trời ${SIGNS[n.grahas.sun.sign]}`, role: "bản ngã và linh hồn", paragraphs: rest(sb, SUN_SIGN[n.grahas.sun.sign]), portrait: S, meta: { signs: [{ label: "Mặt Trời", sign: n.grahas.sun.sign }] } });
+  const sun = n.grahas.sun.sign, moon = n.grahas.moon.sign;
+  const sb = sunBlock(ctx, f), S = SUN_PORTRAIT[sun];
+  const sBeats = lag !== null ? [...S.beats.slice(0, 4), { h: `Khi đi cùng cung mọc ${SIGNS[lag]}`, p: pairText(LAGNA_DEEP[lag].sun[sun]) }, ...S.beats.slice(4)] : S.beats;
+  out.push({ ...sb, title: `Mặt Trời ${SIGNS[sun]}`, role: "bản ngã và linh hồn", paragraphs: rest(sb, SUN_SIGN[sun]).filter((p) => lag === null || !p.startsWith("Cung mọc và Mặt Trời")), portrait: { ...S, beats: sBeats }, meta: { signs: [{ label: "Mặt Trời", sign: sun }] } });
   if (!ctx.uncertainMoon) {
-    const mb = moonBlock(ctx, f), M = MOON_PORTRAIT[n.grahas.moon.sign];
-    out.push({ ...mb, title: `Mặt Trăng ${SIGNS[n.grahas.moon.sign]}`, role: "cảm xúc và tâm trí", paragraphs: rest(mb, MOON_SIGN[n.grahas.moon.sign]).filter((p) => !p.startsWith(fill(MOON_NAK_LEAD, { nak: nakName(n.grahas.moon.nak.name) }))), portrait: { ...M, why: `${M.why} ${fill(MOON_NAK_LEAD, { nak: nakName(n.grahas.moon.nak.name) })} ${NAKSHATRA_TEXT[n.grahas.moon.nak.index]}` }, meta: { signs: [{ label: "Mặt Trăng", sign: n.grahas.moon.sign }] } });
+    const mb = moonBlock(ctx, f), M = MOON_PORTRAIT[moon];
+    const lead = fill(MOON_NAK_LEAD, { nak: nakName(n.grahas.moon.nak.name) });
+    const mBeats = lag !== null ? [...M.beats.slice(0, 4), { h: `Khi đi cùng cung mọc ${SIGNS[lag]}`, p: pairText(LAGNA_DEEP[lag].moon[moon]) }, ...M.beats.slice(4)] : M.beats;
+    out.push({ ...mb, title: `Mặt Trăng ${SIGNS[moon]}`, role: "cảm xúc và tâm trí", paragraphs: rest(mb, MOON_SIGN[moon]).filter((p) => !p.startsWith(lead)), portrait: { ...M, beats: mBeats, why: `${M.why} ${lead} ${NAKSHATRA_TEXT[n.grahas.moon.nak.index]}` }, meta: { signs: [{ label: "Mặt Trăng", sign: moon }] } });
   }
   return out;
 }

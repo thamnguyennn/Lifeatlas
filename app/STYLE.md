@@ -1,4 +1,16 @@
-# Giọng văn Life Atlas (bản 2.3: "bạn thân kể chuyện", người chưa biết gì cũng hiểu)
+# Giọng văn Life Atlas (bản 3, 20/11/2026: giọng sổ NotebookLM, có chiều sâu, người chưa biết gì cũng hiểu)
+
+## Bản 3: đứng trước mọi quy tắc bên dưới
+Người dùng nhận xét bản trước "hầu như thiếu chiều sâu và chung chung". Chuẩn mới là **giọng của sổ NotebookLM "Chiêm tinh học"**, nắm qua hơn 20 lượt hỏi đáp: một nhà chiêm tinh nói thẳng vào tâm lý thân chủ, gọi tên nhu cầu sâu kín, nỗi sợ ít khi nói ra, cách tự vệ khi bị tổn thương, cái giá phải trả, người thân thấy gì, và kể bằng những cảnh rất cụ thể (tắt điện thoại nằm cuộn trong phòng, kiểm tra tài khoản mỗi sáng, ngồi lì trước bàn làm việc đến khuya, một buổi tối hai người cãi nhau ai đúng ai sai).
+- **Chân dung, không phải nhận xét.** Mỗi mốc gốc là một chân dung có tên ("Lớp vỏ cứng, ruột rất mềm") và các nhịp có tiêu đề riêng (`content/portraits.ts`). Cung mọc có thêm: điều cả đời đi tìm, nỗi sợ, cơ thể và sức lực, người lạ và người thân (`content/lagna-pairs.ts`).
+- **Đọc theo cặp, không theo nguyên tố.** Mặt Trời và Mặt Trăng được đọc riêng cho từng cung mọc (12 × 12 × 2 đoạn, mỗi đoạn kèm một cảnh), thay cho câu ghép "lửa với khí".
+- **Đại vận kể như một mùa sống**: cảnh mở đầu, công việc, tiền bạc, các mối quan hệ, tâm trạng mỗi sáng, điều phải đánh đổi, cám dỗ cần tránh, điều còn trong tay khi giai đoạn khép lại (`CHAPTER_DEEP`).
+- **Trang nhà**: ví dụ đời sống là cảnh có người, có giờ, có đồ vật (`AREA_VOICE`), và mục "nhìn gần hơn" đọc cung, hành tinh cai quản và hành tinh trong nhà.
+- **Mỗi nhịp có ít nhất một cảnh người đọc tự nhận ra mình.** Câu chỉ có tính từ là chưa xong.
+- **Hình ảnh được dùng khi ai cũng hiểu ngay** (con nước, tảng đá, kéo từ trên mây xuống đất).
+- **Nói thẳng mặt tối, rồi mở một lối đi.** Bỏ chữ quá nặng của nguồn (thâm độc, tàn nhẫn, vỡ nợ, bệnh tật).
+
+# Các quy tắc bản 2.3 (vẫn áp dụng khi không trái với bản 3)
 
 Mọi câu trong `src/reading/content/` theo các quy tắc này. Mục tiêu: người đọc thấy mình được nhìn thấy, không thấy mình bị mô tả.
 
