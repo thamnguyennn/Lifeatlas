@@ -22,6 +22,8 @@ export interface ExploreTopic {
   needsTime: boolean;
   /** A short list of the main factors, shown in small print. */
   basis?: string;
+  /** One short line to keep. */
+  message?: string;
 }
 export interface ExploreGroup { id: string; title: string; intro: string; topics: ExploreTopic[] }
 
@@ -302,7 +304,20 @@ export function readExplore(ctx: Ctx): ExploreGroup[] {
     const hs = [...new Set((txt.match(/Nhà \d+/g) ?? []).map((x) => x.toLowerCase()))].slice(0, 3);
     return [...pl, ...hs].join(", ");
   };
-  for (const t of Object.values(T)) t.basis = basisOf(t);
+  const MSG: Record<string, string> = {
+    love: "Người làm bạn rung động và người làm bạn bình yên, tốt nhất là cùng một người; nếu chưa, hãy chọn bằng cả hai.",
+    marriage: "Một mối quan hệ bền không phải vì ít va chạm, mà vì cả hai biết cách quay lại với nhau.",
+    talent: "Năng khiếu chỉ là hạt giống; thứ làm nó lớn là thời gian bạn chịu ở bên nó.",
+    career: "Đừng hỏi nghề nào hợp với lá số, hãy hỏi việc gì làm bạn quên giờ mà vẫn có người cần.",
+    money: "Tiền theo người biết giữ, không theo người chỉ biết kiếm.",
+    leader: "Người dẫn dắt tốt là người vẫn được tin khi mọi thứ rối lên.",
+    study: "Học đúng cách của mình thì một giờ bằng ba giờ học theo cách của người khác.",
+    health: "Cơ thể luôn báo trước; vấn đề là mình có chịu nghe hay không.",
+    family: "Gia đình là nơi bạn bắt đầu, không bắt buộc là nơi bạn dừng lại.",
+    dharma: "Ý nghĩa là thứ bạn chọn lại mỗi ngày, chứ hiếm khi tìm được một lần là xong.",
+    inner: "Giằng co không có nghĩa là bạn sai; nó chỉ cho thấy bạn có nhiều hơn một điều quan trọng.",
+  };
+  for (const t of Object.values(T)) { t.basis = basisOf(t); t.message = MSG[t.id]; }
   return GROUPS.map((g) => ({ id: g.id, title: g.title, intro: g.intro, topics: g.ids.map((id) => T[id]) }));
 }
 

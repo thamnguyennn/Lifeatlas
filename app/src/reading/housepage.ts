@@ -121,7 +121,8 @@ export function readHousePage(ctx: Ctx, h: HouseInfo, told: Told = new Map()): H
   const pathwayLabel = PATH_LABEL4[narr.path];
   const story = { pathway: narr.path, expressiveLevel: narr.expressive, supportLevel: narr.support };
   const sections: Section[] = [
-    { id: "summary", title: narr.title, paragraphs: narr.paragraphs },
+    { id: "summary", title: narr.title, paragraphs: [narr.paragraphs[0], `Bài học của mảng này là ${narr.lesson}.`, ...narr.paragraphs.slice(1)],
+      blocks: [{ label: "Trong đời sống, điều này thường trông như sau", paragraphs: narr.examples }, { label: "Thông điệp", paragraphs: [narr.message] }] },
   ];
   const yogaIds = hf.yogas.filter((y) => y.strength !== "weak").map((y) => y.id);
 

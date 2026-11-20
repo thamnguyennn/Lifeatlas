@@ -14,6 +14,7 @@ import { SIGNS, FRIENDS, ENEMIES, type GrahaId } from "../engine/constants.ts";
 import type { Ctx } from "./ctx.ts";
 import { effectiveYoga, isGood, type Facts, type HouseFact, type PlanetFact } from "./facts.ts";
 import { HOUSE_TAG, AREA_EXAMPLE } from "./content/houses-signs.ts";
+import { AREA_VOICE } from "./content/voice.ts";
 import { DIGNITY_VI } from "./shared.ts";
 import { nameOf, joinVi } from "./util.ts";
 import type { ExpressiveLevel, HousePathway, SupportLevel } from "./types.ts";
@@ -212,7 +213,7 @@ export const PATH_LABEL4: Record<HousePathway, string> = {
   yoga: "bắt đầu từ một yoga", quiet: "mảng ít nổi bật",
 };
 
-export interface Narr4 { path: HousePathway; title: string; paragraphs: string[]; why: string[]; support: SupportLevel; expressive: ExpressiveLevel }
+export interface Narr4 { path: HousePathway; title: string; paragraphs: string[]; examples: string[]; message: string; lesson: string; why: string[]; support: SupportLevel; expressive: ExpressiveLevel }
 
 export function narrateHouse4(ctx: Ctx, F: Facts, hf: HouseFact, recent: HousePathway[]): Narr4 {
   const ev = evidence(ctx, F, hf);
@@ -255,8 +256,9 @@ export function narrateHouse4(ctx: Ctx, F: Facts, hf: HouseFact, recent: HousePa
 
   let central: string, usedPractice = false, usedLink = false, usedAdds = false, usedYoga = false;
   switch (path) {
-    case "strength": case "life": central = practice; usedPractice = true; break;
-    case "care": central = PRACTICE[n - 1].minus; usedPractice = true; break;
+    case "strength": central = `Chuyện ${t} là một trong những mảng thuận lợi nhất trong lá số của bạn.`; break;
+    case "life": central = sum >= 0 ? `Chuyện ${t} đi khá êm trong đời bạn, ít khi là nơi phát sinh rắc rối.` : `Chuyện ${t} là nơi bạn hay phải tự xoay xở hơn người khác.`; break;
+    case "care": central = `Chuyện ${t} là mảng bạn phải tự xây nhiều hơn là được cho sẵn.`; break;
     case "contrast": central = `Chuyện ${t} ở bạn có cả thuận lợi lẫn những điều phải tự xoay xở${adds[0] && risks[0] ? `: ${adds[0]}, có điều ${risks[0]}` : ""}.`; usedAdds = true; break;
     case "yoga": central = yogas.length ? `Chuyện ${t} có một điểm sáng riêng: ${yogas[0]}.` : practice; usedYoga = true; break;
     case "occupant": central = adds[0] ? `Trong chuyện ${t}, ${adds[0]}${adds[1] ? `; ${adds[1]}` : ""}${risks[0] ? `, có điều ${risks[0]}` : ""}.` : `Chuyện ${t} là nơi bạn ${risks[0]}, nên cần để ý nhiều hơn các mảng khác.`; usedAdds = true; break;
@@ -272,7 +274,7 @@ export function narrateHouse4(ctx: Ctx, F: Facts, hf: HouseFact, recent: HousePa
   if (ties.length) p3.push(`Chuyện ${t} của bạn hay đi cùng chuyện ${area(ties[0])}: ${AREA_EXAMPLE[ties[0] - 1]}.`);
   if (!usedYoga && yogas.length) p3.push(`Chuyện ${t} còn có một điểm đặc biệt: ${yogas[0]}.`);
   if (p3.length) paras.push(p3.join(" "));
-  if (!usedPractice) paras.push(`${baseGood && !baseBad ? `Nhìn chung, chuyện ${t} có nhiều điều kiện thuận. ` : baseBad && !baseGood ? `Nhìn chung, chuyện ${t} ít được nâng đỡ sẵn hơn các mảng khác. ` : ""}${practice}`);
+  if (!usedPractice && baseBad && !baseGood) paras.push(`Nhìn chung, chuyện ${t} ít được nâng đỡ sẵn hơn các mảng khác, nên những gì có được ở đây là nhờ chính bạn.`);
   else if (baseBad && sum > 0) paras.push(`Dù vậy, chuyện ${t} ít được nâng đỡ sẵn hơn các mảng khác, nên những điều tốt ở đây cần được giữ bằng sự đều đặn.`);
   void plus; void minus; void pick;
 
@@ -283,5 +285,7 @@ export function narrateHouse4(ctx: Ctx, F: Facts, hf: HouseFact, recent: HousePa
     `Cân bằng: thuận ${P.toFixed(1)}, khó ${M.toFixed(1)}, tổng ${sum.toFixed(1)} → ${support}; mức biểu hiện ${expressive}.`,
     `Cách kể: ${PATH_LABEL4[path]}.`,
   ];
-  return { path, title, paragraphs: paras, why, support, expressive };
+  const V = AREA_VOICE[n - 1];
+  const examples = support === "thuận lợi" ? V.plus.slice(0, 2) : support === "cần rèn giũa" ? V.minus.slice(0, 2) : [V.plus[0], V.minus[0]];
+  return { path, title, paragraphs: paras, examples, message: V.message, lesson: V.lesson, why, support, expressive };
 }

@@ -96,7 +96,12 @@ function PeriodList({ ctx, items }: { ctx: Ctx; items: PeriodRead[] }) {
 
 function Layers({ p }: { p: PeriodRead }) {
   if (!p.layers) return <Paras list={p.paragraphs} />;
-  return <>{p.layers.map((l) => <div key={l.title} className="dlayer"><h4>{l.title}</h4><p><Gloss text={l.text} /></p></div>)}</>;
+  return <>{p.layers.map((l) => (
+    <div key={l.title} className={`dlayer${l.title === "Thông điệp" ? " msg" : ""}`}>
+      <h4>{l.title}</h4>
+      {l.text.includes("\n") ? <ul className="life-ex">{l.text.split("\n").map((x, i) => <li key={i}>{x}</li>)}</ul> : <p><Gloss text={l.text} /></p>}
+    </div>
+  ))}</>;
 }
 function MahaCard({ ctx, m, open, onToggle, setRef }: { ctx: Ctx; m: MahaRow; open: boolean; onToggle: () => void; setRef: (el: HTMLElement | null) => void }) {
   const stateText = m.state === "now" ? "Đang diễn ra" : m.state === "past" ? "Đã qua" : "Sắp tới";
@@ -287,7 +292,7 @@ export function NowPage({ prepared, day, dayMs, onDay }: { prepared: Prepared; d
 // ------------------------------------------------------------------ explore more
 const ICON: Record<string, string> = { compat: "∞", love: "♡", marriage: "◎", talent: "✦", career: "◆", money: "◈", leader: "▲", study: "✧", health: "☼", family: "⌂", dharma: "☸", inner: "☯" };
 
-function TopicView({ t, onBack }: { t: { id: string; title: string; ask: string; lead: string; basis?: string; points: { title: string; text: string }[]; why: string[]; needsTime: boolean }; onBack: () => void }) {
+function TopicView({ t, onBack }: { t: { id: string; title: string; ask: string; lead: string; basis?: string; message?: string; points: { title: string; text: string }[]; why: string[]; needsTime: boolean }; onBack: () => void }) {
   return (
     <article className="topic-view swap-in">
       <button type="button" className="btn ghost back" onClick={onBack}>← Tất cả chủ đề</button>
@@ -299,6 +304,7 @@ function TopicView({ t, onBack }: { t: { id: string; title: string; ask: string;
       <div className="facets">
         {t.points.map((p) => <section key={p.title} className="card facet"><h4>{p.title}</h4><p><Gloss text={p.text} /></p></section>)}
       </div>
+      {t.message && <blockquote className="msg-quote">{t.message}</blockquote>}
       {t.why.length > 0 && <details className="params why-drawer"><summary>Vì sao mình nói điều này?</summary><ul className="why">{t.why.map((w, k) => <li key={k}>{w}</li>)}</ul></details>}
     </article>
   );

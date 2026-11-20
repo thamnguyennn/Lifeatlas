@@ -16,6 +16,7 @@ import type { HouseWindowSummary, LadderReading, MahaRow, PeriodRead, Timeline, 
 import { HOUSE_TAG, AREA_EXAMPLE } from "./content/houses-signs.ts";
 import { PLANETS } from "./content/planets.ts";
 import { CHAPTER, DASHA_LIT, DASHA_STAGE } from "./content/chapters.ts";
+import { TEACHER } from "./content/voice.ts";
 import { LADDER_INTRO, TRUST_NOTE, TRUST_SUMMARY, OVERLAP, OVERLAP_EFFECT, OVERLAP_NONE, BLEND_HEAD, BLEND_PRAT } from "./content/dasha-deep.ts";
 import {
   DASHA_PLANET, DASHA_DIGNITY, DASHA_SEAT, DASHA_COMPANY, DASHA_LOOK, DASHA_NODE, DASHA_RULES_LEAD, DASHA_SIT_LEAD, DASHA_FRIEND, DASHA_PAIR, DASHA_SELF,
@@ -180,11 +181,14 @@ export function readPeriod(ctx: Ctx, node: DNode): PeriodRead {
     const ch = CHAPTER[lord];
     title = `Giai đoạn “${ch.title}”`;
     const R = mahaRead(ctx, lord);
+    const T = TEACHER[lord];
     layers = [
-      { title: "Chủ đề bao trùm", text: R.theme },
-      { title: "Điều kiện thuận lợi", text: R.plus },
-      { title: "Yếu tố trái chiều", text: R.minus },
-      { title: "Các lĩnh vực liên kết với nhau", text: R.links },
+      { title: "Người thầy của giai đoạn", text: `Bài học: ${T.lesson}. ${T.how}${R.theme.includes("Với bạn,") ? " " + R.theme.slice(R.theme.indexOf("Với bạn,")) : ""}` },
+      { title: "Trong đời sống", text: T.examples.join("\n") },
+      { title: "Điều đang nâng đỡ bạn", text: R.plus },
+      { title: "Điều cần để ý", text: R.minus },
+      { title: "Phần thưởng nếu bạn học được bài này", text: `${T.gift.charAt(0).toUpperCase() + T.gift.slice(1)}.` },
+      { title: "Thông điệp", text: T.message },
     ];
     paragraphs.push(...layers.map((l) => l.text));
     tone = periodTone(ctx, lord).tone;

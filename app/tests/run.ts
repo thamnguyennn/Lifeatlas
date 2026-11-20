@@ -212,7 +212,7 @@ test("Đại vận: Mahadasha has four synthesised layers; Antardasha is read th
   assert.ok(T.mahas.length >= 5 && T.mahas.length <= 9);
   for (const m of T.mahas) {
     assert.equal(m.antars.length, 9);
-    assert.equal(m.read.layers?.length, 4);
+    assert.equal(m.read.layers?.length, 6);
     assert.doesNotMatch(m.read.layers!.map((l) => l.text).join(" "), /\bnhà \d+\b/i, "no house numbers in the Mahadasha prose");
     for (const a of m.antars) assert.ok(!a.layers && a.paragraphs.length >= 2);
   }

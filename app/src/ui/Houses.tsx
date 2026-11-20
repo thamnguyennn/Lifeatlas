@@ -52,14 +52,16 @@ function SectionView({ s, onYoga }: { s: Section; onYoga: (id: string) => void }
   return (
     <section className={`hsec hs-${s.id}`}>
       {s.id !== "open" && <h3>{s.title}</h3>}
-      {s.paragraphs.map((p, i) => <p key={i} className={s.id === "summary" && i === 0 ? "central" : s.id === "open" ? "hs-intro" : undefined}><Gloss text={p} /></p>)}
+      {s.paragraphs.map((p, i) => <p key={i} className={s.id === "summary" && i === 0 ? "central" : s.id === "summary" && i === 1 ? "lesson-line" : undefined}><Gloss text={p} /></p>)}
       {s.blocks && (
         <div className="hblocks">
           {s.blocks.map((b, i) => (
-            <div className="hblock" key={i}>
-              <p className="hb-title">{b.label}</p>
-              {b.paragraphs.map((p, j) => <p key={j}><Gloss text={p} /></p>)}
-            </div>
+            b.label === "Thông điệp"
+              ? <blockquote className="msg-quote" key={i}>{b.paragraphs[0]}</blockquote>
+              : <div className="hblock" key={i}>
+                  <p className="hb-title">{b.label}</p>
+                  <ul className="life-ex">{b.paragraphs.map((p, j) => <li key={j}><Gloss text={p} /></li>)}</ul>
+                </div>
           ))}
         </div>
       )}
