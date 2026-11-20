@@ -45,6 +45,7 @@ export function MoonPhase({ elong, size = 44 }: { elong: number; size?: number }
 
 function BlockIcons({ b }: { b: OverviewBlock }) {
   const m = b.meta;
+  if (b.portrait && m?.signs?.[0]) return <SignGlyph sign={m.signs[0].sign} size={34} />;
   if (b.id === "keys" && m?.signs) return (
     <ul className="key-signs">{m.signs.map((x) => <li key={x.label}><SignGlyph sign={x.sign} size={30} /><span><small>{x.label}</small><b>{SIGN_VI[x.sign]}</b></span></li>)}</ul>
   );
@@ -70,6 +71,13 @@ function Block({ b, prepared }: { b: OverviewBlock; prepared: Prepared }) {
       </header>
       {(b.id === "keys" || b.id === "elements") && <BlockIcons b={b} />}
       {b.facts && b.id !== "elements" && <p className="keyline">{b.facts}</p>}
+      {b.portrait && <>
+        <p className="motif">{b.portrait.motif}</p>
+        {b.portrait.beats.map((x) => (
+          <div key={x.h} className="beat"><h4>{x.h}</h4><p><Gloss text={x.p} /></p></div>
+        ))}
+        {b.paragraphs.length > 0 && <h4 className="beat-own">Riêng trong lá số của bạn</h4>}
+      </>}
       <Paras list={b.paragraphs} />
       {b.id === "pillars" && r.overview.strength && (
         <details className="params">
@@ -84,7 +92,7 @@ function Block({ b, prepared }: { b: OverviewBlock; prepared: Prepared }) {
           ))}
         </ul>
       )}
-      <Why lines={b.why} />
+      <Why lines={b.portrait ? [b.portrait.why, ...b.why] : b.why} />
     </article>
   );
 }

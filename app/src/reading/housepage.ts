@@ -122,7 +122,7 @@ export function readHousePage(ctx: Ctx, h: HouseInfo, told: Told = new Map()): H
   const story = { pathway: narr.path, expressiveLevel: narr.expressive, supportLevel: narr.support };
   const sections: Section[] = [
     { id: "summary", title: narr.title, paragraphs: [narr.paragraphs[0], `Bài học của mảng này là ${narr.lesson}.`, ...narr.paragraphs.slice(1)],
-      blocks: [{ label: "Trong đời sống, điều này thường trông như sau", paragraphs: narr.examples }, { label: "Thông điệp", paragraphs: [narr.message] }] },
+      blocks: [closer(ctx, h.n, hf.sign, hf.lordHouse, h.occupants), { label: "Trong đời sống, điều này thường trông như sau", paragraphs: narr.examples }, { label: "Thông điệp", paragraphs: [narr.message] }] },
   ];
   const yogaIds = hf.yogas.filter((y) => y.strength !== "weak").map((y) => y.id);
 
@@ -151,4 +151,29 @@ export function readHousePage(ctx: Ctx, h: HouseInfo, told: Told = new Map()): H
     why: whyWithAxes,
     sections, facts, yogaIds, words: words(allText.join(" ")),
   };
+}
+
+// ------------------------------------------------------------------ a closer look: the hand-written atoms for this sign, lord and tenants
+const COST = ["Cái giá là", "Mặt trái là", "Chỗ cần để ý là", "Điều bạn hay phải trả là"];
+const SEEN = ["Người ngoài thấy", "Người xung quanh thường thấy", "Trong mắt người khác là", "Người mới gặp thường thấy"];
+/** Strips "Bạch Dương ở nhà 7: " or "Mặt Trời ở nhà 1: " and varies the stock connectors so twelve pages do not sound alike. */
+function tidy(atom: string, seed: number, lead = ""): string {
+  let t = atom.replace(/^[^:]{2,40} ở nhà \d+: /u, "");
+  t = t.replace(/Cái giá là/g, () => COST[seed % COST.length]).replace(/Người ngoài thấy/g, () => SEEN[(seed + 1) % SEEN.length]);
+  t = t.charAt(0).toUpperCase() + t.slice(1);
+  return lead ? `${lead} ${t.charAt(0).toLowerCase()}${t.slice(1)}` : t;
+}
+function closer(ctx: Ctx, n: number, sign: number, lordHouse: number, occ: GrahaId[]): SectionBlock {
+  const motif = LORD_IN_TITLE[n]?.[lordHouse - 1] ?? "Nhìn gần hơn";
+  const paras: string[] = [];
+  const s = SIGN_ON_HOUSE_DEEP[n]?.[sign];
+  if (s) paras.push(tidy(s, n + sign));
+  const l = LORD_IN[n - 1]?.[lordHouse - 1];
+  if (l && lordHouse !== n || l && !s) paras.push(tidy(l, n + lordHouse + 1));
+  for (const g of occ.slice(0, 2)) {
+    const a = PLANET_IN_HOUSE[g]?.[n - 1];
+    if (a) paras.push(tidy(a, n + paras.length + 2, `Có ${nameOf(g)} ngồi ở đây:`));
+  }
+  void ctx;
+  return { label: motif, paragraphs: paras, prose: true };
 }
