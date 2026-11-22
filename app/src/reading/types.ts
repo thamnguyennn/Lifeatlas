@@ -83,6 +83,8 @@ export interface HouseReading {
   supportLevel: SupportLevel;
   /** How the colour and narrative pathway of the house were worked out, one line per part. */
   why: string[];
+  /** The analysis behind the essay, step by step (v4.3), shown folded. */
+  basis: { h: string; lines: string[] }[];
   sections: Section[];
   facts: { label: string; value: string }[];
   yogaIds: string[];

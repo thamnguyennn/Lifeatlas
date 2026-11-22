@@ -117,6 +117,12 @@ export function OverviewPage({ prepared }: { prepared: Prepared }) {
                 <div><h3>{p.title}</h3><p className="key-role">{p.role}</p></div>
               </header>
               <Paras list={p.paragraphs} />
+              {p.details.length > 0 && (
+                <details className="params why">
+                  <summary>Xem thông số</summary>
+                  <ul>{p.details.map((l, i) => <li key={i}>{l}</li>)}</ul>
+                </details>
+              )}
             </article>
           ))}
         </div>
@@ -136,7 +142,7 @@ export function OverviewPage({ prepared }: { prepared: Prepared }) {
       </section>
       <section className="ov5-sec reveal">
         <h2 className="ov5-h">Bức tranh tổng thể</h2>
-        <article className="card ov-block ov5-sum reveal"><p><Gloss text={X.summary} /></p></article>
+        {X.summary && <article className="card ov-block ov5-sum reveal"><p><Gloss text={X.summary} /></p></article>}
       </section>
       <details className="params ov5-basis reveal">
         <summary>Cơ sở luận giải</summary>

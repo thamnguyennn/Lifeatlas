@@ -11,6 +11,7 @@ import { SUN_SIGN, MOON_SIGN, MOON_NAK_LEAD, SUN_DIGNITY, ELEMENT_OF, ELEMENT_VI
 import { conjOf } from "./content/conjunctions.ts";
 import { MOON_PORTRAIT, SUN_PORTRAIT, LAGNA_PORTRAIT, TRIAD_LINE, type Portrait } from "./content/portraits.ts";
 import { PAIRS } from "./content/pairs.ts";
+import { EL_MANY, EL_NONE, EL_FEW, EL_EVEN, EL_NONE_SHORT } from "./content/elements.ts";
 import { LAGNA_LOOK, EL_NB, PLANET_NB, AREA_NB, SUN_NB, MOON_NB } from "./content/overview-nblm.ts";
 import { HOUSE_TAG, AREA_EXAMPLE } from "./content/houses-signs.ts";
 import { NAK } from "./content/nakshatra.ts";
@@ -56,7 +57,7 @@ export interface Letter {
 /** Tổng quan v5: from the outside in, then the highlights, the whole picture, and the data underneath. */
 export interface Explore {
   lead: string;
-  parts: { key: "lagna" | "sun" | "moon"; title: string; role: string; sign: number; paragraphs: string[] }[];
+  parts: { key: "lagna" | "sun" | "moon"; title: string; role: string; sign: number; paragraphs: string[]; /** The technical facts behind this part, folded. */ details: string[] }[];
   highlights: { key: "elements" | "planets" | "areas"; title: string; text: string; elements?: Record<string, number>; planets?: GrahaId[] }[];
   summary: string;
   basis: { h: string; lines: string[] }[];
@@ -756,83 +757,115 @@ function lagnaNak(ctx: Ctx): { index: number; name: string; pada: number; lord: 
   if (a.index !== n.lagna.nak.index || b.index !== n.lagna.nak.index) return null;
   return { index: n.lagna.nak.index, name: n.lagna.nak.name, pada: n.lagna.nak.pada, lord: n.lagna.nak.lord };
 }
-const FACE_OF: Record<string, string> = {
-  sun: "một vẻ tự tin, rõ ràng", moon: "một vẻ mềm mại, dễ gần", mars: "một độ quyết liệt khi đã có việc phải làm", mercury: "sự lanh lợi trong lời nói",
-  jupiter: "một vẻ điềm đạm, đáng tin", venus: "sự duyên dáng và hòa nhã", saturn: "vẻ nghiêm, dè dặt và chín chắn", rahu: "một nét khác thường, khó đoán", ketu: "vẻ xa cách, sống nhiều bên trong",
+/** What a planet sitting on the rising sign adds to how you come across, said without naming the planet. */
+const FACE_ADD: Record<string, string> = {
+  sun: "một vẻ tự tin, rõ ràng, khó bị lẫn giữa đám đông", moon: "một nét mềm mại, dễ gần, cảm xúc hiện ngay trên gương mặt",
+  mars: "một sự năng nổ, thẳng thắn và hơi nóng", mercury: "sự lanh lợi và cách nói chuyện có duyên",
+  jupiter: "một vẻ điềm đạm, đáng tin, khiến người ta hay tìm đến hỏi ý kiến", venus: "sự duyên dáng, hòa nhã và có gu",
+  saturn: "một vẻ nghiêm, dè dặt và chín chắn hơn tuổi", rahu: "một nét khác thường, khó đoán", ketu: "một vẻ hơi xa cách, như sống nhiều bên trong",
 };
+/** What a planet looking at the rising sign adds, as a full clause. */
+const FACE_LOOK: Record<string, string> = {
+  mars: "Khi đã có việc phải làm, bạn quyết liệt hơn nhiều so với vẻ ngoài.",
+  saturn: "Với những chuyện quan trọng, bạn nghiêm túc và cẩn trọng hơn người ta tưởng.",
+  jupiter: "Người xung quanh dễ tin bạn và hay tìm đến bạn khi cần một lời khuyên.",
+};
+/** A conjunction said without planet names: "Bạn còn có …, kèm điều cần để ý là …". */
+const conjPlain = (gift: string, care: string) => `Bạn còn có ${gift.replace(/^có /, "").replace(/\s*\([^)]*\)/g, "")}, kèm điều cần để ý là ${care.replace(/^khi hai sao [^,]+, /, "")}.`;
+const strongish = (p: PlanetFact) => ["exalted", "own", "moolatrikona"].includes(p.dignity) || p.grade === "strong";
+const weakish = (p: PlanetFact) => p.dignity === "debilitated" || p.grade === "weak";
+/** At most `k` sentences of a passage: the opening ones, then its line on strengths and its line on what is hard. */
+function trimPassage(t: string, k = 4): string {
+  const ss = sentences(stripLead(keepSoft(t)));
+  if (ss.length <= k) return ss.join(" ");
+  const core = ss.slice(0, 2);
+  const good = ss.find((x, i) => i >= 2 && /^(Điểm mạnh|Thế mạnh|Về điểm mạnh)/.test(x));
+  const hard = ss.find((x, i) => i >= 2 && /(Tuy nhiên|[Đđ]iểm khó|[Đđ]iều khó|[Tt]hử thách)/.test(x));
+  const out = [...core, ...(good ? [good] : []), ...(hard ? [hard] : [])];
+  return (out.length > 2 ? out : ss.slice(0, k)).join(" ");
+}
+/** The part of a "… ở nhà N, nên X" sentence after "nên", as its own sentence. */
+const afterNen = (t: string) => { const i = t.indexOf(", nên "); return i < 0 ? t : t.slice(i + 6).replace(/^./, (c) => c.toUpperCase()); };
 
-function lagnaPart(ctx: Ctx, f: Facts): string[] {
-  const n = ctx.n, L = n.lagna.sign, out: string[] = [];
-  const base = keepSoft(LAGNA_LOOK[L]);
-  out.push(stripLead(base || LAGNA_SIGN[L]));
-  const nk = lagnaNak(ctx), mod2: string[] = [];
+function lagnaPart(ctx: Ctx, f: Facts): { paragraphs: string[]; details: string[] } {
+  const n = ctx.n, L = n.lagna.sign, out: string[] = [], det: string[] = [];
+  out.push(trimPassage(LAGNA_LOOK[L] || LAGNA_SIGN[L], 3));
+  const nk = lagnaNak(ctx), more: string[] = [];
+  det.push(`Cung mọc ${SIGNS[L]} ${fmtDeg(n.lagna.deg)}; chủ cung mọc ${nameOf(SIGN_LORD[L])} ở ${SIGNS[f.planets[SIGN_LORD[L]].sign]}, nhà ${f.planets[SIGN_LORD[L]].house}.`);
   if (nk) {
     const NL = f.planets[nk.lord];
-    const face = NAK[nk.index].face.replace(/^Người ta thấy ở bạn /, "");
-    const where = NL.house === 1 ? `và chính ${nameOf(nk.lord)}, hành tinh dẫn dắt chòm sao này, đang đứng ngay trên cung mọc, nên nét ấy hiện ra rất rõ` : `${nameOf(nk.lord)}, hành tinh dẫn dắt chòm sao này, ${condWord(NL)}, nên nét ấy ${["exalted", "own", "moolatrikona"].includes(NL.dignity) || NL.grade === "strong" ? "có sức nặng" : NL.grade === "weak" || NL.dignity === "debilitated" ? "thường kín đáo hơn" : "hiện ra vừa phải"}`;
-    mod2.push(`Điều làm bạn khác với nhiều người cùng cung mọc là chòm sao ${nakName(nk.name)}: người ta thường thấy ở bạn ${face.replace(/\.$/, "")}; ${where}.`);
-  } else mod2.push(`Trong khoảng sai số giờ sinh, cung mọc của bạn có thể rơi vào hai chòm sao khác nhau, nên mình chỉ đọc theo cung, không dựa vào chi tiết chòm sao.`);
+    more.push(NAK[nk.index].face.replace(/\.$/, "") + ".");
+    if (NL.house === 1 || strongish(NL)) more.push("Nét này hiện ra rất rõ, ngay từ lần gặp đầu.");
+    else if (weakish(NL)) more.push("Nét này thường chỉ lộ ra khi người ta đã quen bạn một thời gian.");
+    det.push(`Chòm sao của cung mọc: ${nakName(nk.name)} pada ${nk.pada}; chủ chòm sao ${nameOf(nk.lord)} ${NL.house === 1 ? "đứng ngay trên cung mọc" : `ở nhà ${NL.house}`}, ${DIGNITY_VI[NL.dignity].toLowerCase()} → sắc thái “${NAK[nk.index].face.replace(/^Người ta thấy ở bạn /, "").replace(/\.$/, "")}”.`);
+  } else det.push("Trong khoảng sai số giờ sinh, cung mọc có thể rơi vào hai chòm sao khác nhau, nên phần này không dùng chi tiết chòm sao.");
   const occ = f.houses[0]?.occupants.filter((id) => id !== nk?.lord) ?? [];
-  const asp = (f.houses[0]?.aspects ?? []).filter((id) => !occ.includes(id) && id !== nk?.lord && ["mars", "saturn", "jupiter"].includes(id));
-  if (occ.length) mod2.push(`${joinVi(occ.map(nameOf))} ${occ.length > 1 ? "cùng đứng" : "đứng"} trên cung mọc, thêm vào phong thái của bạn ${joinVi(occ.map((id) => FACE_OF[id]))}.`);
-  if (asp.length) mod2.push(`${joinVi(asp.map(nameOf))} chiếu thẳng vào cung mọc, nên trong phong thái ấy còn có ${joinVi(asp.map((id) => FACE_OF[id]))}.`);
-  out.push(mod2.join(" "));
-  return out.map(noPast).filter(Boolean);
+  const asp = (f.houses[0]?.aspects ?? []).filter((id) => !f.houses[0].occupants.includes(id) && FACE_LOOK[id]);
+  if (occ.length) { more.push(`Bạn còn mang ${occ.slice(0, 2).map((id) => FACE_ADD[id]).join(", cùng với ")}.`); det.push(`Hành tinh trên cung mọc: ${joinVi(occ.map(nameOf))}.`); }
+  if (asp.length) { more.push(FACE_LOOK[asp[0]]); det.push(`Góc chiếu vào cung mọc: ${joinVi(asp.map(nameOf))}.`); }
+  if (more.length) out.push(more.join(" "));
+  return { paragraphs: out.map(noPast).filter(Boolean), details: det };
 }
 
-function sunPart(ctx: Ctx, f: Facts): string[] {
-  const n = ctx.n, S = n.grahas.sun.sign, sun = f.planets.sun, out: string[] = [];
+function sunPart(ctx: Ctx, f: Facts): { paragraphs: string[]; details: string[] } {
+  const n = ctx.n, S = n.grahas.sun.sign, sun = f.planets.sun, out: string[] = [], det: string[] = [];
   const nb = SUN_NB[S] && SUN_NB[S] !== "Đang cập nhật." ? paras(SUN_NB[S])[0] : SUN_SIGN[S];
   const sameAsLagna = !ctx.noTime && n.lagna.sign === S;
-  // when the Sun shares the rising sign, the sign has been described already: keep only its first sentence
-  out.push(sameAsLagna ? `Mặt Trời cũng ở ${SIGNS[S]}, nên chất của cung này đi từ vẻ ngoài vào tận bản ngã. ${sentences(stripLead(keepSoft(nb)))[0] ?? ""}` : stripLead(keepSoft(nb)));
+  out.push(sameAsLagna ? `Mặt Trời cũng ở ${SIGNS[S]}, nên chất của cung này đi từ vẻ ngoài vào tận bản ngã. ${sentences(trimPassage(nb))[0] ?? ""}` : trimPassage(nb));
   const m: string[] = [];
   const nk = sun.g.nak, NL = f.planets[nk.lord];
-  m.push(nk.lord === "sun" ? `Mặt Trời còn nằm trong chòm sao ${nakName(nk.name)} do chính nó dẫn dắt, nên chuẩn mực riêng của bạn rất rõ: ${lowerFirst(NAKSHATRA_TEXT[nk.index].split(": ").slice(1).join(": "))}` : `Chòm sao ${nakName(nk.name)} của Mặt Trời thêm một sắc thái: ${lowerFirst(NAKSHATRA_TEXT[nk.index].split(": ").slice(1).join(": "))}${nk.lord !== "rahu" && nk.lord !== "ketu" ? ` Hành tinh dẫn dắt chòm sao này, ${nameOf(nk.lord)}, ${condWord(NL)}.` : ""}`);
-  if (!ctx.noTime && sun.house) m.push(viaArea(SUN_IN[sun.house - 1]));
-  if ((sun.dignity === "enemy" || sun.dignity === "debilitated") && sun.house === 12) m.push("Cung Kim Ngưu không thật hợp với Mặt Trời, nhưng sức của nó không yếu: nó chỉ chọn cách làm việc lặng lẽ.".replace("Kim Ngưu", SIGNS[S]));
-  else if (sun.dignity === "enemy" || sun.dignity === "debilitated") m.push(sun.conj.length || sun.aspectedBy.length ? "Mặt Trời đứng trong một cung không thật hợp với nó, nên ý chí thường cần thời gian mới hiện rõ." : "Mặt Trời đứng trong một cung không thật hợp với nó và không có hành tinh nào đi cùng hay chiếu vào, nên ý chí của bạn ít phô ra; sức của nó không yếu, chỉ là được dùng một cách âm thầm.");
-  else if (["exalted", "own", "moolatrikona"].includes(sun.dignity)) m.push("Mặt Trời đứng ở vị trí mạnh, nên điều bạn muốn khẳng định thường hiện ra rõ và đứng vững.");
-  const c = conjNote(f, "sun"); if (c) m.push(c);
+  const nakTrait = lowerFirst(NAKSHATRA_TEXT[nk.index].split(": ").slice(1).join(": "));
+  if (nakTrait) m.push(nk.lord === "sun" ? `Bạn có nguyên tắc riêng rất rõ: ${nakTrait}` : `Ở bạn còn có một nét riêng: ${nakTrait}`);
+  det.push(`Mặt Trời ${SIGNS[S]} ${fmtDeg(sun.g.deg)}${sun.house ? `, nhà ${sun.house}` : ""}, ${DIGNITY_VI[sun.dignity].toLowerCase()}${sun.sb ? `, Shadbala ${Math.round(sun.sb.ratio * 100)}%` : ""}.`);
+  det.push(`Chòm sao: ${nakName(nk.name)} pada ${nk.pada}, chủ chòm sao ${nameOf(nk.lord)}${nk.lord !== "sun" ? ` (${condWord(NL)})` : " (chính Mặt Trời)"}.`);
+  const hidden = !ctx.noTime && sun.house === 12;
+  if (!ctx.noTime && sun.house) m.push(afterNen(SUN_IN[sun.house - 1]));
+  if ((sun.dignity === "enemy" || sun.dignity === "debilitated") && !hidden) m.push("Sức mạnh ấy không ồn ào: nó cần thời gian mới hiện rõ, nhưng đã hiện thì bền.");
+  else if (hidden && (sun.dignity === "enemy" || sun.dignity === "debilitated")) m.push("Đó không phải vì bạn yếu; bạn chỉ chọn cách làm việc lặng lẽ.");
+  else if (["exalted", "own", "moolatrikona"].includes(sun.dignity)) m.push("Ý chí của bạn rõ và vững: khi đã muốn điều gì, bạn thường theo được tới cùng.");
+  const mate = sun.conj.find((o) => conjOf("sun", o) && o !== "moon");
+  if (mate) { const c = conjOf("sun", mate)!; m.push(conjPlain(c.gift, c.care)); det.push(`Mặt Trời đồng cung ${nameOf(mate)}.`); }
   out.push(m.join(" "));
-  const L = ctx.noTime ? null : n.lagna.sign;
-  if (L !== null && L !== S) out.push(PAIRS.LS[L][S]);
-  return out.map(noPast).filter(Boolean);
+  return { paragraphs: out.map(noPast).filter(Boolean), details: det };
 }
 
-function moonPart(ctx: Ctx, f: Facts): string[] {
-  const n = ctx.n, M = n.grahas.moon.sign, moon = f.planets.moon, out: string[] = [];
+function moonPart(ctx: Ctx, f: Facts): { paragraphs: string[]; details: string[] } {
+  const n = ctx.n, M = n.grahas.moon.sign, moon = f.planets.moon, out: string[] = [], det: string[] = [];
   const nb = MOON_NB[M] && MOON_NB[M] !== "Đang cập nhật." ? paras(MOON_NB[M])[0] : MOON_SIGN[M];
   const shared = M === n.grahas.sun.sign || (!ctx.noTime && M === n.lagna.sign);
-  out.push(shared ? `Mặt Trăng cũng ở ${SIGNS[M]}, nên cảm xúc của bạn nói cùng một tiếng nói với ${M === n.grahas.sun.sign ? "ý chí" : "vẻ ngoài"}. ${sentences(stripLead(keepSoft(nb))).slice(1, 3).join(" ")}`.trim() : stripLead(keepSoft(nb)));
+  out.push(shared ? `Mặt Trăng cũng ở ${SIGNS[M]}, nên cảm xúc của bạn nói cùng một tiếng nói với ${M === n.grahas.sun.sign ? "ý chí" : "vẻ ngoài"}. ${sentences(stripLead(keepSoft(nb))).slice(1, 3).join(" ")}`.trim() : trimPassage(nb));
   const m: string[] = [];
-  const nk = moon.g.nak;
-  if (nk.index === n.grahas.sun.nak.index) m.push(`Mặt Trăng còn ở cùng chòm sao ${nakName(nk.name)} với Mặt Trời, nên điều bạn tin và điều bạn cảm gần như là một; sức mạnh ở đây là sự nhất quán, còn điều cần giữ là chừa chỗ cho một góc nhìn khác.`);
-  const soul = sentences(NAK[nk.index].soul).filter((x) => !/thuộc (về )?[A-Z]|là (sao|thầy|ngọn|lửa)|Điều cần tập/.test(x)).slice(0, 2).join(" ");
-  if (nk.index !== n.grahas.sun.nak.index) m.push(`Chòm sao ${nakName(nk.name)} làm nhịp ấy có thêm chiều sâu: ${lowerFirst(soul)}`);
-  if (nk.lord !== "rahu" && nk.lord !== "ketu") { const NL = f.planets[nk.lord]; if (["exalted", "own", "moolatrikona"].includes(NL.dignity) || NL.grade === "strong") m.push(`Hành tinh dẫn dắt chòm sao này, ${nameOf(nk.lord)}, đang ở vị trí mạnh, nên đây là một chỗ dựa thật cho đời sống cảm xúc.`); }
+  const nk = moon.g.nak, nm = nk.name;
+  det.push(`Mặt Trăng ${SIGNS[M]} ${fmtDeg(moon.g.deg)}${moon.house ? `, nhà ${moon.house}` : ""}, ${DIGNITY_VI[moon.dignity].toLowerCase()}${moon.sb ? `, Shadbala ${Math.round(moon.sb.ratio * 100)}% (hạng ${moon.sb.rank}/7)` : ""}.`);
+  det.push(`Chòm sao: ${nakName(nm)} pada ${nk.pada}, chủ chòm sao ${nameOf(nk.lord)}.`);
+  if (nk.index === n.grahas.sun.nak.index) m.push("Điều bạn tin và điều bạn cảm gần như là một; sức mạnh ở đây là sự nhất quán, còn điều cần giữ là chừa chỗ cho một góc nhìn khác.");
+  else {
+    const soul = sentences(NAK[nk.index].soul).filter((x) => !x.includes(nm) && !x.includes(nakName(nm)) && !/thuộc (về )?[A-Z]|là (sao|thầy|ngọn|lửa)|Điều cần tập|điều cần tập/.test(x)).slice(0, 2).join(" ");
+    if (soul) m.push(`Sâu hơn một chút, ${lowerFirst(soul)}`);
+  }
+  if (nk.lord !== "rahu" && nk.lord !== "ketu" && strongish(f.planets[nk.lord])) { m.push("Phần sâu ấy lại có chỗ dựa vững, nên bạn chịu đựng được nhiều hơn mình tưởng."); det.push(`Chủ chòm sao ${nameOf(nk.lord)} ${condWord(f.planets[nk.lord])}.`); }
   const LL = ctx.noTime ? null : SIGN_LORD[n.lagna.sign];
-  if (LL && moon.conj.includes(LL)) m.push(`Mặt Trăng đứng cùng ${nameOf(LL)}, hành tinh cai quản cung mọc, nên điều bạn cảm và điều bạn nghĩ đi rất sát nhau.`);
-  else { const cc = conjNote(f, "moon"); if (cc) m.push(cc); }
-  out.push(m.join(" "));
+  if (LL && LL !== "moon" && moon.conj.includes(LL)) { m.push("Điều bạn cảm và điều bạn nghĩ đi rất sát nhau, nên bạn khó giả vờ vui khi trong lòng không vui."); det.push(`Mặt Trăng đồng cung ${nameOf(LL)}, chủ cung mọc.`); }
+  else { const mate = moon.conj.find((o) => conjOf("moon", o) && o !== "sun"); if (mate) { const c = conjOf("moon", mate)!; m.push(conjPlain(c.gift, c.care)); det.push(`Mặt Trăng đồng cung ${nameOf(mate)}.`); } }
+  if (m.length) out.push(m.join(" "));
   // strength and light
   const e = mod(n.grahas.moon.lon - n.grahas.sun.lon, 360), gap = Math.min(e, 360 - e);
   const weakest = moon.sb && moon.sb.rank === 7;
   const disp = f.planets[SIGN_LORD[M]];
+  det.push(`Mặt Trăng cách Mặt Trời ${gap.toFixed(0)}° (${gap < 72 ? "dưới 72°, trăng mỏng" : "trên 72°, trăng đủ sáng"}).`);
   if (gap < 72 || weakest) {
-    const why = gap < 72 && weakest ? `Mặt Trăng là hành tinh có sức mạnh thấp nhất lá số, và bạn sinh khi trăng chỉ còn cách Mặt Trời khoảng ${Math.round(gap)} độ` : gap < 72 ? `Bạn sinh khi trăng chỉ còn cách Mặt Trời khoảng ${Math.round(gap)} độ, lúc trăng còn mỏng` : "Mặt Trăng là hành tinh có sức mạnh thấp nhất lá số";
-    const help = isGood(disp) ? ` Điều bù lại là ${nameOf(disp.id)}, hành tinh cai quản cung của Mặt Trăng, ${condWord(disp)}, nên cảm xúc có chỗ để hồi lại.` : "";
-    out.push(`${why}. Vì vậy nguồn năng lượng cảm xúc của bạn mỏng hơn những gì người khác thấy, và cần được giữ bằng giấc ngủ, nhịp nghỉ và những người làm bạn thấy an toàn.${help}`);
+    out.push(`Nguồn năng lượng cảm xúc của bạn mỏng hơn những gì người khác thấy: sau những ngày căng thẳng bạn dễ cạn sức, nên giấc ngủ đủ, nhịp nghỉ đều và những người làm bạn thấy an toàn quan trọng với bạn hơn với nhiều người.${isGood(disp) ? " Điều tốt là khi được nghỉ đúng cách, bạn hồi lại khá nhanh." : ""}`);
+    if (isGood(disp)) det.push(`Chủ cung của Mặt Trăng, ${nameOf(disp.id)}, ${condWord(disp)}: yếu tố bù.`);
   }
-  return out.map(noPast).filter(Boolean);
+  return { paragraphs: out.map(noPast).filter(Boolean), details: det };
 }
 
 function readExplore(ctx: Ctx, f: Facts): Explore {
   const n = ctx.n, S = n.grahas.sun.sign, M = n.grahas.moon.sign, L = ctx.noTime ? null : n.lagna.sign;
   const parts: Explore["parts"] = [];
-  if (L !== null) parts.push({ key: "lagna", title: `Cung Mọc ${SIGNS[L]}`, role: "Thân thể & Khí chất", sign: L, paragraphs: lagnaPart(ctx, f) });
-  parts.push({ key: "sun", title: `Mặt Trời ${SIGNS[S]}`, role: "Bản ngã & Linh hồn", sign: S, paragraphs: sunPart(ctx, f) });
-  if (!ctx.uncertainMoon) parts.push({ key: "moon", title: `Mặt Trăng ${SIGNS[M]}`, role: "Tâm trí & Cảm xúc", sign: M, paragraphs: moonPart(ctx, f) });
+  if (L !== null) parts.push({ key: "lagna", title: `Cung Mọc ${SIGNS[L]}`, role: "Thân thể & Khí chất", sign: L, ...lagnaPart(ctx, f) });
+  parts.push({ key: "sun", title: `Mặt Trời ${SIGNS[S]}`, role: "Bản ngã & Linh hồn", sign: S, ...sunPart(ctx, f) });
+  if (!ctx.uncertainMoon) parts.push({ key: "moon", title: `Mặt Trăng ${SIGNS[M]}`, role: "Tâm trí & Cảm xúc", sign: M, ...moonPart(ctx, f) });
 
   // ---- highlights, one or two sentences each
   const highlights: Explore["highlights"] = [];
@@ -842,14 +875,18 @@ function readExplore(ctx: Ctx, f: Facts): Explore {
   if (L !== null) counts[ELEMENT_OF(L)]++;
   const order = ["fire", "earth", "air", "water"] as Element[];
   const top = [...order].sort((a, b) => counts[b] - counts[a] || order.indexOf(a) - order.indexOf(b));
-  let elText: string;
-  if (counts[top[0]] - counts[top[3]] <= 1) elText = "Bốn nguyên tố trong lá số của bạn khá cân, không nguyên tố nào lấn át, nên bạn dễ đổi cách tiếp cận theo hoàn cảnh.";
+  const lacking = order.filter((e) => counts[e] === 0);
+  const few = order.filter((e) => counts[e] === 1);
+  const spread = counts[top[0]] - counts[top[3]];
+  const elParts: string[] = [];
+  if (spread <= 1) elParts.push(EL_EVEN);
   else {
-    const more = EL_NB[top[0]].more.replace(/^Nguyên tố [^.]+\.\s*/, "");
-    elText = `Nguyên tố ${ELEMENT_VI[top[0]]} chiếm nhiều nhất: ${leadSentence(more)}.`;
-    const low = order.find((e) => counts[e] === 0);
-    if (low) elText += ` Nguyên tố ${ELEMENT_VI[low]} ít được nhấn mạnh; điều đó không có nghĩa bạn thiếu phẩm chất ấy, chỉ là nó ít khi là phản xạ đầu tiên của bạn.`;
+    if (counts[top[0]] >= 3) elParts.push(EL_MANY[top[0]]);
+    if (counts[top[1]] === counts[top[0]] && counts[top[1]] >= 3 && !lacking.length) elParts.push(EL_MANY[top[1]].split(/(?<=[.!?])\s+/).slice(0, 2).join(" "));
+    if (lacking.length) elParts.push(EL_NONE[lacking[0]]);
+    else if (few.length && counts[top[0]] >= 4) elParts.push(EL_FEW[few[0]]);
   }
+  const elText = elParts.join(" ");
   highlights.push({ key: "elements", title: "Nguyên tố nổi bật", text: elText, elements: counts });
   const seven = f.order.filter((id) => id !== "rahu" && id !== "ketu");
   const weight = (id: GrahaId) => { const p = f.planets[id]; let w = p.score; if (p.role === "yogakaraka") w += 0.8; if (p.role === "lagna") w += 0.5; if (f.n.yogas.some((y) => y.grahas.includes(id) && y.strength !== "weak" && y.tone === "good")) w += 0.4; return w; };
@@ -874,23 +911,23 @@ function readExplore(ctx: Ctx, f: Facts): Explore {
     highlights.push({ key: "areas", title: "Lĩnh vực được nhấn mạnh", text: t });
   }
 
-  // ---- the whole picture, from the rule-based traits (not from the passages above)
-  const tr = traits(ctx, f);
-  const pic: string[] = [headline(ctx, f)];
-  const used = new Set<string>();
-  const gifts = tr.filter((x) => x.kind !== "tension"), tens = tr.filter((x) => x.kind === "tension");
-  [gifts[0], gifts.find((x) => x !== gifts[0]), tens[0]].forEach((x) => x && used.add(x.key));
-  const rest = tr.filter((x) => !used.has(x.key)).slice(0, 2);
-  const LEAD_GIFT = ["Bên cạnh đó, bạn", "Ở bạn cũng có nét"];
-  rest.slice(0, 1).forEach((x, i) => {
-    if (x.kind === "tension") pic.push(`Có điều, ${x.clause}.`);
-    else if (x.key === "ll") pic.push(`Khi ${x.clause.replace(" thì ", ", bạn ")}.`);
-    else pic.push(i === 0 ? `${LEAD_GIFT[0]} ${x.clause}.` : `${LEAD_GIFT[1]} ${x.clause}.`);
-  });
-  const SHAPE = L === null ? "" : L === S && S === M ? `Cả ba điểm gốc cùng ở ${SIGNS[S]}, nên vẻ ngoài, điều bạn coi trọng và điều lòng bạn cần nói chung một tiếng nói; điều cần học là đừng để một chất ấy lấn hết chỗ của những chất khác.`
-    : relOf(L, M) === 8 || relOf(L, M) === 6 || relOf(L, M) === 12 ? "Vẻ ngoài và đời sống bên trong của bạn đi theo hai nhịp khác nhau, nên người mới gặp thường chỉ thấy một nửa con người bạn."
-    : relOf(L, S) === 5 || relOf(L, S) === 9 || relOf(L, S) === 1 ? "Cách bạn bước vào đời và điều bạn coi trọng dễ đi cùng một hướng, nên khi đã chọn đúng việc, bạn ít phải gồng mình." : "";
-  if (SHAPE) pic.push(SHAPE);
+  // ---- the whole picture: who you are outside, what you value, what your heart needs, where your strength is, what to keep in mind
+  const pic: string[] = [];
+  if (L !== null) pic.push(`Người mới gặp thường thấy ở bạn một người ${FACE[L]}.`);
+  pic.push(`${L !== null ? "Bên trong, điều" : "Điều"} bạn thật sự coi trọng là ${SELF[S]}${!ctx.uncertainMoon ? `, còn lòng bạn ${HEART[M]}` : ""}.`);
+  const strong = pillars[0] ? CAPACITY[pillars[0]] : "";
+  let areaSays = "";
+  if (L !== null) {
+    const { total, byArea } = focusWeights(f);
+    const top1 = FOCUS_AREAS.map((a, i) => ({ a, excess: byArea[i] / total - a.houses.length / 12 })).sort((x, y) => y.excess - x.excess)[0];
+    if (top1.excess >= 0.08) areaSays = top1.a.says;
+  }
+  if (strong && areaSays) pic.push(`Điểm tựa lớn nhất của bạn là ${strong}, và phần lớn tâm sức đời bạn dồn vào ${areaSays}.`);
+  else if (strong) pic.push(`Điểm tựa lớn nhất của bạn là ${strong}.`);
+  else if (areaSays) pic.push(`Phần lớn tâm sức đời bạn dồn vào ${areaSays}.`);
+  const tens = traits(ctx, f).find((x) => x.kind === "tension");
+  const careBits = [tens ? tens.clause : "", lacking.length ? EL_NONE_SHORT[lacking[0]] : ""].filter(Boolean);
+  if (careBits.length) pic.push(`Điều nên nhớ: ${careBits.join("; và ")}.`);
   const summary = pic.join(" ");
 
   // ---- the data underneath, shown once, folded

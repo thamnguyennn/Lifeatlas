@@ -7,6 +7,16 @@ import { resolveDate, localMinuteOf, MIN_YEAR, MAX_YEAR, type FormValues, type C
 const fold = (s: string) =>
   s.normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/đ/g, "d").replace(/Đ/g, "D").toLowerCase();
 
+// Resolve only unambiguous typed places. The user must still choose from the list
+// whenever the input could refer to multiple cities.
+function resolveTypedPlace(text: string): PlaceOption | null {
+  const query = fold(text.trim());
+  if (!query) return null;
+  const matches = PLACE_OPTIONS.filter((p) => fold(p.label).includes(query));
+  const exact = matches.filter((p) => fold(p.label) === query);
+  return exact.length === 1 ? exact[0] : matches.length === 1 ? matches[0] : null;
+}
+
 const OFFSETS: { label: string; min: number }[] = [
   ...[-12, -11, -10, -9, -8, -7, -6, -5, -4, -3, -2, -1, 0, 1, 2, 3, 4, 5].map((h) => ({ label: `UTC${h < 0 ? "−" : "+"}${Math.abs(h)}`, min: h * 60 })),
   { label: "UTC+5:30", min: 330 }, { label: "UTC+5:45", min: 345 },
@@ -63,7 +73,13 @@ function PlaceBox({ value, onPick }: { value: PlaceInput | null; onPick: (p: Pla
         ref={ref} id={id} className="input" autoComplete="off" placeholder="Gõ tên tỉnh / thành, ví dụ: Đà Nẵng"
         role="combobox" aria-expanded={open} aria-controls={`${id}-list`} aria-autocomplete="list"
         value={q}
-        onChange={(e) => { setQ(e.target.value); setOpen(true); setActive(0); if (value) onPick(null); }}
+        onChange={(e) => {
+          const typed = e.target.value;
+          setQ(typed); setOpen(!resolveTypedPlace(typed)); setActive(0);
+          // Resolve as they type, rather than only on blur: the submit event must
+          // receive the place on the very first click.
+          onPick(resolveTypedPlace(typed)?.place ?? null);
+        }}
         onFocus={() => setOpen(true)}
         onBlur={() => setTimeout(() => setOpen(false), 120)}
         onKeyDown={(e) => {
@@ -217,7 +233,7 @@ export function Intake({ initial, onSubmit }: { initial?: FormValues; onSubmit: 
 
       <fieldset className="field">
         <legend>Nơi sinh</legend>
-        {!manual ? <PlaceBox value={place} onPick={setPlace} /> : (
+        {!manual ? <><PlaceBox value={place} onPick={setPlace} /><p className="hint">Nhập tên thành phố. Nếu xuất hiện nhiều địa điểm, hãy chọn đúng nơi sinh trong danh sách.</p></> : (
           <div className="row3 coords">
             <label className="mini"><span>Vĩ độ (Bắc +)</span><input id={`${uid}-lat`} className="input" inputMode="decimal" placeholder="16.46" value={mLat} onChange={(e) => setMLat(e.target.value)} /></label>
             <label className="mini"><span>Kinh độ (Đông +)</span><input id={`${uid}-lon`} className="input" inputMode="decimal" placeholder="107.59" value={mLon} onChange={(e) => setMLon(e.target.value)} /></label>

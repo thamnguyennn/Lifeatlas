@@ -101,9 +101,11 @@ export function HousePage({ h, onYoga, printing = false }: { h: HouseReading; on
         {shown.map((s) => <SectionView key={s.id} s={s} onYoga={onYoga} />)}
       </div>
       <details className="layers" open={printing}>
-        <summary>Vì sao mình nói điều này?</summary>
+        <summary>Xem chi tiết thông số</summary>
         <div className="prose">
-          <ul className="why">{h.why.length ? h.why.map((w, i) => <li key={i}>{w}</li>) : <li>Không có yếu tố nào cộng hoặc trừ điểm.</li>}</ul>
+          {h.basis.map((b) => (
+            <div key={b.h} className="basis-grp"><h4>{b.h}</h4><ul className="why">{b.lines.map((w, i) => <li key={i}>{w}</li>)}</ul></div>
+          ))}
           {layers.map((s) => <SectionView key={s.id} s={s} onYoga={onYoga} />)}
         </div>
       </details>

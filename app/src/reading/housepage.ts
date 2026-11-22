@@ -121,8 +121,8 @@ export function readHousePage(ctx: Ctx, h: HouseInfo, told: Told = new Map()): H
   const pathwayLabel = PATH_LABEL4[narr.path];
   const story = { pathway: narr.path, expressiveLevel: narr.expressive, supportLevel: narr.support };
   const sections: Section[] = [
-    { id: "summary", title: narr.title, paragraphs: h.n === 1 ? narr.paragraphs : [narr.paragraphs[0], `Bài học của mảng này là ${narr.lesson}.`, ...narr.paragraphs.slice(1)],
-      blocks: [closer(ctx, h.n, hf.sign, hf.lordHouse, h.occupants), ...(narr.examples.length ? [{ label: "Trong đời sống, điều này thường trông như sau", paragraphs: narr.examples }] : []), { label: "Thông điệp", paragraphs: [narr.message] }] },
+    { id: "summary", title: narr.title, paragraphs: narr.paragraphs,
+      blocks: [...(narr.examples.length ? [{ label: "Trong đời sống, điều này thường trông như sau", paragraphs: narr.examples }] : []), { label: "Thông điệp", paragraphs: [narr.message] }] },
   ];
   const yogaIds = hf.yogas.filter((y) => y.strength !== "weak").map((y) => y.id);
 
@@ -148,7 +148,7 @@ export function readHousePage(ctx: Ctx, h: HouseInfo, told: Told = new Map()): H
     signName: sign, lordName, lordHouse: lp, occupants: h.occupants.map(nameOf),
     sav: h.sav, savLabel, rank: bh?.rank ?? null, tone, score: ctx.scored[idx].score,
     pathway: story.pathway, pathwayLabel, expressiveLevel: story.expressiveLevel, supportLevel: story.supportLevel,
-    why: whyWithAxes,
+    why: whyWithAxes, basis: narr.basis,
     sections, facts, yogaIds, words: words(allText.join(" ")),
   };
 }
@@ -163,7 +163,7 @@ function tidy(atom: string, seed: number, lead = ""): string {
   t = t.charAt(0).toUpperCase() + t.slice(1);
   return lead ? `${lead} ${t.charAt(0).toLowerCase()}${t.slice(1)}` : t;
 }
-function closer(ctx: Ctx, n: number, sign: number, lordHouse: number, occ: GrahaId[]): SectionBlock {
+export function closer(ctx: Ctx, n: number, sign: number, lordHouse: number, occ: GrahaId[]): SectionBlock {
   const motif = LORD_IN_TITLE[n]?.[lordHouse - 1] ?? "Nhìn gần hơn";
   const paras: string[] = [];
   // Content ownership: the rising sign and the planets on it describe temperament, which the Overview owns; house 1 keeps

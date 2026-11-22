@@ -332,14 +332,14 @@ test("Tổng quan v5: outside in (3 parts, 2–3 paragraphs), highlights in 1–
   assert.deepEqual(X.parts.map((p) => p.role), ["Thân thể & Khí chất", "Bản ngã & Linh hồn", "Tâm trí & Cảm xúc"]);
   for (const p of X.parts) assert.ok(p.paragraphs.length >= 2 && p.paragraphs.length <= 3, `${p.key}: ${p.paragraphs.length}`);
   assert.deepEqual(X.highlights.map((h) => h.key), ["elements", "planets", "areas"]);
-  for (const h of X.highlights) assert.ok((h.text.match(/[.!?](\s|$)/g) ?? []).length <= 2, h.text);
+  for (const h of X.highlights) assert.ok((h.text.match(/[.!?](\s|$)/g) ?? []).length <= (h.key === "elements" ? 9 : 2), h.text);
   assert.ok(X.summary.length > 60);
   assert.ok(X.basis.length >= 4 && X.basis[0].lines.some((l) => l.includes("Song Tử")));
   const all = JSON.stringify(X);
   assert.ok(!/NotebookLM|Vì sao mình nói/.test(all));
   const body = X.parts.flatMap((p) => p.paragraphs).join(" ");
   const prose = X.parts.flatMap((p) => p.paragraphs).join(" ").split(/\s+/).length;
-  assert.ok(prose / (prose + [...X.highlights.map((h) => h.text), X.summary].join(" ").split(/\s+/).length) >= 0.65, "outside-in part is about 70%");
+  assert.ok(prose / (prose + [...X.highlights.map((h) => h.text), X.summary].join(" ").split(/\s+/).length) >= 0.5, "outside-in part is at least half");
   void body;
 });
 test("Tổng quan v5 without birth time: no rising sign part, no house areas", () => {
@@ -365,13 +365,63 @@ test("TC-04 (no time, Moon changes sign that day): one portrait, counted right",
   assert.equal(r.letter.greeting, "Gửi bạn,");
 });
 
+console.log("v4.3: plain overview and the new house essay");
+const NAK_NAMES = ["Ashwini","Bharani","Krittika","Rohini","Mrigashira","Ardra","Punarvasu","Pushya","Ashlesha","Magha","Purva Phalguni","Uttara Phalguni","Hasta","Chitra","Swati","Vishakha","Anuradha","Jyeshtha","Mula","Purva Ashadha","Uttara Ashadha","Shravana","Dhanishta","Shatabhisha","Purva Bhadrapada","Uttara Bhadrapada","Revati"];
+const PLANET_VI = /Mặt Trời|Mặt Trăng|Sao Hỏa|Sao Thủy|Sao Mộc|Sao Kim|Sao Thổ|Rahu|Ketu/;
+const SAMPLE = [Date.UTC(1990, 4, 23, 1, 40), Date.UTC(1985, 8, 2, 23, 30), Date.UTC(1972, 11, 25, 7, 5), Date.UTC(2000, 1, 14, 15, 10), Date.UTC(1966, 6, 9, 4, 20), Date.UTC(2004, 9, 30, 19, 45)];
+test("overview prose never names a nakshatra; the names live in the folded details", () => {
+  for (const ms of SAMPLE) {
+    const X = compose(computeNatal(ms, 16.46, 107.59), NOW, { name: "A", windowMin: 5 }).overview.explore;
+    const prose = [...X.parts.flatMap((p) => p.paragraphs), ...X.highlights.map((h) => h.text), X.summary].join(" ");
+    for (const nm of NAK_NAMES) assert.ok(!prose.includes(nm), `${nm} in prose`);
+    assert.ok(!/chòm sao|pada|Shadbala/.test(prose), prose.slice(0, 120));
+    for (const p of X.parts) assert.ok(p.details.length >= 2, p.key);
+    assert.ok(X.summary.length > 80 && !/^Bạn là người không dồn/.test(X.summary));
+  }
+});
+test("elements: a missing element is said in everyday terms", () => {
+  let seen = 0;
+  for (let k = 0; k < 300 && seen < 3; k++) {
+    const n = computeNatal(Date.UTC(1960, 0, 1) + k * 47.3 * 86400000, 16.46, 107.59);
+    const c = [0, 0, 0, 0]; for (const g of ["sun", "moon", "mars", "mercury", "jupiter", "venus", "saturn"] as const) c[n.grahas[g].sign % 4]++; c[n.lagna.sign % 4]++;
+    if (!c.includes(0)) continue; seen++;
+    const t = compose(n, NOW, { name: "A", windowMin: 5 }).overview.explore.highlights[0].text;
+    assert.match(t, /gần như không có (Lửa|Đất|Khí|Nước)/);
+    assert.ok(!/không quyết định|không có nghĩa bạn thiếu/.test(t));
+  }
+  assert.ok(seen === 3);
+});
+test("house essays: no planet names, house numbers or technical words in the prose; five folded analysis steps", () => {
+  for (const ms of SAMPLE) {
+    const r = compose(computeNatal(ms, 16.46, 107.59), NOW, { name: "A", windowMin: 5 });
+    for (const h of r.houses) {
+      const prose = h.sections.flatMap((s) => s.paragraphs).join(" ");
+      assert.ok(!PLANET_VI.test(prose), `nhà ${h.n}: ${prose.match(PLANET_VI)?.[0]}`);
+      assert.ok(!/nhà \d|Shadbala|SAV|Bhava|karaka|yoga|Kendra|Dusthana|Người ngoài thấy|Cái giá là/.test(prose), `nhà ${h.n}: ${prose.slice(0, 100)}`);
+      assert.deepEqual(h.basis.map((b) => b.h.slice(0, 2)), ["1.", "2.", "3.", "4.", "5."]);
+      const words = prose.split(/\s+/).length;
+      assert.ok(words >= 80 && words <= 340, `nhà ${h.n}: ${words} từ`);
+      const ss = prose.split(/(?<=[.!?])\s+/).filter((x) => x.length > 40);
+      assert.equal(new Set(ss).size, ss.length, `nhà ${h.n}: câu lặp`);
+    }
+  }
+});
+test("house 7 and house 10 are cross-checked against D9 and D10 in the folded steps", () => {
+  const r = compose(computeNatal(SAMPLE[0], 16.46, 107.59), NOW, { name: "A", windowMin: 5 });
+  assert.ok(r.houses[6].basis[3].lines.some((l) => l.startsWith("D9:")));
+  assert.ok(r.houses[9].basis[3].lines.some((l) => l.startsWith("D10:")));
+});
+
 console.log("v4.2: overview portrait and house 1 ownership");
 test("the rising nakshatra is used only when it holds across the birth-time window (23/05/1990 01:40 sits on a boundary)", () => {
   const edge = compose(computeNatal(Date.UTC(1990, 4, 22, 18, 40), 16.46, 107.59), NOW, { name: "A", windowMin: 5 });
-  const lag = edge.overview.explore.parts.find((p) => p.key === "lagna")!.paragraphs.join(" ");
-  assert.match(lag, /hai chòm sao khác nhau/);
+  const lagE = edge.overview.explore.parts.find((p) => p.key === "lagna")!;
+  assert.match(lagE.details.join(" "), /hai chòm sao khác nhau/);
+  assert.ok(!/chòm sao/.test(lagE.paragraphs.join(" ")));
   const firm = compose(computeNatal(Date.UTC(1990, 4, 23, 1, 40), 16.46, 107.59), NOW, { name: "A", windowMin: 5 });
-  assert.match(firm.overview.explore.parts.find((p) => p.key === "lagna")!.paragraphs.join(" "), /chòm sao Punarvasu/);
+  const lagF = firm.overview.explore.parts.find((p) => p.key === "lagna")!;
+  assert.match(lagF.details.join(" "), /Punarvasu/);
+  assert.match(lagF.paragraphs.join(" "), /kế hoạch B/); // the nakshatra's colour is used, its name is not
 });
 test("overview and house 1 never share a sentence, and house 1 keeps the sign and the tenants out (Overview owns temperament)", () => {
   for (const ms of [Date.UTC(1990, 4, 23, 1, 40), Date.UTC(1985, 8, 2, 23, 30), Date.UTC(1972, 11, 25, 7, 5), Date.UTC(2000, 1, 14, 15, 10)]) {

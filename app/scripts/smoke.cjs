@@ -9,7 +9,7 @@ async function fill(pg, d, m, y, hh, mm, place) {
   await pg.fill("input[placeholder='dd']", d); await pg.locator("input[placeholder='mm']").first().fill(m); await pg.fill("input[placeholder='yyyy']", y);
   await pg.fill("input[placeholder='hh']", hh); await pg.locator("input[placeholder='mm']").nth(1).fill(mm);
   await pg.fill("input[placeholder^='Gõ tên']", place); await pg.waitForTimeout(300);
-  await pg.locator(".combo-list li").first().click(); await pg.waitForTimeout(300);
+  if (await pg.locator(".combo-list li").count()) await pg.locator(".combo-list li").first().click(); await pg.waitForTimeout(300);
 }
 (async () => {
   const b = await chromium.launch({ args: ["--no-sandbox", "--disable-gpu"] });

@@ -10,7 +10,11 @@
 //
 // Every claim on the page comes from one evidence item, and every evidence item is listed (with its numbers) in `why`.
 // Nothing is concluded from a single symbolic indicator: the wording stays at "có xu hướng", "thường", "dễ".
-import { SIGNS, FRIENDS, ENEMIES, type GrahaId } from "../engine/constants.ts";
+import { SIGNS, FRIENDS, ENEMIES, SIGN_LORD, NAKSHATRA_VI, type GrahaId } from "../engine/constants.ts";
+import { vargaChart } from "../engine/vargas.ts";
+import { LEAD, ADVICE, LINK, lookLine } from "./content/house-text.ts";
+import { SIGN_ON_HOUSE_DEEP } from "./content/house-voice.ts";
+import { PLANET_IN_HOUSE } from "./content/planet-in-house.ts";
 import type { Ctx } from "./ctx.ts";
 import { effectiveYoga, isGood, type Facts, type HouseFact, type PlanetFact } from "./facts.ts";
 import { HOUSE_TAG, AREA_EXAMPLE } from "./content/houses-signs.ts";
@@ -196,7 +200,7 @@ function yogaMeaning(id: string): string {
   const maha: Record<string, string> = { mahapurusha_ruchaka: "bạn có sức quyết đoán và khả năng chỉ huy hơn hẳn người thường", mahapurusha_bhadra: "bạn có trí óc sắc và khả năng trình bày rất rõ ràng", mahapurusha_hamsa: "bạn dễ được tin cậy nhờ hiểu biết và cách sống tử tế", mahapurusha_malavya: "bạn có gu thẩm mỹ, sự duyên dáng và khả năng làm người khác thấy dễ chịu", mahapurusha_shasha: "bạn có kỷ luật và khả năng tổ chức bền bỉ" };
   if (maha[id]) return maha[id];
   if (id.startsWith("raja")) return "đây là dấu hiệu của vị thế và sự ghi nhận";
-  if (id.startsWith("dhana")) return "nó hỗ trợ khả năng tích lũy của bạn";
+  if (id.startsWith("dhana")) return "khả năng tích lũy của bạn được nâng đỡ rõ";
   if (id.startsWith("viparita")) return "khó khăn ở đây thường chuyển thành sức bền";
   if (id === "gajakesari") return "bạn dễ có uy tín nhờ sự hiểu biết";
   if (id === "budhaditya") return "bạn có trí óc sáng và khả năng trình bày";
@@ -213,34 +217,101 @@ export const PATH_LABEL4: Record<HousePathway, string> = {
   yoga: "bắt đầu từ một yoga", quiet: "mảng ít nổi bật",
 };
 
-export interface Narr4 { path: HousePathway; title: string; paragraphs: string[]; examples: string[]; message: string; lesson: string; why: string[]; support: SupportLevel; expressive: ExpressiveLevel }
+export interface Narr4 { path: HousePathway; title: string; paragraphs: string[]; examples: string[]; message: string; lesson: string; why: string[]; basis: { h: string; lines: string[] }[]; support: SupportLevel; expressive: ExpressiveLevel }
 
-/** House 1 has its own reading: the Overview owns temperament (sign, nakshatra, planets on the rising sign as presence), so
- * house 1 speaks of capacity, conditions for growth, vitality in the traditional sense and what helps or slows development. */
+// ------------------------------------------------------------------ v4.3: plain prose from the hand-written atoms, facts folded
+const HARSH_WORD = /(lười|ích kỷ|độc đoán|thô lỗ|tàn nhẫn|hoang phí|keo kiệt|lạnh lùng|nghiện)/;
+/** "…, còn bạn tìm X" is kept only when the sentence is about someone else; about you, it becomes a softer tail or is dropped. */
+const seekTail = (g: string, keep: boolean) => /^Bạn /.test(g) ? g.replace(/, còn bạn tìm ([^.]+)\./, keep ? ", và điều bạn tìm ở đây là $1." : ".") : g;
+const words4 = (t: string) => new Set(t.toLowerCase().split(/[^a-zà-ỹđ]+/i).filter((w) => w.length > 2));
+const overlap = (a: string, b: string) => { const A = words4(a), B = words4(b); let k = 0; for (const w of B) if (A.has(w)) k++; return B.size ? k / B.size : 0; };
+const SIGNED_LINE = /^(Người ngoài thấy|Người mới gặp|Người xung quanh|Trong mắt người khác)/;
+const PAST_LINE = /(thuở nhỏ|từ nhỏ|hồi nhỏ|tuổi thơ|khi còn bé)/;
+/** The sentences of an atom: gift first, the "Cái giá là" line as cost; the line about how others see you is dropped. */
+function atom(text: string | undefined, n: number): { gift: string; cost: string } {
+  if (!text) return { gift: "", cost: "" };
+  const body = text.replace(/^[^:]{2,40} ở nhà \d+: /u, "");
+  const ss = body.split(/(?<=[.!?])\s+/).filter((x) => x && !SIGNED_LINE.test(x) && !PAST_LINE.test(x))
+    .filter((x) => (n === 4 || !/\bmẹ\b/.test(x)) && ([9, 10].includes(n) || !/\bcha\b/.test(x)));
+  const ci = ss.findIndex((x) => /^Cái giá là/.test(x));
+  const gift = (ci < 0 ? ss : ss.slice(0, ci)).join(" ");
+  const cost = ci < 0 || HARSH_WORD.test(ss[ci]) ? "" : ss[ci].replace(/^Cái giá là /, "");
+  return { gift: cap(gift), cost };
+}
+/** "dễ buông xuôi" → "bạn dễ buông xuôi" so the clause can follow "là". */
+const youFirst = (c: string) => (/^(dễ|hay|có lúc|ít|khó|thường|ngại|quá) /.test(c) ? `bạn ${c}` : c);
+const careLine = (c: string) => /^dễ /.test(c) ? `Điều cần để ý là bạn ${c}.` : /^(cần|tránh) /.test(c) ? `${c.startsWith("tránh") ? "Nên " + c : "Bạn " + c}.` : `Điều cần để ý: ${c}.`;
+const balOf = (s: SupportLevel): "plus" | "mixed" | "minus" => (s === "thuận lợi" ? "plus" : s === "cần rèn giũa" ? "minus" : "mixed");
+const lordWeak = (p: PlanetFact) => p.grade === "weak" || p.dignity === "debilitated" || p.g.combust;
+const lordGood = (p: PlanetFact) => p.grade === "strong" || p.grade === "good" || ["exalted", "own", "moolatrikona"].includes(p.dignity);
+const GROUP_VI = (n: number) => [[1, 4, 7, 10].includes(n) ? "Kendra (trụ cột)" : "", [1, 5, 9].includes(n) ? "Trikona (phúc phần)" : "", [3, 6, 10, 11].includes(n) ? "Upachaya (càng rèn càng vững)" : "", [6, 8, 12].includes(n) ? "Dusthana (thử thách)" : "", n === 2 ? "Dhana (tài lộc)" : ""].filter(Boolean).join(", ");
+
+function basisFor(ctx: Ctx, F: Facts, hf: HouseFact, ev: Ev[], P: number, M: number, sum: number, support: SupportLevel, expressive: ExpressiveLevel, chosen: string[]): { h: string; lines: string[] }[] {
+  const n = hf.n, L = hf.lord_, out: { h: string; lines: string[] }[] = [];
+  out.push({ h: "1. Bản chất của nhà", lines: [
+    `Nhà ${n}: ${TOPIC[n - 1]}.`,
+    `Cung trên nhà: ${SIGNS[hf.sign]}; chủ nhà ${nameOf(L.id)}.`,
+    `Nhóm nhà: ${GROUP_VI(n) || "nhà trung tính"}.`,
+    `Hành tinh tự nhiên (karaka): ${hf.karakas.map((k) => `${nameOf(k)} (${gradeWord(F.planets[k])})`).join(", ") || "không"}.`,
+  ] });
+  const d9 = vargaChart(F.n, 9).planets[L.id];
+  out.push({ h: "2. Chủ nhà", lines: [
+    `${nameOf(L.id)} ở nhà ${hf.lordHouse} (${SIGNS[L.sign]}), ${DIGNITY_VI[L.dignity].toLowerCase()}, ${gradeWord(L)}${L.sb ? `, Shadbala ${Math.round(L.sb.ratio * 100)}%` : ""}${L.g.combust ? ", cháy sáng" : ""}${L.g.retro ? ", nghịch hành" : ""}.`,
+    `Chòm sao của chủ nhà: ${NAKSHATRA_VI[L.g.nak.name] ?? L.g.nak.name} pada ${L.g.nak.pada}, chủ chòm sao ${nameOf(L.g.nak.lord)}.`,
+    ...(L.conj.length ? [`Đồng cung với chủ nhà: ${joinVi(L.conj.map(nameOf))}.`] : []),
+    ...(L.aspectedBy.length ? [`Góc chiếu vào chủ nhà: ${joinVi(L.aspectedBy.map(nameOf))}.`] : []),
+    `Navamsa (D9) của chủ nhà: ${SIGNS[d9.sign]}, ${DIGNITY_VI[d9.dignity].toLowerCase()}${d9.sameAsD1 ? ", vargottama" : ""}.`,
+    `Liên kết: chuyện ${area(n)} → chuyện ${area(hf.lordHouse)}.`,
+  ] });
+  const inl = ev.filter((e) => e.group === "inside" || e.group === "look");
+  out.push({ h: "3. Hành tinh trong nhà và góc chiếu", lines: inl.length ? inl.map((e) => `${e.w > 0 ? "+" : "−"}${Math.abs(e.w).toFixed(1)} · ${e.fact}`) : ["Không có hành tinh trong nhà và không có góc chiếu đáng kể; nhà vận hành theo chủ nhà."] });
+  const cross: string[] = [];
+  if (hf.bhava) cross.push(`Bhava Bala: hạng ${hf.bhava.rank}/12 (${(hf.bhava.total / 60).toFixed(1)} rupa).`);
+  cross.push(`SAV: ${hf.sav} điểm (trung bình 28).`);
+  for (const y of hf.yogas) cross.push(`Yoga: ${y.name} (${y.sanskrit}), ${effectiveYoga(y) ? "có hiệu lực" : "yếu, không dùng để luận"}.`);
+  for (const e of ev.filter((x) => x.key.startsWith("karaka"))) cross.push(`${e.w > 0 ? "+" : "−"}${Math.abs(e.w).toFixed(1)} · ${e.fact}`);
+  if (n === 7 || n === 10) {
+    const vn = n === 7 ? 9 : 10, V = vargaChart(F.n, vn as 9 | 10), vs = (V.lagnaSign + n - 1) % 12, vl = SIGN_LORD[vs], vp = V.planets[vl];
+    cross.push(`D${vn}: nhà ${n} là ${SIGNS[vs]}, chủ ${nameOf(vl)} ở nhà ${vp.house} của D${vn}, ${DIGNITY_VI[vp.dignity].toLowerCase()}${V.occupants[n - 1].length ? `; trong nhà: ${joinVi(V.occupants[n - 1].map(nameOf))}` : ""}.`);
+  }
+  out.push({ h: "4. Đối chiếu", lines: cross });
+  out.push({ h: "5. Tổng hợp", lines: [
+    ...ev.filter((e) => e.group === "lord" || e.group === "base" && !e.key.startsWith("karaka")).map((e) => `${e.w > 0 ? "+" : e.w < 0 ? "−" : "·"}${Math.abs(e.w).toFixed(1)} · ${e.fact}`),
+    `Cân bằng: thuận ${P.toFixed(1)}, khó ${M.toFixed(1)}, tổng ${sum.toFixed(1)} → ${support}; mức biểu hiện ${expressive}.`,
+    `Điểm chính được đưa vào lời luận: ${chosen.join("; ")}.`,
+  ] });
+  void ctx;
+  return out;
+}
+
+/** House 1 has its own reading: the Overview owns temperament, so house 1 speaks of capacity, growth and vitality. */
 function narrateHouse1(ctx: Ctx, F: Facts, hf: HouseFact, base: Narr4): Narr4 {
   const paras: string[] = [];
   const rank = hf.bhava?.rank ?? 6;
-  paras.push(rank <= 4 && hf.sav >= 28 ? "Năng lực tự thân của bạn có điều kiện tốt: so với các mảng khác trong lá số, đây là một trong những mảng có nền mạnh nhất." : rank >= 9 || hf.sav <= 24 ? "Năng lực tự thân của bạn cần được xây dựng dần: so với các mảng khác, đây không phải nơi lá số cho sẵn nhiều điều kiện." : "Năng lực tự thân của bạn có điều kiện ở mức khá: không phải nơi được cho sẵn nhiều nhất, cũng không phải nơi khó nhất.");
+  const good = rank <= 4 && hf.sav >= 28, thin = rank >= 9 || hf.sav <= 24;
+  paras.push(good ? "Năng lực tự thân của bạn có nền tốt: so với các mảng khác trong lá số, đây là một trong những nơi vững nhất." : thin ? "Năng lực tự thân của bạn được xây dần: so với các mảng khác, đây không phải nơi lá số cho sẵn nhiều điều kiện, nên những gì bạn có là do bạn rèn." : "Năng lực tự thân của bạn ở mức khá: không phải nơi được cho sẵn nhiều nhất, cũng không phải nơi khó nhất.");
+  const L = hf.lord_, lh = hf.lordHouse, k = LINK[0][lh - 1];
+  paras.push(`${k.gift}${lordWeak(L) ? ` Có điều, sự phát triển này thường chậm hơn bạn mong và đến qua nhiều lần tự rèn. ${careLine(k.care)}` : lordGood(L) ? " Đây là một điểm tựa đáng tin của bạn." : ""}`);
+  const ties: string[] = [];
   for (const id of hf.occupants) {
-    const p = F.planets[id], ls = p.lorded.filter((h) => h !== 1);
+    const ls = F.planets[id].lorded.filter((h) => h !== 1);
     if (!ls.length) continue;
     const bothKendra = ls.filter((h) => [4, 7, 10].includes(h)).length >= 2 && ["jupiter", "venus", "mercury", "moon"].includes(id);
-    paras.push(`${nameOf(id)} đứng trong nhà này và cai quản ${ls.map((h) => `chuyện ${area(h)}`).join(" cùng ")}, nên sự phát triển của bạn thường đi qua ${ls.length > 1 ? "những mảng ấy" : "mảng ấy"}: bạn lớn lên rõ nhất khi có một trách nhiệm cụ thể ở đó.${bothKendra ? " Truyền thống lưu ý rằng một hành tinh lành cai quản hai nhà trụ cột sẽ bớt đi phần may mắn tự nhiên, nên sức mạnh này thường thành hình qua nỗ lực trong vai trò bạn nhận." : ""}`);
+    ties.push(`Bạn lớn lên rõ nhất khi có một trách nhiệm cụ thể ở chuyện ${ls.map((h) => area(h)).join(", cùng chuyện ")}.${bothKendra ? " Phần này thường thành hình qua nỗ lực trong vai trò bạn nhận, hơn là đến sẵn." : ""}`);
   }
-  const L = hf.lord_, lh = hf.lordHouse;
-  const cls = lh === 1 ? "Hành tinh cai quản cung mọc đứng ngay trong nhà này, nên bạn tự chủ trong việc phát triển bản thân và ít phải dựa vào hoàn cảnh." : [3, 6, 10, 11].includes(lh) ? `Hành tinh cai quản cung mọc, ${nameOf(L.id)}, đứng ở vùng ${area(lh)}, một vùng càng rèn càng mạnh: năng lực và khả năng thích nghi của bạn tăng dần theo công sức, và thường rõ hơn theo tuổi.` : [4, 7].includes(lh) ? `Hành tinh cai quản cung mọc, ${nameOf(L.id)}, đứng ở vùng ${area(lh)}, nên bạn phát triển tốt nhất khi có một nền ổn định hoặc một người đồng hành.` : [5, 9].includes(lh) ? `Hành tinh cai quản cung mọc, ${nameOf(L.id)}, đứng ở vùng ${area(lh)}, một vùng phúc phần: khi đi đúng hướng của mình, bạn thường được hậu thuẫn.` : [6, 8, 12].includes(lh) ? `Hành tinh cai quản cung mọc, ${nameOf(L.id)}, đứng ở vùng ${area(lh)}, nên bạn thường trưởng thành qua những giai đoạn thử thách hơn là qua thuận lợi.` : `Hành tinh cai quản cung mọc, ${nameOf(L.id)}, đứng ở vùng ${area(lh)}, nên sự phát triển của bạn gắn với việc tích lũy dần.`;
-  paras.push(`${cls}${L.grade === "weak" ? " Có điều, hành tinh này đang ở thế yếu, nên tiến bộ thường chậm hơn mong đợi." : L.grade === "strong" ? " Hành tinh này đứng rất vững, nên đó là một điểm tựa đáng tin." : ""}`);
   const asp = hf.aspects.filter((id) => !hf.occupants.includes(id));
   const ASP: Record<string, string> = {
-    mars: "Sao Hỏa chiếu vào nhà này tiếp thêm sức đẩy: khi có áp lực, bạn thường bật lên chứ không lùi lại; điều cần giữ là sức lực dễ bị tiêu quá tay.",
-    saturn: "Sao Thổ chiếu vào nhà này đem lại tính kỷ luật và khả năng duy trì nỗ lực lâu dài; quá trình trưởng thành thường chậm mà chắc.",
-    jupiter: "Sao Mộc chiếu vào nhà này đem lại sự che chở và khả năng hồi phục sau những lúc khó.",
+    mars: "Khi có áp lực, bạn thường bật lên chứ không lùi lại; điều cần giữ là sức lực dễ bị tiêu quá tay.",
+    saturn: "Bạn có tính kỷ luật và giữ được nỗ lực lâu dài; sự trưởng thành của bạn chậm mà chắc.",
+    jupiter: "Bạn có khả năng hồi phục tốt sau những lúc khó, và thường có người che chở.",
   };
-  const a2 = asp.map((id) => ASP[id]).filter(Boolean);
-  if (a2.length) paras.push(a2.join(" "));
+  const a2 = asp.map((id) => ASP[id]).filter(Boolean).slice(0, 2);
+  if (ties.length || a2.length) paras.push([...ties.slice(0, 1), ...a2].join(" "));
   const sun = F.planets.sun;
-  paras.push(sun.house === 12 ? "Về sức sống theo cách hiểu truyền thống, Mặt Trời là hành tinh tự nhiên của nhà 1, và nó đứng ở vùng thứ mười hai: sức của bạn thường được nạp lại khi bạn rút khỏi đám đông một thời gian, hơn là khi hoạt động liên tục." : sun.grade === "strong" || [1, 10].includes(sun.house ?? 0) ? "Về sức sống theo cách hiểu truyền thống, Mặt Trời, hành tinh tự nhiên của nhà 1, đứng vững, nên sinh lực nền của bạn khá dồi dào." : sun.grade === "weak" || [6, 8].includes(sun.house ?? 0) ? "Về sức sống theo cách hiểu truyền thống, Mặt Trời, hành tinh tự nhiên của nhà 1, ở thế không thuận, nên một nhịp sống đều và đủ nghỉ có ý nghĩa với bạn hơn với nhiều người." : "Về sức sống theo cách hiểu truyền thống, Mặt Trời, hành tinh tự nhiên của nhà 1, ở thế vừa phải: sinh lực của bạn ổn định khi nhịp sống đều.");
-  return { ...base, paragraphs: paras, examples: [], title: rank <= 4 ? "Năng lực tự thân có nền mạnh" : rank >= 9 ? "Năng lực tự thân cần xây dần" : "Năng lực tự thân ở mức khá" };
+  paras.push(sun.house === 12 ? "Về sinh lực, sức của bạn được nạp lại khi bạn rút khỏi đám đông một thời gian, hơn là khi hoạt động liên tục." : sun.grade === "strong" || [1, 10].includes(sun.house ?? 0) ? "Về sinh lực, nền thể chất của bạn khá dồi dào và hồi lại nhanh." : sun.grade === "weak" || [6, 8].includes(sun.house ?? 0) ? "Về sinh lực, một nhịp sống đều và đủ nghỉ có ý nghĩa với bạn hơn với nhiều người." : "Về sinh lực, bạn ổn định nhất khi nhịp sống đều.");
+  const sum = base.support === "thuận lợi" || good ? 1 : -1;
+  paras.push(ADVICE[0][sum >= 0 ? "plus" : "minus"]);
+  return { ...base, paragraphs: paras, examples: [], title: good ? "Năng lực tự thân có nền mạnh" : thin ? "Năng lực tự thân cần xây dần" : "Năng lực tự thân ở mức khá" };
 }
 
 export function narrateHouse4(ctx: Ctx, F: Facts, hf: HouseFact, recent: HousePathway[]): Narr4 {
@@ -250,7 +321,7 @@ export function narrateHouse4(ctx: Ctx, F: Facts, hf: HouseFact, recent: HousePa
 
 function narrateHouseCore(ctx: Ctx, F: Facts, hf: HouseFact, recent: HousePathway[]): Narr4 {
   const ev = evidence(ctx, F, hf);
-  const n = hf.n, topic = TOPIC[n - 1], t = area(n);
+  const n = hf.n;
   const plus = ev.filter((e) => e.w > 0 && e.plus).sort((a, b) => b.w - a.w);
   const minus = ev.filter((e) => e.w < 0 && e.minus).sort((a, b) => a.w - b.w);
   const sum = ev.reduce((s, e) => s + e.w, 0);
@@ -258,8 +329,6 @@ function narrateHouseCore(ctx: Ctx, F: Facts, hf: HouseFact, recent: HousePathwa
   const support: SupportLevel = sum >= 1.2 ? "thuận lợi" : sum <= -0.8 ? "cần rèn giũa" : "có thuận có khó";
   const weight = hf.occupants.length * 1 + hf.aspects.length * 0.5 + hf.yogas.filter(effectiveYoga).length;
   const expressive: ExpressiveLevel = weight >= 3 ? "sôi động" : weight >= 1.2 ? "vừa phải" : "yên tĩnh";
-
-  // the way in: chosen from the facts, avoiding the way the previous house began
   const cands: HousePathway[] = [];
   if (P >= 1.2 && M >= 1.2) cands.push("contrast");
   if (plus.some((e) => e.group === "yoga")) cands.push("yoga");
@@ -270,55 +339,55 @@ function narrateHouseCore(ctx: Ctx, F: Facts, hf: HouseFact, recent: HousePathwa
   if (weight < 1 && Math.abs(sum) < 0.8) cands.unshift("quiet");
   const last = recent[recent.length - 1];
   const path = cands.find((c) => c !== last) ?? cands[0];
+  const bal = balOf(support);
+  const chosen: string[] = [`mức nâng đỡ chung (${support})`];
 
-  const seed = n * 3 + hf.sign;
-  // ---- plain-language composition: no planet names, no technical terms (those stay in `why`)
-  const lk = plainLink(hf);
-  const grade = hf.lord_.grade;
-  const hardLink = [6, 8, 12].includes(hf.lordHouse) && ![6, 8, 12].includes(n);
-  const gradeTail = grade === "weak" ? (hardLink ? ", nên mảng này cần nhiều kiên nhẫn" : ", dù kết quả thường đến chậm hơn mong đợi") : grade === "strong" ? (hardLink ? ", nhưng bạn có đủ sức để vượt qua" : ", và đây là một mối liên kết bền") : "";
-  const inside = ev.filter((e) => e.group === "inside" || e.group === "look");
-  const adds = [...new Set(inside.filter((e) => e.w > 0).map((e) => DOES[e.key.split("-")[1] as GrahaId].does))].slice(0, 2);
-  const risks = [...new Set(inside.filter((e) => e.w <= 0).map((e) => DOES[e.key.split("-")[1] as GrahaId].risk))].slice(0, 2);
-  const ties = [...new Set(hf.occupants.flatMap((id) => F.planets[id].lorded.filter((h) => h !== n)).filter((h) => h !== n))].slice(0, 2);
-  const yogas = hf.yogas.filter(effectiveYoga).slice(0, 1).map((y) => yogaMeaning(y.id));
-  const baseGood = ev.some((e) => e.group === "base" && e.key !== "karaka" && e.w > 0 && !e.key.startsWith("karaka"));
-  const baseBad = ev.some((e) => e.group === "base" && e.w < 0 && !e.key.startsWith("karaka"));
-  const two = (xs: string[]) => (xs.length > 1 ? `${xs[0]}, cùng với ${xs[1]}` : xs[0] ?? "");
-  const practice = PRACTICE[n - 1][sum >= 0 ? "plus" : "minus"];
-
-  let central: string, usedPractice = false, usedLink = false, usedAdds = false, usedYoga = false;
-  switch (path) {
-    case "strength": central = `Chuyện ${t} là một trong những mảng thuận lợi nhất trong lá số của bạn.`; break;
-    case "life": central = sum >= 0 ? `Chuyện ${t} đi khá êm trong đời bạn, ít khi là nơi phát sinh rắc rối.` : `Chuyện ${t} là nơi bạn hay phải tự xoay xở hơn người khác.`; break;
-    case "care": central = `Chuyện ${t} là mảng bạn phải tự xây nhiều hơn là được cho sẵn.`; break;
-    case "contrast": central = `Chuyện ${t} ở bạn có cả thuận lợi lẫn những điều phải tự xoay xở${adds[0] && risks[0] ? `: ${adds[0]}, có điều ${risks[0]}` : ""}.`; usedAdds = true; break;
-    case "yoga": central = yogas.length ? `Chuyện ${t} có một điểm sáng riêng: ${yogas[0]}.` : practice; usedYoga = true; break;
-    case "occupant": central = adds[0] ? `Trong chuyện ${t}, ${adds[0]}${adds[1] ? `; ${adds[1]}` : ""}${risks[0] ? `, có điều ${risks[0]}` : ""}.` : `Chuyện ${t} là nơi bạn ${risks[0]}, nên cần để ý nhiều hơn các mảng khác.`; usedAdds = true; break;
-    case "quiet": central = `Chuyện ${t} không phải tâm điểm trong đời bạn; nó diễn ra khá lặng lẽ, theo nhịp của những mảng khác.`; break;
-    default: central = `${cap(lk)}${gradeTail}.`; usedLink = true;
-  }
-  const paras: string[] = [central];
-  const OPEN = [`Bạn tiếp cận mảng này theo cách ${SIGN_STYLE[hf.sign]}`, `Ở đây, cách làm của bạn thường ${SIGN_STYLE[hf.sign]}`, `Ở mảng này, bạn có xu hướng hành xử ${SIGN_STYLE[hf.sign]}`];
-  paras.push(`${OPEN[seed % OPEN.length]}.${usedLink ? "" : ` ${plainLink(hf, `Chuyện ${t}`)}${gradeTail}.`}`);
+  // ---- paragraph 1: the overall picture of this area, and a yoga if one really holds
+  const p1: string[] = [LEAD[n - 1][bal]];
+  const yg = hf.yogas.filter(effectiveYoga)[0];
+  if (yg) { p1.push(`${yg.tone === "good" ? "Lá số còn có một điểm sáng riêng ở mảng này" : "Mảng này còn có một điểm đặc biệt"}: ${yogaMeaning(yg.id)}.`); chosen.push(`yoga ${yg.name}`); }
+  // ---- paragraph 2: how you live this area (the sign on the house), then what the planets inside add
+  const p2: string[] = [];
+  const sg = atom(SIGN_ON_HOUSE_DEEP[n]?.[hf.sign], n);
+  if (sg.gift) { p2.push(seekTail(sg.gift, true)); chosen.push(`cung ${SIGNS[hf.sign]} trên nhà`); }
+  if (sg.cost && bal !== "plus") p2.push(`Mặt trái là ${sg.cost}`);
+  const opened = new Set<string>([sg.gift.slice(0, 22).toLowerCase()]);
+  hf.occupants.slice(0, 2).forEach((id, i) => {
+    const a = atom(PLANET_IN_HOUSE[id]?.[n - 1], n);
+    if (!a.gift) return;
+    const e = ev.find((x) => x.key === `in-${id}`);
+    const lead = i === 0 ? "Thêm vào đó, " : "Bên cạnh đó, ";
+    chosen.push(`${nameOf(id)} trong nhà`);
+    // a planet that pulls against the house: say what it costs, not a rosy line that contradicts the balance
+    if (e && e.w <= -0.3 && a.cost) { p2.push(`Ở đây cũng có một yếu tố kéo ngược: ${youFirst(a.cost)}`); return; }
+    if (overlap(p2.join(" "), a.gift) > 0.4) return; // says again what the sign already said
+    let g = seekTail(a.gift, false); g = g.charAt(0).toLowerCase() + g.slice(1);
+    const head = g.slice(0, 22);
+    if ([...opened].some((o) => o.startsWith("bạn làm việc")) && /^bạn làm việc /.test(g)) g = g.replace(/^bạn làm việc (theo kiểu |bằng |một cách )?/, "cách làm việc của bạn còn mang nét ");
+    else if ([...opened].some((o) => o.startsWith("người đối diện bạn")) && /^người đối diện bạn thường /.test(g)) g = g.replace(/^người đối diện bạn thường /, "người ấy cũng có thể ");
+    opened.add(head);
+    p2.push(`${lead}${g}`);
+    if (a.cost && e && e.w <= 0) p2.push(`Điều cần giữ là ${youFirst(a.cost)}`);
+  });
+  // ---- paragraph 3: where this area leads (the lord), and the strongest planet looking in
   const p3: string[] = [];
-  if (!usedAdds && adds.length) p3.push(`Trong chuyện ${t}, ${adds.join("; ")}${risks.length ? `; có điều, bạn cũng ${risks.join("; ")}` : ""}.`);
-  else if (!usedAdds && risks.length) p3.push(`Điều cần để ý ở chuyện ${t} là bạn ${risks.join("; ")}.`);
-  if (ties.length) p3.push(`Chuyện ${t} của bạn hay đi cùng chuyện ${area(ties[0])}: ${AREA_EXAMPLE[ties[0] - 1]}.`);
-  if (!usedYoga && yogas.length) p3.push(`Chuyện ${t} còn có một điểm đặc biệt: ${yogas[0]}.`);
-  if (p3.length) paras.push(p3.join(" "));
-  if (!usedPractice && baseBad && !baseGood) paras.push(`Nhìn chung, chuyện ${t} ít được nâng đỡ sẵn hơn các mảng khác, nên những gì có được ở đây là nhờ chính bạn.`);
-  else if (baseBad && sum > 0) paras.push(`Dù vậy, chuyện ${t} ít được nâng đỡ sẵn hơn các mảng khác, nên những điều tốt ở đây cần được giữ bằng sự đều đặn.`);
-  void plus; void minus; void pick;
+  const L = hf.lord_, k = LINK[n - 1][hf.lordHouse - 1];
+  p3.push(hf.lordHouse === n && overlap(p1.join(" "), k.gift) > 0.3 ? "Mảng này khá tự chủ: những gì xảy ra ở đây phần lớn do chính nó quyết định, ít bị các mảng khác kéo theo." : k.gift);
+  if (lordWeak(L)) p3.push(`Có điều, phần này thường thành hình chậm và cần nhiều công sức hơn bạn nghĩ. ${careLine(k.care)}`);
+  else if (bal !== "plus") p3.push(careLine(k.care));
+  chosen.push(`chủ nhà ${nameOf(L.id)} ở nhà ${hf.lordHouse} (${gradeWord(L)})`);
+  const ties = [...new Set(hf.occupants.flatMap((id) => F.planets[id].lorded.filter((h) => h !== n && h !== hf.lordHouse)))];
+  if (ties.length && !ctx.noTime) p3.push(`${cap(AREA_EXAMPLE[ties[0] - 1].replace(/ nó$/, " mảng này").replace(/ở đây$/, "ở mảng này"))}.`);
+  const looks = ev.filter((e) => e.group === "look").sort((a, b) => Math.abs(b.w) - Math.abs(a.w));
+  const ll = looks[0] ? lookLine(looks[0].key.split("-")[1], UPACHAYA.includes(n), n) : "";
+  if (ll) { p3.push(ll); chosen.push(`góc chiếu của ${nameOf(looks[0].key.split("-")[1] as GrahaId)}`); }
+  const paras = [p1.join(" "), p2.join(" "), p3.join(" "), ADVICE[n - 1][sum >= 0 ? "plus" : "minus"]].filter(Boolean);
 
   const title = path === "quiet" ? "Một mảng vận hành lặng lẽ" : support === "thuận lợi" ? "Nhiều điều kiện thuận" : support === "cần rèn giũa" ? "Cần xây dựng từng bước" : "Có thuận, có khó";
-  const why = [
-    `Nhà ${n}: cung ${SIGNS[hf.sign]}, nhóm ${[1, 4, 7, 10].includes(n) ? "Kendra" : ""}${[1, 5, 9].includes(n) ? (n === 1 ? ", Trikona" : "Trikona") : ""}${[3, 6, 10, 11].includes(n) ? (n === 10 ? ", Upachaya" : "Upachaya") : ""}${[6, 8, 12].includes(n) ? (n === 6 ? ", Dusthana" : "Dusthana") : ""}${n === 2 ? "Maraka/Dhana" : ""}; karaka: ${joinVi(hf.karakas.map(nameOf))}.`,
-    ...ev.map((e) => `${e.w > 0 ? "+" : e.w < 0 ? "−" : "·"}${Math.abs(e.w).toFixed(1)} · ${e.fact}`),
-    `Cân bằng: thuận ${P.toFixed(1)}, khó ${M.toFixed(1)}, tổng ${sum.toFixed(1)} → ${support}; mức biểu hiện ${expressive}.`,
-    `Cách kể: ${PATH_LABEL4[path]}.`,
-  ];
+  const basis = basisFor(ctx, F, hf, ev, P, M, sum, support, expressive, chosen);
+  const why = basis.flatMap((b) => b.lines);
   const V = AREA_VOICE[n - 1];
   const examples = support === "thuận lợi" ? V.plus.slice(0, 2) : support === "cần rèn giũa" ? V.minus.slice(0, 2) : [V.plus[0], V.minus[0]];
-  return { path, title, paragraphs: paras, examples, message: V.message, lesson: V.lesson, why, support, expressive };
+  void pick; void plainLink; void DOES;
+  return { path, title, paragraphs: paras, examples, message: V.message, lesson: V.lesson, why, basis, support, expressive };
 }
