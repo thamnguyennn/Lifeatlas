@@ -237,7 +237,7 @@ select.input { appearance: none; background-image: linear-gradient(45deg, transp
 .errors { list-style: none; padding: 0.8rem 1rem; margin: 0 0 0.6rem; border: 1px solid var(--hard); border-radius: 12px; color: var(--hard); font-size: 0.9rem; }
 .errors li + li { margin-top: 0.3rem; }
 .combo { position: relative; }
-.combo-list { position: absolute; left: 0; right: 0; top: calc(100% + 6px); z-index: 20; list-style: none; margin: 0; padding: 6px; background: var(--solid); border: 1px solid var(--line-strong); border-radius: 14px; box-shadow: var(--shadow); max-height: 300px; overflow: auto; }
+.combo-list { position: relative; left: auto; right: auto; top: auto; z-index: 1; list-style: none; margin: 6px 0 0; padding: 6px; background: var(--solid); border: 1px solid var(--line-strong); border-radius: 14px; box-shadow: var(--shadow); max-height: 300px; overflow: auto; }
 .combo-list li { display: flex; justify-content: space-between; gap: 1rem; padding: 0.55rem 0.8rem; border-radius: 9px; cursor: pointer; }
 .combo-list li.on { background: color-mix(in srgb, var(--gold) 16%, transparent); }
 .combo-list small { color: var(--text-faint); }

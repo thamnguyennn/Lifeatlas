@@ -24,7 +24,7 @@ export function readingToText(p: Prepared): string {
   for (const p of X.parts) { out.push(`${p.title} · ${p.role}`, ""); paras(p.paragraphs); }
   sub("Những đặc điểm nổi bật");
   for (const h of X.highlights) { out.push(h.title, ""); para(h.text); }
-  sub("Bức tranh tổng thể"); para(X.summary);
+  if (X.summary.trim()) { sub("Bức tranh tổng thể"); para(X.summary); }
 
   if (!noTime && r.houseMap) {
     title("12 khía cạnh của cuộc sống");

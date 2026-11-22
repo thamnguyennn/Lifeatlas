@@ -14,6 +14,7 @@ import { PAIRS } from "./content/pairs.ts";
 import { LAGNA_LOOK, EL_NB, PLANET_NB, AREA_NB, SUN_NB, MOON_NB } from "./content/overview-nblm.ts";
 import { HOUSE_TAG, AREA_EXAMPLE } from "./content/houses-signs.ts";
 import { NAK } from "./content/nakshatra.ts";
+import { LAGNA_NAK_TEXTURE, MOON_NAK_TEXTURE } from "./content/overview-texture.ts";
 import { PLANET_IN_HOUSE } from "./content/planet-in-house.ts";
 import { stability } from "./stability.ts";
 import { computeNatal } from "../engine/core.ts";
@@ -744,7 +745,7 @@ function twoParas(t: string): string[] {
 // the nakshatra and its lord, the lord of the sign, planets sitting with it and planets looking at it, strength and the Moon's light.
 // Definite claims about the body are dropped (the brief forbids them), and so are the harshest labels.
 
-const BODY = /(vóc dáng|thân hình|khung xương|khung người|cánh tay|sống mũi|đôi mắt|ánh mắt|gương mặt|khuôn mặt|làn da|mái tóc|diện mạo|vầng trán|bờ vai|dáng người|cơ thể|chiều cao|cằm|gò má|lông mày)/i;
+const BODY = /(vóc dáng|thân hình|khung xương|khung người|cánh tay|sống mũi|đôi mắt|ánh mắt|gương mặt|khuôn mặt|làn da|mái tóc|diện mạo|vầng trán|bờ vai|dáng người|cơ thể|chiều cao|cằm|gò má|lông mày|cổ bạn|dáng đi|bước đi|nụ cười|bờ môi|ánh nhìn|hình thể|đường nét)/i;
 const HARSH = /(lười biếng|cực kỳ|rất thiếu|cáu gắt|hoang phí|ích kỷ|độc đoán|thô lỗ|tàn nhẫn)/i;
 const keepSoft = (t: string) => sentences(t.replace(/\n+/g, " ")).filter((x) => !BODY.test(x) && !HARSH.test(x) && !/sức khỏe|bệnh/.test(x)).join(" ");
 const stripLead = (t: string) => t.replace(/^Khi (có )?(cung Mọc|Mặt Trời|Mặt Trăng)[^,]{0,40}, /, "").replace(/^./, (c) => c.toUpperCase());
@@ -761,68 +762,83 @@ const FACE_OF: Record<string, string> = {
   jupiter: "một vẻ điềm đạm, đáng tin", venus: "sự duyên dáng và hòa nhã", saturn: "vẻ nghiêm, dè dặt và chín chắn", rahu: "một nét khác thường, khó đoán", ketu: "vẻ xa cách, sống nhiều bên trong",
 };
 
+/** Nội dung công khai chỉ trình bày nhận định bằng lời đời thường.
+ *  Nakshatra, pada và tên hành tinh nằm tại "Cơ sở luận giải".
+ */
+const LAGNA_PLANET_TONE: Partial<Record<GrahaId, string>> = {
+  sun: "Bạn có xu hướng thể hiện quan điểm khá rõ khi đã xác định điều mình coi trọng, đặc biệt trong những việc đòi hỏi sự chủ động.",
+  moon: "Cảm xúc có thể ảnh hưởng đến cách bạn phản ứng trước người khác nhiều hơn dự tính, nhất là trong những ngày có nhiều thay đổi.",
+  mars: "Khi đã thấy mục tiêu đủ rõ, bạn có thể hành động quyết đoán hơn vẻ ngoài ban đầu và muốn nhìn thấy tiến triển cụ thể.",
+  mercury: "Bạn dễ bắt đầu một cuộc trao đổi bằng câu hỏi và thường muốn làm rõ chi tiết trước khi đi đến kết luận.",
+  jupiter: "Bạn có xu hướng dành thời gian giải thích, hướng dẫn và cân nhắc tác động của quyết định đối với những người liên quan.",
+  venus: "Trong quan hệ với người khác, bạn thường quan tâm đến sự hòa nhã và muốn giữ cách trao đổi có chừng mực.",
+  saturn: "Ở những lần tiếp xúc đầu tiên, bạn có thể khá dè dặt; sự tin cậy thường được xây dựng qua việc làm và trách nhiệm lâu dài.",
+  rahu: "Bạn có thể muốn tìm một cách làm mới ngay cả khi người xung quanh đã quen với phương án cũ.",
+  ketu: "Bạn có xu hướng giữ sự độc lập trong suy nghĩ và không phải lúc nào cũng muốn giải thích ngay mọi lựa chọn của mình.",
+};
+
+/** Câu đi kèm vị trí Mặt Trời, dùng để gợi mở động lực chứ không luận thay từng nhà. */
+const SUN_CONTEXT: readonly string[] = [
+  "Việc thể hiện năng lực riêng có thể trở thành một mục tiêu đáng quan tâm, nhưng sự tự tin vẫn cần được củng cố bằng trải nghiệm thực tế.",
+  "Bạn có thể coi trọng việc tạo lập nguồn lực, giữ lời hứa và xây dựng những giá trị có thể duy trì lâu dài.",
+  "Những công việc cần chủ động học hỏi, trao đổi và tự triển khai có thể đem lại cảm giác mình đang tiến bộ.",
+  "Bạn có thể chú ý đến nền tảng gia đình và môi trường sống như những điều kiện giúp mình theo đuổi mục tiêu dài hạn.",
+  "Bạn có thể muốn thể hiện khả năng sáng tạo, chia sẻ kiến thức hoặc theo đuổi một việc mang dấu ấn cá nhân.",
+  "Bạn có xu hướng tìm thấy ý nghĩa trong việc giải quyết những vấn đề cụ thể và kiên trì cải thiện cách làm hằng ngày.",
+  "Trong quá trình hợp tác, bạn có thể hiểu rõ hơn tiêu chuẩn và giới hạn của mình qua những lần trao đổi với người khác.",
+  "Bạn có thể coi trọng việc hiểu nguyên nhân của những thay đổi lớn và học cách ứng phó thay vì chỉ tìm kết quả trước mắt.",
+  "Việc học hỏi và xây dựng một hệ giá trị có cơ sở có thể ảnh hưởng đến cách bạn lựa chọn hướng đi lâu dài.",
+  "Bạn có thể quan tâm đến trách nhiệm nghề nghiệp và muốn thành quả công việc phản ánh đúng năng lực đã tích lũy.",
+  "Bạn có thể đánh giá cao những mục tiêu có ích cho tập thể và những mối quan hệ được xây dựng trên sự tin cậy.",
+  "Bạn có thể cần không gian làm việc độc lập hoặc thời gian suy ngẫm để xác định điều mình muốn theo đuổi.",
+];
+
+/** Natural paragraph splitting for the public Overview. */
+function overviewParas(t: string): string[] {
+  const text = t.trim();
+  const ss = sentences(text);
+  if (ss.length < 2) return text ? [text] : [];
+  const midpoint = Math.ceil(ss.length / 2);
+  return [ss.slice(0, midpoint).join(" "), ss.slice(midpoint).join(" ")].filter(Boolean);
+}
+
 function lagnaPart(ctx: Ctx, f: Facts): string[] {
-  const n = ctx.n, L = n.lagna.sign, out: string[] = [];
-  const base = keepSoft(LAGNA_LOOK[L]);
-  out.push(stripLead(base || LAGNA_SIGN[L]));
-  const nk = lagnaNak(ctx), mod2: string[] = [];
+  const n = ctx.n, L = n.lagna.sign;
+  const base = stripLead(keepSoft(LAGNA_LOOK[L]) || LAGNA_SIGN[L]);
+  const out = overviewParas(base);
+  const nk = lagnaNak(ctx);
   if (nk) {
-    const NL = f.planets[nk.lord];
-    const face = NAK[nk.index].face.replace(/^Người ta thấy ở bạn /, "");
-    const where = NL.house === 1 ? `và chính ${nameOf(nk.lord)}, hành tinh dẫn dắt chòm sao này, đang đứng ngay trên cung mọc, nên nét ấy hiện ra rất rõ` : `${nameOf(nk.lord)}, hành tinh dẫn dắt chòm sao này, ${condWord(NL)}, nên nét ấy ${["exalted", "own", "moolatrikona"].includes(NL.dignity) || NL.grade === "strong" ? "có sức nặng" : NL.grade === "weak" || NL.dignity === "debilitated" ? "thường kín đáo hơn" : "hiện ra vừa phải"}`;
-    mod2.push(`Điều làm bạn khác với nhiều người cùng cung mọc là chòm sao ${nakName(nk.name)}: người ta thường thấy ở bạn ${face.replace(/\.$/, "")}; ${where}.`);
-  } else mod2.push(`Trong khoảng sai số giờ sinh, cung mọc của bạn có thể rơi vào hai chòm sao khác nhau, nên mình chỉ đọc theo cung, không dựa vào chi tiết chòm sao.`);
-  const occ = f.houses[0]?.occupants.filter((id) => id !== nk?.lord) ?? [];
-  const asp = (f.houses[0]?.aspects ?? []).filter((id) => !occ.includes(id) && id !== nk?.lord && ["mars", "saturn", "jupiter"].includes(id));
-  if (occ.length) mod2.push(`${joinVi(occ.map(nameOf))} ${occ.length > 1 ? "cùng đứng" : "đứng"} trên cung mọc, thêm vào phong thái của bạn ${joinVi(occ.map((id) => FACE_OF[id]))}.`);
-  if (asp.length) mod2.push(`${joinVi(asp.map(nameOf))} chiếu thẳng vào cung mọc, nên trong phong thái ấy còn có ${joinVi(asp.map((id) => FACE_OF[id]))}.`);
-  out.push(mod2.join(" "));
+    // Tầng Nakshatra cá nhân hóa nội dung, không kể lại tên hoặc quy trình tính.
+    const last = out.length - 1;
+    if (last >= 0) out[last] += ` ${LAGNA_NAK_TEXTURE[nk.index]}`;
+    else out.push(LAGNA_NAK_TEXTURE[nk.index]);
+  }
+  // Chỉ chọn một sắc thái thật sự nổi bật, tránh liệt kê tên và tác động hành tinh.
+  const prominent = f.houses[0]?.occupants
+    .filter((id) => LAGNA_PLANET_TONE[id])
+    .sort((a, b) => f.planets[b].score - f.planets[a].score)[0];
+  if (prominent && LAGNA_PLANET_TONE[prominent]) out.push(LAGNA_PLANET_TONE[prominent]!);
   return out.map(noPast).filter(Boolean);
 }
 
 function sunPart(ctx: Ctx, f: Facts): string[] {
-  const n = ctx.n, S = n.grahas.sun.sign, sun = f.planets.sun, out: string[] = [];
+  const sun = f.planets.sun, S = ctx.n.grahas.sun.sign;
   const nb = SUN_NB[S] && SUN_NB[S] !== "Đang cập nhật." ? paras(SUN_NB[S])[0] : SUN_SIGN[S];
-  const sameAsLagna = !ctx.noTime && n.lagna.sign === S;
-  // when the Sun shares the rising sign, the sign has been described already: keep only its first sentence
-  out.push(sameAsLagna ? `Mặt Trời cũng ở ${SIGNS[S]}, nên chất của cung này đi từ vẻ ngoài vào tận bản ngã. ${sentences(stripLead(keepSoft(nb)))[0] ?? ""}` : stripLead(keepSoft(nb)));
-  const m: string[] = [];
-  const nk = sun.g.nak, NL = f.planets[nk.lord];
-  m.push(nk.lord === "sun" ? `Mặt Trời còn nằm trong chòm sao ${nakName(nk.name)} do chính nó dẫn dắt, nên chuẩn mực riêng của bạn rất rõ: ${lowerFirst(NAKSHATRA_TEXT[nk.index].split(": ").slice(1).join(": "))}` : `Chòm sao ${nakName(nk.name)} của Mặt Trời thêm một sắc thái: ${lowerFirst(NAKSHATRA_TEXT[nk.index].split(": ").slice(1).join(": "))}${nk.lord !== "rahu" && nk.lord !== "ketu" ? ` Hành tinh dẫn dắt chòm sao này, ${nameOf(nk.lord)}, ${condWord(NL)}.` : ""}`);
-  if (!ctx.noTime && sun.house) m.push(viaArea(SUN_IN[sun.house - 1]));
-  if ((sun.dignity === "enemy" || sun.dignity === "debilitated") && sun.house === 12) m.push("Cung Kim Ngưu không thật hợp với Mặt Trời, nhưng sức của nó không yếu: nó chỉ chọn cách làm việc lặng lẽ.".replace("Kim Ngưu", SIGNS[S]));
-  else if (sun.dignity === "enemy" || sun.dignity === "debilitated") m.push(sun.conj.length || sun.aspectedBy.length ? "Mặt Trời đứng trong một cung không thật hợp với nó, nên ý chí thường cần thời gian mới hiện rõ." : "Mặt Trời đứng trong một cung không thật hợp với nó và không có hành tinh nào đi cùng hay chiếu vào, nên ý chí của bạn ít phô ra; sức của nó không yếu, chỉ là được dùng một cách âm thầm.");
-  else if (["exalted", "own", "moolatrikona"].includes(sun.dignity)) m.push("Mặt Trời đứng ở vị trí mạnh, nên điều bạn muốn khẳng định thường hiện ra rõ và đứng vững.");
-  const c = conjNote(f, "sun"); if (c) m.push(c);
-  out.push(m.join(" "));
-  const L = ctx.noTime ? null : n.lagna.sign;
-  if (L !== null && L !== S) out.push(PAIRS.LS[L][S]);
+  const out = overviewParas(stripLead(keepSoft(nb)));
+  // Trình bày ngắn một hệ quả thực tế; không gán phẩm chất cá nhân từ "mạnh/yếu".
+  if (!ctx.noTime && sun.house) out.push(SUN_CONTEXT[sun.house - 1]);
   return out.map(noPast).filter(Boolean);
 }
 
 function moonPart(ctx: Ctx, f: Facts): string[] {
-  const n = ctx.n, M = n.grahas.moon.sign, moon = f.planets.moon, out: string[] = [];
+  const moon = f.planets.moon, M = ctx.n.grahas.moon.sign;
   const nb = MOON_NB[M] && MOON_NB[M] !== "Đang cập nhật." ? paras(MOON_NB[M])[0] : MOON_SIGN[M];
-  const shared = M === n.grahas.sun.sign || (!ctx.noTime && M === n.lagna.sign);
-  out.push(shared ? `Mặt Trăng cũng ở ${SIGNS[M]}, nên cảm xúc của bạn nói cùng một tiếng nói với ${M === n.grahas.sun.sign ? "ý chí" : "vẻ ngoài"}. ${sentences(stripLead(keepSoft(nb))).slice(1, 3).join(" ")}`.trim() : stripLead(keepSoft(nb)));
-  const m: string[] = [];
-  const nk = moon.g.nak;
-  if (nk.index === n.grahas.sun.nak.index) m.push(`Mặt Trăng còn ở cùng chòm sao ${nakName(nk.name)} với Mặt Trời, nên điều bạn tin và điều bạn cảm gần như là một; sức mạnh ở đây là sự nhất quán, còn điều cần giữ là chừa chỗ cho một góc nhìn khác.`);
-  const soul = sentences(NAK[nk.index].soul).filter((x) => !/thuộc (về )?[A-Z]|là (sao|thầy|ngọn|lửa)|Điều cần tập/.test(x)).slice(0, 2).join(" ");
-  if (nk.index !== n.grahas.sun.nak.index) m.push(`Chòm sao ${nakName(nk.name)} làm nhịp ấy có thêm chiều sâu: ${lowerFirst(soul)}`);
-  if (nk.lord !== "rahu" && nk.lord !== "ketu") { const NL = f.planets[nk.lord]; if (["exalted", "own", "moolatrikona"].includes(NL.dignity) || NL.grade === "strong") m.push(`Hành tinh dẫn dắt chòm sao này, ${nameOf(nk.lord)}, đang ở vị trí mạnh, nên đây là một chỗ dựa thật cho đời sống cảm xúc.`); }
-  const LL = ctx.noTime ? null : SIGN_LORD[n.lagna.sign];
-  if (LL && moon.conj.includes(LL)) m.push(`Mặt Trăng đứng cùng ${nameOf(LL)}, hành tinh cai quản cung mọc, nên điều bạn cảm và điều bạn nghĩ đi rất sát nhau.`);
-  else { const cc = conjNote(f, "moon"); if (cc) m.push(cc); }
-  out.push(m.join(" "));
-  // strength and light
-  const e = mod(n.grahas.moon.lon - n.grahas.sun.lon, 360), gap = Math.min(e, 360 - e);
-  const weakest = moon.sb && moon.sb.rank === 7;
-  const disp = f.planets[SIGN_LORD[M]];
-  if (gap < 72 || weakest) {
-    const why = gap < 72 && weakest ? `Mặt Trăng là hành tinh có sức mạnh thấp nhất lá số, và bạn sinh khi trăng chỉ còn cách Mặt Trời khoảng ${Math.round(gap)} độ` : gap < 72 ? `Bạn sinh khi trăng chỉ còn cách Mặt Trời khoảng ${Math.round(gap)} độ, lúc trăng còn mỏng` : "Mặt Trăng là hành tinh có sức mạnh thấp nhất lá số";
-    const help = isGood(disp) ? ` Điều bù lại là ${nameOf(disp.id)}, hành tinh cai quản cung của Mặt Trăng, ${condWord(disp)}, nên cảm xúc có chỗ để hồi lại.` : "";
-    out.push(`${why}. Vì vậy nguồn năng lượng cảm xúc của bạn mỏng hơn những gì người khác thấy, và cần được giữ bằng giấc ngủ, nhịp nghỉ và những người làm bạn thấy an toàn.${help}`);
+  const out = overviewParas(stripLead(keepSoft(nb)));
+  // Nhận định bổ trợ được viết riêng cho từng Nakshatra, không đọc tên kỹ thuật giữa bài.
+  if (!ctx.uncertainMoon) {
+    const last = out.length - 1;
+    if (last >= 0) out[last] += ` ${MOON_NAK_TEXTURE[moon.g.nak.index]}`;
+    else out.push(MOON_NAK_TEXTURE[moon.g.nak.index]);
   }
   return out.map(noPast).filter(Boolean);
 }
@@ -843,18 +859,18 @@ function readExplore(ctx: Ctx, f: Facts): Explore {
   const order = ["fire", "earth", "air", "water"] as Element[];
   const top = [...order].sort((a, b) => counts[b] - counts[a] || order.indexOf(a) - order.indexOf(b));
   let elText: string;
-  if (counts[top[0]] - counts[top[3]] <= 1) elText = "Bốn nguyên tố trong lá số của bạn khá cân, không nguyên tố nào lấn át, nên bạn dễ đổi cách tiếp cận theo hoàn cảnh.";
+  if (counts[top[0]] - counts[top[3]] <= 1) elText = "Bốn nguyên tố có mức phân bố gần nhau. Không có căn cứ từ tỷ lệ này để kết luận một tính cách nổi trội hơn hẳn những tính cách khác.";
   else {
     const more = EL_NB[top[0]].more.replace(/^Nguyên tố [^.]+\.\s*/, "");
     elText = `Nguyên tố ${ELEMENT_VI[top[0]]} chiếm nhiều nhất: ${leadSentence(more)}.`;
     const low = order.find((e) => counts[e] === 0);
-    if (low) elText += ` Nguyên tố ${ELEMENT_VI[low]} ít được nhấn mạnh; điều đó không có nghĩa bạn thiếu phẩm chất ấy, chỉ là nó ít khi là phản xạ đầu tiên của bạn.`;
+    if (low) elText += ` ${ELEMENT_VI[low]} chưa có hành tinh trong cách đếm này; đây là mô tả phân bố, không có nghĩa bạn thiếu những phẩm chất liên quan.`;
   }
   highlights.push({ key: "elements", title: "Nguyên tố nổi bật", text: elText, elements: counts });
   const seven = f.order.filter((id) => id !== "rahu" && id !== "ketu");
   const weight = (id: GrahaId) => { const p = f.planets[id]; let w = p.score; if (p.role === "yogakaraka") w += 0.8; if (p.role === "lagna") w += 0.5; if (f.n.yogas.some((y) => y.grahas.includes(id) && y.strength !== "weak" && y.tone === "good")) w += 0.4; return w; };
   const pillars = seven.filter((id) => isGood(f.planets[id])).sort((a, b) => weight(b) - weight(a)).slice(0, 2);
-  let plText = "Không có hành tinh nào nổi trội hẳn; sức được chia khá đều giữa các hành tinh.";
+  let plText = "Theo tiêu chí lựa chọn hiện tại, chưa có hành tinh nào đủ nổi bật để đưa ra nhận định riêng.";
   if (pillars.length) {
     plText = `${nameOf(pillars[0])} hoạt động mạnh nhất: ${leadSentence(PLANET_NB[pillars[0]] ?? GIFT[pillars[0]])}.`;
     if (pillars[1]) plText += ` Kế đó là ${nameOf(pillars[1])}, nâng đỡ ${GIFT[pillars[1]]}.`;
@@ -865,40 +881,32 @@ function readExplore(ctx: Ctx, f: Facts): Explore {
     const { total, byArea } = focusWeights(f);
     const scored = FOCUS_AREAS.map((a, i) => ({ a, excess: byArea[i] / total - a.houses.length / 12 })).sort((x, y) => y.excess - x.excess);
     const lead = scored.filter((x) => x.excess >= 0.08).slice(0, 2);
-    let t = "Lá số trải khá đều qua nhiều mảng đời sống, không dồn về một vùng nào; trọng tâm thường đổi theo từng giai đoạn.";
+    let t = "Các vị trí hành tinh không tập trung rõ vào một nhóm chủ đề duy nhất theo phương pháp phân loại hiện tại.";
     if (lead.length) {
       const a = lead[0].a; areaTitle = a.title;
-      t = `Lá số dồn nhiều sức nặng vào ${a.says}; đây là nơi các giai đoạn quan trọng của đời bạn thường diễn ra.`;
+      t = `Các vị trí hành tinh được ghi nhận tập trung hơn tại nhóm chủ đề ${a.says}. Đây là trọng tâm để tìm hiểu ở các chương chuyên sâu, không phải dự báo chắc chắn về sự kiện.`;
       if (lead[1]) t += ` Kế đó là ${lead[1].a.says}.`;
     }
     highlights.push({ key: "areas", title: "Lĩnh vực được nhấn mạnh", text: t });
   }
 
-  // ---- the whole picture, from the rule-based traits (not from the passages above)
-  const tr = traits(ctx, f);
-  const pic: string[] = [headline(ctx, f)];
-  const used = new Set<string>();
-  const gifts = tr.filter((x) => x.kind !== "tension"), tens = tr.filter((x) => x.kind === "tension");
-  [gifts[0], gifts.find((x) => x !== gifts[0]), tens[0]].forEach((x) => x && used.add(x.key));
-  const rest = tr.filter((x) => !used.has(x.key)).slice(0, 2);
-  const LEAD_GIFT = ["Bên cạnh đó, bạn", "Ở bạn cũng có nét"];
-  rest.slice(0, 1).forEach((x, i) => {
-    if (x.kind === "tension") pic.push(`Có điều, ${x.clause}.`);
-    else if (x.key === "ll") pic.push(`Khi ${x.clause.replace(" thì ", ", bạn ")}.`);
-    else pic.push(i === 0 ? `${LEAD_GIFT[0]} ${x.clause}.` : `${LEAD_GIFT[1]} ${x.clause}.`);
-  });
-  const SHAPE = L === null ? "" : L === S && S === M ? `Cả ba điểm gốc cùng ở ${SIGNS[S]}, nên vẻ ngoài, điều bạn coi trọng và điều lòng bạn cần nói chung một tiếng nói; điều cần học là đừng để một chất ấy lấn hết chỗ của những chất khác.`
-    : relOf(L, M) === 8 || relOf(L, M) === 6 || relOf(L, M) === 12 ? "Vẻ ngoài và đời sống bên trong của bạn đi theo hai nhịp khác nhau, nên người mới gặp thường chỉ thấy một nửa con người bạn."
-    : relOf(L, S) === 5 || relOf(L, S) === 9 || relOf(L, S) === 1 ? "Cách bạn bước vào đời và điều bạn coi trọng dễ đi cùng một hướng, nên khi đã chọn đúng việc, bạn ít phải gồng mình." : "";
-  if (SHAPE) pic.push(SHAPE);
-  const summary = pic.join(" ");
+  // Không bắt buộc có "Bức tranh tổng thể": khi chưa có một luận điểm
+  // thực sự mới và được kiểm chứng, bỏ hẳn đoạn kết thay vì nối mệnh đề.
+  // UI và bản sao chép chỉ hiển thị kết khi nội dung khác rỗng.
+  const summary = "";
 
   // ---- the data underneath, shown once, folded
   const basis: Explore["basis"] = [];
   const pos = (id: GrahaId) => { const p = f.planets[id]; return `${nameOf(id)}: ${SIGNS[p.sign]} ${fmtDeg(p.g.deg)}${p.house ? `, nhà ${p.house}` : ""}, ${DIGNITY_VI[p.dignity].toLowerCase()}${p.sb ? `, Shadbala ${Math.round(p.sb.ratio * 100)}%` : ""}${p.g.retro ? ", nghịch hành" : ""}${p.g.combust ? ", cháy sáng" : ""}${p.g.vargottama ? ", vargottama" : ""}.`; };
   const three: string[] = [];
-  if (L !== null) { const LL = SIGN_LORD[L]; three.push(`Cung Mọc: ${SIGNS[L]} ${fmtDeg(n.lagna.deg)}, chòm sao ${nakName(n.lagna.nak.name)} pada ${n.lagna.nak.pada}; chủ cung mọc ${nameOf(LL)} ở ${SIGNS[f.planets[LL].sign]}, nhà ${f.planets[LL].house}.`); }
-  three.push(pos("sun"));
+  if (L !== null) {
+    const LL = SIGN_LORD[L], stableNak = lagnaNak(ctx);
+    const nakBasis = stableNak
+      ? `Nakshatra ${nakName(stableNak.name)}, pada ${stableNak.pada}, chủ tinh ${nameOf(stableNak.lord)}`
+      : "Nakshatra thay đổi trong khoảng sai số giờ sinh; không sử dụng đặc trưng Nakshatra để viết văn xuôi";
+    three.push(`Cung Mọc: ${SIGNS[L]} ${fmtDeg(n.lagna.deg)}; ${nakBasis}; chủ cung mọc ${nameOf(LL)} ở ${SIGNS[f.planets[LL].sign]}, nhà ${f.planets[LL].house}.`);
+  }
+  three.push(`${pos("sun")} Nakshatra ${nakName(n.grahas.sun.nak.name)}, pada ${n.grahas.sun.nak.pada}.`);
   if (!ctx.uncertainMoon) three.push(`${pos("moon")} Chòm sao ${nakName(n.grahas.moon.nak.name)} pada ${n.grahas.moon.nak.pada}, chủ chòm sao ${nameOf(n.grahas.moon.nak.lord)}.`);
   const e = mod(n.grahas.moon.lon - n.grahas.sun.lon, 360), tithi = Math.floor(e / 12) + 1;
   three.push(`Mặt Trăng cách Mặt Trời ${e.toFixed(1).replace(".", ",")}°, tithi ${tithi}/30 (${tithi <= 15 ? "Shukla Paksha" : "Krishna Paksha"}).`);

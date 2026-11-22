@@ -134,10 +134,10 @@ export function OverviewPage({ prepared }: { prepared: Prepared }) {
           ))}
         </article>
       </section>
-      <section className="ov5-sec reveal">
+      {X.summary.trim() && <section className="ov5-sec reveal">
         <h2 className="ov5-h">Bức tranh tổng thể</h2>
         <article className="card ov-block ov5-sum reveal"><p><Gloss text={X.summary} /></p></article>
-      </section>
+      </section>}
       <details className="params ov5-basis reveal">
         <summary>Cơ sở luận giải</summary>
         {X.basis.map((b) => (

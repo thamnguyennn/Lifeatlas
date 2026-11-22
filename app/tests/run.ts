@@ -333,7 +333,7 @@ test("Tổng quan v5: outside in (3 parts, 2–3 paragraphs), highlights in 1–
   for (const p of X.parts) assert.ok(p.paragraphs.length >= 2 && p.paragraphs.length <= 3, `${p.key}: ${p.paragraphs.length}`);
   assert.deepEqual(X.highlights.map((h) => h.key), ["elements", "planets", "areas"]);
   for (const h of X.highlights) assert.ok((h.text.match(/[.!?](\s|$)/g) ?? []).length <= 2, h.text);
-  assert.ok(X.summary.length > 60);
+  assert.ok(X.summary === "" || X.summary.length > 60);
   assert.ok(X.basis.length >= 4 && X.basis[0].lines.some((l) => l.includes("Song Tử")));
   const all = JSON.stringify(X);
   assert.ok(!/NotebookLM|Vì sao mình nói/.test(all));
@@ -369,9 +369,11 @@ console.log("v4.2: overview portrait and house 1 ownership");
 test("the rising nakshatra is used only when it holds across the birth-time window (23/05/1990 01:40 sits on a boundary)", () => {
   const edge = compose(computeNatal(Date.UTC(1990, 4, 22, 18, 40), 16.46, 107.59), NOW, { name: "A", windowMin: 5 });
   const lag = edge.overview.explore.parts.find((p) => p.key === "lagna")!.paragraphs.join(" ");
-  assert.match(lag, /hai chòm sao khác nhau/);
+  assert.doesNotMatch(lag, /chòm sao|Nakshatra|pada/i);
+  assert.match(edge.overview.explore.basis.flatMap((p) => p.lines).join(" "), /Nakshatra thay đổi trong khoảng sai số/);
   const firm = compose(computeNatal(Date.UTC(1990, 4, 23, 1, 40), 16.46, 107.59), NOW, { name: "A", windowMin: 5 });
-  assert.match(firm.overview.explore.parts.find((p) => p.key === "lagna")!.paragraphs.join(" "), /chòm sao Punarvasu/);
+  assert.doesNotMatch(firm.overview.explore.parts.find((p) => p.key === "lagna")!.paragraphs.join(" "), /chòm sao|Nakshatra|pada/i);
+  assert.match(firm.overview.explore.basis.flatMap((p) => p.lines).join(" "), /Nakshatra Punarvasu/);
 });
 test("overview and house 1 never share a sentence, and house 1 keeps the sign and the tenants out (Overview owns temperament)", () => {
   for (const ms of [Date.UTC(1990, 4, 23, 1, 40), Date.UTC(1985, 8, 2, 23, 30), Date.UTC(1972, 11, 25, 7, 5), Date.UTC(2000, 1, 14, 15, 10)]) {
@@ -391,7 +393,17 @@ test("no definite claims about the body in the overview", () => {
 test("without a birth time the overview has no rising-sign part and still reads", () => {
   const r = compose(computeNatal(Date.UTC(1990, 4, 23, 1, 40), 16.46, 107.59), NOW, { name: "A", noTime: true });
   assert.ok(!r.overview.explore.parts.some((p) => p.key === "lagna"));
-  assert.ok(r.overview.explore.parts.every((p) => p.paragraphs.length >= 2));
+  assert.ok(r.overview.explore.parts.every((p) => p.paragraphs.length >= 1));
+});
+
+test("public overview hides technical Nakshatra explanations and empty boilerplate summaries", () => {
+  for (const ms of [Date.UTC(1985, 8, 2, 23, 30), Date.UTC(1972, 11, 25, 7, 5), Date.UTC(2000, 1, 14, 15, 10), Date.UTC(1990, 4, 23, 1, 40)]) {
+    const o = compose(computeNatal(ms, 16.46, 107.59), NOW, { name: "Test", windowMin: 5 }).overview.explore;
+    const prose = o.parts.flatMap((p) => p.paragraphs).join(" ");
+    assert.doesNotMatch(prose, /chòm sao|Nakshatra|pada|hành tinh dẫn dắt chòm sao|cảm xúc của bạn nói cùng một tiếng nói|Điều làm bạn khác/i);
+    assert.equal(o.summary, "");
+    assert.ok(o.basis.some((b) => b.h === "Ba điểm gốc"));
+  }
 });
 
 console.log(`\n${passed} passed, ${failed} failed`);
