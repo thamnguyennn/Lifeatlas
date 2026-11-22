@@ -71,7 +71,7 @@ export const ADVICE: { plus: string; minus: string }[] = [
   { plus: "Giữ một nếp tích lũy đều đặn, dù nhỏ, là cách để nền tài chính của bạn dày lên theo năm.", minus: "Một kế hoạch chi tiêu cụ thể, cùng thói quen dừng lại một nhịp trước khi nói lúc nóng giận, giúp bạn nhiều hơn là trông chờ thu nhập tăng." },
   { plus: "Hãy chọn một kỹ năng để đi thật sâu; sự chủ động của bạn sẽ có chỗ để thành tay nghề.", minus: "Đặt một mục tiêu nhỏ, cụ thể và có hạn chót là cách tốt nhất để sự chủ động của bạn bật lên." },
   { plus: "Dành thời gian cho nhà và người thân là cách bạn nạp lại sức hiệu quả nhất.", minus: "Hãy tạo một góc thật sự của riêng mình, dù nhỏ; cảm giác yên ổn bắt đầu từ đó." },
-  { plus: "Cho mình thời gian để học và làm những việc chỉ vì thích; đó là nơi ý tưởng tốt nhất của bạn ra đời.", minus: "Cho phép mình làm một việc chỉ vì vui, không cần kết quả; niềm vui ở bạn cần được mời vào chứ không tự đến." },
+  { plus: "Cho mình thời gian để học và làm những việc chỉ vì thích; đó là nơi ý tưởng tốt nhất của bạn ra đời.", minus: "Cho phép mình làm một việc chỉ vì vui, không cần kết quả; niềm vui ở bạn cần được mời vào, đừng chờ nó gõ cửa." },
   { plus: "Giữ nhịp nghỉ đều, vì sức bền là vốn lớn nhất của bạn ở mảng này.", minus: "Hãy coi giấc ngủ và nếp nghỉ là một phần của công việc; khi cơ thể báo mệt, đừng gắng thêm." },
   { plus: "Chọn người cùng nhìn về một hướng, rồi để họ là chính họ; mối quan hệ của bạn mạnh nhất khi cả hai đều thấy tự do.", minus: "Chọn người chậm và nói rõ kỳ vọng từ đầu; với bạn, rõ ràng là cách giữ hòa khí tốt nhất." },
   { plus: "Khi biến cố đến, hãy tin vào sức hồi phục của mình; bạn đã có nó sẵn.", minus: "Giữ một quỹ dự phòng và rõ ràng trong mọi khoản tiền chung; những điều đơn giản ấy làm biến động bớt chao đảo." },
@@ -215,7 +215,7 @@ export const LINK: { gift: string; care: string }[][] = [
     "Sự nghiệp gắn chặt với chính con người bạn: bạn tự dựng tên tuổi và thường làm chủ hướng đi của mình. | dễ đặt công việc lên trên hết",
     "Nghề nghiệp gắn với tiền bạc, tài chính, lời nói hoặc việc làm ăn của gia đình. | dễ đo thành công bằng thu nhập",
     "Sự nghiệp dựa vào kỹ năng, truyền thông, viết lách hoặc đi lại; bạn tự mở đường. | dễ đổi việc nhiều lần",
-    "Sự nghiệp có nền vững, có thể gắn với nhà cửa, đất đai, giáo dục hoặc làm việc tại nhà. | dễ để công việc lấn vào gia đình",
+    "Sự nghiệp có chỗ dựa chắc, có thể gắn với nhà cửa, đất đai, giáo dục hoặc làm việc tại nhà. | dễ để công việc lấn vào gia đình",
     "Nghề nghiệp hợp với giảng dạy, sáng tạo, tư vấn hoặc quản lý; trí tuệ là vốn của bạn. | dễ cần được ghi nhận quá nhiều",
     "Sự nghiệp gắn với phục vụ, y tế, luật, kỹ thuật hoặc cạnh tranh; bạn làm việc rất chăm. | dễ quá tải",
     "Sự nghiệp đi qua hợp tác, khách hàng, đối tác hoặc làm việc với công chúng. | dễ phụ thuộc vào người khác",
@@ -257,8 +257,8 @@ export const LINK: { gift: string; care: string }[][] = [
 
 /** What a planet looking at the house adds, said without naming it. `up` = the house grows with effort (3, 6, 10, 11).
  *  `seed` (the house number) picks one of a few wordings, so two houses of the same chart do not repeat a sentence. */
-export function lookLine(id: string, up: boolean, seed = 0): string {
-  const v = (xs: string[]) => xs[seed % xs.length];
+export function lookLines(id: string, up: boolean): string[] {
+  const v = (xs: string[]) => xs;
   switch (id) {
     case "jupiter": return v(["Mảng này còn được che chở: khi gặp khó, bạn thường có người giúp hoặc tự tìm ra lối ra.", "Ở đây bạn có một lớp bảo vệ: những lúc chênh vênh thường có người hiểu chuyện đứng bên cạnh.", "Mảng này có thêm sự rộng rãi và hiểu biết, nên chuyện khó thường được nhìn theo hướng tích cực hơn."]);
     case "saturn": return up ? v(["Mảng này được rèn bởi kỷ luật: càng làm lâu, bạn càng vững.", "Ở đây sự bền bỉ là vũ khí của bạn: chậm lúc đầu, nhưng càng về sau càng chắc."])
@@ -267,8 +267,24 @@ export function lookLine(id: string, up: boolean, seed = 0): string {
       : v(["Ở đây cũng dễ có va chạm hoặc nóng vội; bình tĩnh thêm một nhịp sẽ đỡ được nhiều chuyện.", "Mảng này dễ có lúc căng thẳng hoặc quyết định vội; chậm lại một chút trước khi phản ứng sẽ giúp bạn nhiều.", "Ở đây có một chút nóng: tranh cãi nhỏ dễ thành to nếu không ai chịu dừng trước."]);
     case "venus": return v(["Mảng này cũng có sự êm ái: cách bạn cư xử nhẹ nhàng thường mở được nhiều cánh cửa.", "Ở đây có thêm sự dễ chịu và duyên dáng, giúp mọi chuyện trôi mềm hơn."]);
     case "mercury": return v(["Đầu óc linh hoạt và khả năng trao đổi giúp bạn xử lý mảng này khéo léo.", "Ở đây bạn được lợi nhờ sự nhanh trí và biết cách nói chuyện."]);
-    case "moon": return "Bạn đặt nhiều cảm xúc vào mảng này, nên tâm trạng có lúc lên xuống theo nó.";
-    case "sun": return "Bạn muốn làm chủ mảng này theo cách của riêng mình.";
-    default: return "";
+    case "moon": return ["Bạn đặt nhiều cảm xúc vào mảng này, nên tâm trạng có lúc lên xuống theo nó.", "Ở đây cảm xúc của bạn tham gia nhiều, nên một ngày vui hay buồn cũng ảnh hưởng tới nó."];
+    case "sun": return ["Bạn muốn làm chủ mảng này theo cách của riêng mình.", "Ở đây bạn muốn được tự quyết và được ghi nhận."];
+    default: return [];
   }
 }
+
+/** Said when the lord of the house is weak: how the promise of the house is slowed, in the words of each area. */
+export const SLOW: string[] = [
+  "Có điều, sự phát triển này thường chậm hơn bạn mong và đến qua nhiều lần tự rèn.",
+  "Có điều, tiền ở đây thường đến chậm và phải giữ bằng kỷ luật hơn là may mắn.",
+  "Có điều, sự chủ động này phải được hâm nóng nhiều lần mới thành thói quen.",
+  "Có điều, sự yên ổn này thường đến muộn và cần bạn vun nhiều.",
+  "Có điều, những niềm vui ở đây thường đến muộn hơn bạn mong.",
+  "Có điều, sức bền này dễ bị vắt kiệt nếu bạn không biết dừng.",
+  "Có điều, duyên ở đây thường đến chậm và cần cả hai cùng vun.",
+  "Có điều, những biến chuyển ở đây thường kéo dài hơn bạn nghĩ.",
+  "Có điều, sự nâng đỡ ở đây thường đến muộn hoặc theo đường vòng.",
+  "Có điều, con đường này thường chậm được ghi nhận.",
+  "Có điều, kết quả ở đây thường đến chậm hơn công sức bỏ ra.",
+  "Có điều, việc lấy lại sức ở đây cần được tập, không đến một cách tự nhiên.",
+];

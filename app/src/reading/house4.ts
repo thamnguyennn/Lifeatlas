@@ -12,7 +12,7 @@
 // Nothing is concluded from a single symbolic indicator: the wording stays at "có xu hướng", "thường", "dễ".
 import { SIGNS, FRIENDS, ENEMIES, SIGN_LORD, NAKSHATRA_VI, type GrahaId } from "../engine/constants.ts";
 import { vargaChart } from "../engine/vargas.ts";
-import { LEAD, ADVICE, LINK, lookLine } from "./content/house-text.ts";
+import { LEAD, ADVICE, LINK, SLOW, lookLines } from "./content/house-text.ts";
 import { SIGN_ON_HOUSE_DEEP } from "./content/house-voice.ts";
 import { PLANET_IN_HOUSE } from "./content/planet-in-house.ts";
 import type { Ctx } from "./ctx.ts";
@@ -240,6 +240,14 @@ function atom(text: string | undefined, n: number): { gift: string; cost: string
 }
 /** "dễ buông xuôi" → "bạn dễ buông xuôi" so the clause can follow "là". */
 const youFirst = (c: string) => (/^(dễ|hay|có lúc|ít|khó|thường|ngại|quá) /.test(c) ? `bạn ${c}` : c);
+/** Sentences already said in this chart's house pages, so a stock line is never said twice. */
+const saidIn = new WeakMap<Ctx, Set<string>>();
+function fresh(F: Ctx, options: string[]): string {
+  let s = saidIn.get(F); if (!s) { s = new Set(); saidIn.set(F, s); }
+  const t = options.find((o) => o && !s!.has(o)) ?? "";
+  if (t) s.add(t);
+  return t;
+}
 const careLine = (c: string) => /^dễ /.test(c) ? `Điều cần để ý là bạn ${c}.` : /^(cần|tránh) /.test(c) ? `${c.startsWith("tránh") ? "Nên " + c : "Bạn " + c}.` : `Điều cần để ý: ${c}.`;
 const balOf = (s: SupportLevel): "plus" | "mixed" | "minus" => (s === "thuận lợi" ? "plus" : s === "cần rèn giũa" ? "minus" : "mixed");
 const lordWeak = (p: PlanetFact) => p.grade === "weak" || p.dignity === "debilitated" || p.g.combust;
@@ -291,7 +299,7 @@ function narrateHouse1(ctx: Ctx, F: Facts, hf: HouseFact, base: Narr4): Narr4 {
   const good = rank <= 4 && hf.sav >= 28, thin = rank >= 9 || hf.sav <= 24;
   paras.push(good ? "Năng lực tự thân của bạn có nền tốt: so với các mảng khác trong lá số, đây là một trong những nơi vững nhất." : thin ? "Năng lực tự thân của bạn được xây dần: so với các mảng khác, đây không phải nơi lá số cho sẵn nhiều điều kiện, nên những gì bạn có là do bạn rèn." : "Năng lực tự thân của bạn ở mức khá: không phải nơi được cho sẵn nhiều nhất, cũng không phải nơi khó nhất.");
   const L = hf.lord_, lh = hf.lordHouse, k = LINK[0][lh - 1];
-  paras.push(`${k.gift}${lordWeak(L) ? ` Có điều, sự phát triển này thường chậm hơn bạn mong và đến qua nhiều lần tự rèn. ${careLine(k.care)}` : lordGood(L) ? " Đây là một điểm tựa đáng tin của bạn." : ""}`);
+  paras.push(`${k.gift}${lordWeak(L) ? ` ${SLOW[0]} ${careLine(k.care)}` : lordGood(L) ? " Đây là một điểm tựa đáng tin của bạn." : ""}`);
   const ties: string[] = [];
   for (const id of hf.occupants) {
     const ls = F.planets[id].lorded.filter((h) => h !== 1);
@@ -345,7 +353,8 @@ function narrateHouseCore(ctx: Ctx, F: Facts, hf: HouseFact, recent: HousePathwa
   // ---- paragraph 1: the overall picture of this area, and a yoga if one really holds
   const p1: string[] = [LEAD[n - 1][bal]];
   const yg = hf.yogas.filter(effectiveYoga)[0];
-  if (yg) { p1.push(`${yg.tone === "good" ? "Lá số còn có một điểm sáng riêng ở mảng này" : "Mảng này còn có một điểm đặc biệt"}: ${yogaMeaning(yg.id)}.`); chosen.push(`yoga ${yg.name}`); }
+  const ygLine = yg ? fresh(ctx, [`${yg.tone === "good" ? "Lá số còn có một điểm sáng riêng ở mảng này" : "Mảng này còn có một điểm đặc biệt"}: ${yogaMeaning(yg.id)}.`]) : "";
+  if (ygLine) { p1.push(ygLine); chosen.push(`yoga ${yg!.name}`); }
   // ---- paragraph 2: how you live this area (the sign on the house), then what the planets inside add
   const p2: string[] = [];
   const sg = atom(SIGN_ON_HOUSE_DEEP[n]?.[hf.sign], n);
@@ -363,7 +372,7 @@ function narrateHouseCore(ctx: Ctx, F: Facts, hf: HouseFact, recent: HousePathwa
     if (overlap(p2.join(" "), a.gift) > 0.4) return; // says again what the sign already said
     let g = seekTail(a.gift, false); g = g.charAt(0).toLowerCase() + g.slice(1);
     const head = g.slice(0, 22);
-    if ([...opened].some((o) => o.startsWith("bạn làm việc")) && /^bạn làm việc /.test(g)) g = g.replace(/^bạn làm việc (theo kiểu |bằng |một cách )?/, "cách làm việc của bạn còn mang nét ");
+    if ([...opened].some((o) => o.startsWith("bạn làm việc")) && /^bạn làm việc /.test(g)) g = g.replace(/^bạn làm việc (theo kiểu |bằng |một cách )?/, i === 0 ? "cách làm việc của bạn còn mang nét " : "ở bạn cũng có nét ");
     else if ([...opened].some((o) => o.startsWith("người đối diện bạn")) && /^người đối diện bạn thường /.test(g)) g = g.replace(/^người đối diện bạn thường /, "người ấy cũng có thể ");
     opened.add(head);
     p2.push(`${lead}${g}`);
@@ -372,14 +381,14 @@ function narrateHouseCore(ctx: Ctx, F: Facts, hf: HouseFact, recent: HousePathwa
   // ---- paragraph 3: where this area leads (the lord), and the strongest planet looking in
   const p3: string[] = [];
   const L = hf.lord_, k = LINK[n - 1][hf.lordHouse - 1];
-  p3.push(hf.lordHouse === n && overlap(p1.join(" "), k.gift) > 0.3 ? "Mảng này khá tự chủ: những gì xảy ra ở đây phần lớn do chính nó quyết định, ít bị các mảng khác kéo theo." : k.gift);
-  if (lordWeak(L)) p3.push(`Có điều, phần này thường thành hình chậm và cần nhiều công sức hơn bạn nghĩ. ${careLine(k.care)}`);
+  p3.push(hf.lordHouse === n && overlap(p1.join(" "), k.gift) > 0.3 ? `Chuyện ${area(n)} khá tự chủ trong lá số của bạn: nó ít bị các mảng khác kéo theo.` : k.gift);
+  if (lordWeak(L)) p3.push(`${SLOW[n - 1]} ${careLine(k.care)}`);
   else if (bal !== "plus") p3.push(careLine(k.care));
   chosen.push(`chủ nhà ${nameOf(L.id)} ở nhà ${hf.lordHouse} (${gradeWord(L)})`);
   const ties = [...new Set(hf.occupants.flatMap((id) => F.planets[id].lorded.filter((h) => h !== n && h !== hf.lordHouse)))];
   if (ties.length && !ctx.noTime) p3.push(`${cap(AREA_EXAMPLE[ties[0] - 1].replace(/ nó$/, " mảng này").replace(/ở đây$/, "ở mảng này"))}.`);
   const looks = ev.filter((e) => e.group === "look").sort((a, b) => Math.abs(b.w) - Math.abs(a.w));
-  const ll = looks[0] ? lookLine(looks[0].key.split("-")[1], UPACHAYA.includes(n), n) : "";
+  const ll = looks[0] ? fresh(ctx, lookLines(looks[0].key.split("-")[1], UPACHAYA.includes(n))) : "";
   if (ll) { p3.push(ll); chosen.push(`góc chiếu của ${nameOf(looks[0].key.split("-")[1] as GrahaId)}`); }
   const paras = [p1.join(" "), p2.join(" "), p3.join(" "), ADVICE[n - 1][sum >= 0 ? "plus" : "minus"]].filter(Boolean);
 

@@ -104,7 +104,7 @@ const HEART: string[] = [
   "cần sự hòa thuận và một mối quan hệ mà mình thấy công bằng",
   "giữ một chiều sâu rất riêng và chỉ mở lòng với người đã chứng tỏ sự đáng tin",
   "khao khát tự do và một lẽ sống đủ rộng để theo",
-  "cần cảm giác đã dựng được một nền vững thì mới thấy yên lòng",
+  "cần cảm giác đã có một chỗ đứng chắc chắn thì mới thấy yên lòng",
   "cần một khoảng trời riêng để nghĩ khác và sống theo cách của mình",
   "nhạy cảm sâu và cần những khoảng lặng để lòng được lắng lại",
 ];
@@ -670,7 +670,7 @@ const REL_VI: Record<number, string> = {
   7: "thế đối diện 1–7: hai điểm soi vào nhau và bổ khuyết cho nhau",
 };
 const SUN_DIG_VI: Record<number, string> = { 0: "Mặt Trời ở Bạch Dương là vị trí vượng (Uchcha) theo Parashara: ý chí thẳng và chủ động.", 6: "Mặt Trời ở Thiên Bình là vị trí suy (Neecha) theo Parashara: ý chí thiên về dung hòa hơn là áp đặt.", 4: "Mặt Trời ở Sư Tử là cung nhà của chính nó." };
-const MOON_DIG_VI: Record<number, string> = { 1: "Mặt Trăng ở Kim Ngưu là vị trí vượng theo Parashara: cảm xúc có nền vững.", 7: "Mặt Trăng ở Thiên Yết là vị trí suy theo Parashara: cảm xúc đi sâu và chậm, cần thời gian để tin.", 3: "Mặt Trăng ở Cự Giải là cung nhà của chính nó." };
+const MOON_DIG_VI: Record<number, string> = { 1: "Mặt Trăng ở Kim Ngưu là vị trí vượng theo Parashara: cảm xúc vững và bền.", 7: "Mặt Trăng ở Thiên Yết là vị trí suy theo Parashara: cảm xúc đi sâu và chậm, cần thời gian để tin.", 3: "Mặt Trăng ở Cự Giải là cung nhà của chính nó." };
 
 function pairsBlock(ctx: Ctx, f: Facts): OverviewBlock {
   const n = ctx.n, L = n.lagna.sign, S = n.grahas.sun.sign, M = n.grahas.moon.sign;
