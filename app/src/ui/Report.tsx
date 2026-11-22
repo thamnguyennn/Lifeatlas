@@ -170,6 +170,11 @@ export function Report({ prepared, onEdit, onChoose, now }: {
           </div>
         </aside>
       )}
+      {!noTime && prepared.choices.length <= 1 && prepared.reading.meta.lagnaShift.length > 1 && (
+        <aside className="callout check reveal">
+          <strong>Trong sai số ±{prepared.reading.meta.windowMin} phút, cung mọc có thể là {prepared.reading.meta.lagnaShift.join(" hoặc ")}.</strong>
+        </aside>
+      )}
       {noTime && (
         <aside className="callout check reveal">
           <strong>Chưa có giờ sinh nên chưa dựng được cung mọc và 12 nhà</strong>

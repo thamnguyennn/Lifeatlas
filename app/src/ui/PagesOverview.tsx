@@ -45,6 +45,7 @@ export function MoonPhase({ elong, size = 44 }: { elong: number; size?: number }
 
 function BlockIcons({ b }: { b: OverviewBlock }) {
   const m = b.meta;
+  if ((b.portrait || b.id === "lagna") && m?.signs?.[0]) return <SignGlyph sign={m.signs[0].sign} size={34} />;
   if (b.id === "keys" && m?.signs) return (
     <ul className="key-signs">{m.signs.map((x) => <li key={x.label}><SignGlyph sign={x.sign} size={30} /><span><small>{x.label}</small><b>{SIGN_VI[x.sign]}</b></span></li>)}</ul>
   );
@@ -70,7 +71,17 @@ function Block({ b, prepared }: { b: OverviewBlock; prepared: Prepared }) {
       </header>
       {(b.id === "keys" || b.id === "elements") && <BlockIcons b={b} />}
       {b.facts && b.id !== "elements" && <p className="keyline">{b.facts}</p>}
+      {b.portrait && <>
+        <p className="motif">{b.portrait.motif}</p>
+        {b.portrait.beats.map((x) => (
+          <div key={x.h} className="beat"><h4>{x.h}</h4><p><Gloss text={x.p} /></p></div>
+        ))}
+        {b.paragraphs.length > 0 && <h4 className="beat-own">Riêng trong lá số của bạn</h4>}
+      </>}
       <Paras list={b.paragraphs} />
+      {b.pairs && b.pairs.map((x) => (
+        <div key={x.h} className="beat pair"><h4>{x.h}</h4><p><Gloss text={x.p} /></p></div>
+      ))}
       {b.id === "pillars" && r.overview.strength && (
         <details className="params">
           <summary>Xem sức mạnh bảy hành tinh</summary>
@@ -84,26 +95,56 @@ function Block({ b, prepared }: { b: OverviewBlock; prepared: Prepared }) {
           ))}
         </ul>
       )}
-      <Why lines={b.why} />
+      <Why lines={b.portrait ? [b.portrait.why, ...b.why] : b.why} />
     </article>
   );
 }
 
 export function OverviewPage({ prepared }: { prepared: Prepared }) {
   const { reading: r } = prepared;
-  const L = r.letter;
+  const X = r.overview.explore;
   return (
     <>
       <p className="eyebrow reveal">Tổng quan</p>
-      <article className="letter card reveal">
-        <p className="greet">{L.greeting}</p>
-        <blockquote className="headline">{L.line}</blockquote>
-      </article>
-      <div className="ov-blocks">
-        {r.overview.blocks.map((b) => <Block key={b.id} b={b} prepared={prepared} />)}
-      </div>
-      <details className="params reveal">
-        <summary>Bảng chín hành tinh</summary>
+      <section className="ov5-sec reveal">
+        <h2 className="ov5-h">Khám phá bản thân từ ngoài vào trong</h2>
+        <p className="ov5-lead">{X.lead}</p>
+        <div className="ov-blocks">
+          {X.parts.map((p) => (
+            <article key={p.key} className={`card ov-block ov5-part ov5-${p.key} reveal`}>
+              <header className="ov-head">
+                <span className="ov-ico"><SignGlyph sign={p.sign} size={34} /></span>
+                <div><h3>{p.title}</h3><p className="key-role">{p.role}</p></div>
+              </header>
+              <Paras list={p.paragraphs} />
+            </article>
+          ))}
+        </div>
+      </section>
+      <section className="ov5-sec reveal">
+        <h2 className="ov5-h">Những đặc điểm nổi bật</h2>
+        <article className="card ov-block ov5-high reveal">
+          {X.highlights.map((h) => (
+            <div key={h.key} className={`ov5-row ov5-${h.key}`}>
+              <h4>{h.title}</h4>
+              {h.elements && <ul className="el-row">{Object.entries(h.elements).map(([e, c]) => <li key={e} className={`el-${e}`}><ElementIcon e={e} /><span>{EL_NAME[e]}</span><b>{c}</b></li>)}</ul>}
+              {h.planets && h.planets.length > 0 && <span className="pl-row">{h.planets.map((id) => <Glyph key={id} name={id} size={26} className={`pg c-${id}`} />)}</span>}
+              <p><Gloss text={h.text} /></p>
+            </div>
+          ))}
+        </article>
+      </section>
+      <section className="ov5-sec reveal">
+        <h2 className="ov5-h">Bức tranh tổng thể</h2>
+        <article className="card ov-block ov5-sum reveal"><p><Gloss text={X.summary} /></p></article>
+      </section>
+      <details className="params ov5-basis reveal">
+        <summary>Cơ sở luận giải</summary>
+        {X.basis.map((b) => (
+          <div key={b.h} className="ov5-basis-grp"><h4>{b.h}</h4><ul>{b.lines.map((l, i) => <li key={i}>{l}</li>)}</ul></div>
+        ))}
+        {r.overview.strength && <><h4>Sức mạnh bảy hành tinh (Shadbala)</h4><StrengthBars rows={r.overview.strength} /></>}
+        <h4>Bảng chín hành tinh</h4>
         <PlanetTable prepared={prepared} />
       </details>
     </>

@@ -272,3 +272,12 @@ Trạng thái: **đã hỏi sổ tay "Chiêm tinh học" ngày 17/11/2026** (ngo
 ## Việc sổ tay không nói rõ (chưa dùng)
 - "Chủ nhà ở cung không thân thì kết quả muộn hơn": câu này đang nằm ở lớp gập "chủ nhà" của mọi nhà và chưa tìm thấy dòng nguồn trực tiếp. Sẽ hỏi lại sổ tay.
 - Điểm hỗ trợ (SAV) thấp nghĩa là "kết quả muộn hơn": **không có nguồn**; đã đổi thành "hành tinh đi qua được nâng đỡ ít hơn" ở dòng tóm tắt.
+
+
+## Bản 3 (20/11/2026): ba mốc gốc, cặp cung mọc, đại vận, trang nhà
+Hỏi sổ NotebookLM "Chiêm tinh học" (297 nguồn) qua trình duyệt, 19 lượt: Mặt Trăng ở nhà 12 cùng Sao Thổ; đại vận Sao Thổ với cung mọc Nhân Mã; Mặt Trăng ở 12 cung; Mặt Trời và cung mọc ở 12 cung; chín đại vận; nhà 7 Nhân Mã với Sao Mộc ở nhà 1; Sao Thổ ở nhà 10 Thiên Bình; và 12 lượt, mỗi lượt một cung mọc (chân dung, Mặt Trời ở 12 cung, Mặt Trăng ở 12 cung).
+- Mặt Trăng: Moon Karmas in All Signs! Vedic Astrology; MOON MAHADASHA; Beginners Astrology 3 THE SIGNS; Full_text_of_Hindu_Predictive_Astrology.pdf; Moon in First House … Twelfth House.
+- Mặt Trời: Sun Karmas in all Signs! Vedic Astrology; SUN MAHADASHA; Sun in First House … Twelfth House.
+- Cung mọc: "Aries … Pisces RISING/ASCENDANT IN DEPTH"; Robert_Svoboda_-_Light_on_life; Beginners Astrology 4. RISING SIGNS & LORDS OF HOUSES.
+- Đại vận: "SUN … VENUS MAHADASHA - Secrets of …"; Brihat Parasara Hora Sastra; mahadasha.pdf.
+- Đã bỏ hoặc làm dịu: mô tả dáng người quá cụ thể (vết sẹo, cằm nhọn), chữ nặng (thâm độc, tàn nhẫn, trả thù, vỡ nợ, kẻ thù), mọi chi tiết bệnh tật. Ba ô sổ trả thiếu (Mặt Trời ở Ma Kết, Bảo Bình, Song Ngư với cung mọc Nhân Mã; Mặt Trời ở Nhân Mã với cung mọc Bọ Cạp) viết theo cùng mẫu từ nghĩa nhà 2, 3, 4 và nhà 2.

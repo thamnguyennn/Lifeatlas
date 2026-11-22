@@ -15,7 +15,7 @@ import { lightWindows } from "./story.ts";
 import type { HouseWindowSummary, LadderReading, MahaRow, PeriodRead, Timeline, Trust } from "./types.ts";
 import { HOUSE_TAG, AREA_EXAMPLE } from "./content/houses-signs.ts";
 import { PLANETS } from "./content/planets.ts";
-import { CHAPTER, DASHA_LIT, DASHA_STAGE } from "./content/chapters.ts";
+import { CHAPTER_DEEP, CHAPTER, DASHA_LIT, DASHA_STAGE } from "./content/chapters.ts";
 import { TEACHER } from "./content/voice.ts";
 import { LADDER_INTRO, TRUST_NOTE, TRUST_SUMMARY, OVERLAP, OVERLAP_EFFECT, OVERLAP_NONE, BLEND_HEAD, BLEND_PRAT } from "./content/dasha-deep.ts";
 import {
@@ -182,12 +182,15 @@ export function readPeriod(ctx: Ctx, node: DNode): PeriodRead {
     title = `Giai đoạn “${ch.title}”`;
     const R = mahaRead(ctx, lord);
     const T = TEACHER[lord];
+    const D = CHAPTER_DEEP[lord];
     layers = [
-      { title: "Người thầy của giai đoạn", text: `Bài học: ${T.lesson}. ${T.how}${R.theme.includes("Với bạn,") ? " " + R.theme.slice(R.theme.indexOf("Với bạn,")) : ""}` },
-      { title: "Trong đời sống", text: T.examples.join("\n") },
+      { title: "Người thầy của giai đoạn", text: `${D.open} Bài học của giai đoạn: ${T.lesson}. ${T.how}${R.theme.includes("Với bạn,") ? " " + R.theme.slice(R.theme.indexOf("Với bạn,")) : ""}` },
+      { title: "Những năm này thường trôi qua ra sao", text: [`Trong công việc: ${lowerFirst(D.work)}`, `Về tiền bạc: ${lowerFirst(D.money)}`, `Trong các mối quan hệ: ${lowerFirst(D.people)}`, `Mỗi sáng thức dậy: ${lowerFirst(D.morning)}`].join("\n") },
+      { title: "Cách giai đoạn này dạy bạn", text: T.examples.join("\n") },
       { title: "Điều đang nâng đỡ bạn", text: R.plus },
       { title: "Điều cần để ý", text: R.minus },
-      { title: "Phần thưởng nếu bạn học được bài này", text: `${T.gift.charAt(0).toUpperCase() + T.gift.slice(1)}.` },
+      { title: "Cái giá và cám dỗ", text: [`Điều phải đánh đổi: ${lowerFirst(D.cost)}`, `Cám dỗ cần tránh: ${lowerFirst(D.trap)}`].join("\n") },
+      { title: "Khi giai đoạn khép lại", text: `${D.harvest.charAt(0).toUpperCase() + D.harvest.slice(1)} Đó là phần thưởng cho người học được bài này: ${T.gift}.` },
       { title: "Thông điệp", text: T.message },
     ];
     paragraphs.push(...layers.map((l) => l.text));

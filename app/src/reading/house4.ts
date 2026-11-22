@@ -215,7 +215,40 @@ export const PATH_LABEL4: Record<HousePathway, string> = {
 
 export interface Narr4 { path: HousePathway; title: string; paragraphs: string[]; examples: string[]; message: string; lesson: string; why: string[]; support: SupportLevel; expressive: ExpressiveLevel }
 
+/** House 1 has its own reading: the Overview owns temperament (sign, nakshatra, planets on the rising sign as presence), so
+ * house 1 speaks of capacity, conditions for growth, vitality in the traditional sense and what helps or slows development. */
+function narrateHouse1(ctx: Ctx, F: Facts, hf: HouseFact, base: Narr4): Narr4 {
+  const paras: string[] = [];
+  const rank = hf.bhava?.rank ?? 6;
+  paras.push(rank <= 4 && hf.sav >= 28 ? "Năng lực tự thân của bạn có điều kiện tốt: so với các mảng khác trong lá số, đây là một trong những mảng có nền mạnh nhất." : rank >= 9 || hf.sav <= 24 ? "Năng lực tự thân của bạn cần được xây dựng dần: so với các mảng khác, đây không phải nơi lá số cho sẵn nhiều điều kiện." : "Năng lực tự thân của bạn có điều kiện ở mức khá: không phải nơi được cho sẵn nhiều nhất, cũng không phải nơi khó nhất.");
+  for (const id of hf.occupants) {
+    const p = F.planets[id], ls = p.lorded.filter((h) => h !== 1);
+    if (!ls.length) continue;
+    const bothKendra = ls.filter((h) => [4, 7, 10].includes(h)).length >= 2 && ["jupiter", "venus", "mercury", "moon"].includes(id);
+    paras.push(`${nameOf(id)} đứng trong nhà này và cai quản ${ls.map((h) => `chuyện ${area(h)}`).join(" cùng ")}, nên sự phát triển của bạn thường đi qua ${ls.length > 1 ? "những mảng ấy" : "mảng ấy"}: bạn lớn lên rõ nhất khi có một trách nhiệm cụ thể ở đó.${bothKendra ? " Truyền thống lưu ý rằng một hành tinh lành cai quản hai nhà trụ cột sẽ bớt đi phần may mắn tự nhiên, nên sức mạnh này thường thành hình qua nỗ lực trong vai trò bạn nhận." : ""}`);
+  }
+  const L = hf.lord_, lh = hf.lordHouse;
+  const cls = lh === 1 ? "Hành tinh cai quản cung mọc đứng ngay trong nhà này, nên bạn tự chủ trong việc phát triển bản thân và ít phải dựa vào hoàn cảnh." : [3, 6, 10, 11].includes(lh) ? `Hành tinh cai quản cung mọc, ${nameOf(L.id)}, đứng ở vùng ${area(lh)}, một vùng càng rèn càng mạnh: năng lực và khả năng thích nghi của bạn tăng dần theo công sức, và thường rõ hơn theo tuổi.` : [4, 7].includes(lh) ? `Hành tinh cai quản cung mọc, ${nameOf(L.id)}, đứng ở vùng ${area(lh)}, nên bạn phát triển tốt nhất khi có một nền ổn định hoặc một người đồng hành.` : [5, 9].includes(lh) ? `Hành tinh cai quản cung mọc, ${nameOf(L.id)}, đứng ở vùng ${area(lh)}, một vùng phúc phần: khi đi đúng hướng của mình, bạn thường được hậu thuẫn.` : [6, 8, 12].includes(lh) ? `Hành tinh cai quản cung mọc, ${nameOf(L.id)}, đứng ở vùng ${area(lh)}, nên bạn thường trưởng thành qua những giai đoạn thử thách hơn là qua thuận lợi.` : `Hành tinh cai quản cung mọc, ${nameOf(L.id)}, đứng ở vùng ${area(lh)}, nên sự phát triển của bạn gắn với việc tích lũy dần.`;
+  paras.push(`${cls}${L.grade === "weak" ? " Có điều, hành tinh này đang ở thế yếu, nên tiến bộ thường chậm hơn mong đợi." : L.grade === "strong" ? " Hành tinh này đứng rất vững, nên đó là một điểm tựa đáng tin." : ""}`);
+  const asp = hf.aspects.filter((id) => !hf.occupants.includes(id));
+  const ASP: Record<string, string> = {
+    mars: "Sao Hỏa chiếu vào nhà này tiếp thêm sức đẩy: khi có áp lực, bạn thường bật lên chứ không lùi lại; điều cần giữ là sức lực dễ bị tiêu quá tay.",
+    saturn: "Sao Thổ chiếu vào nhà này đem lại tính kỷ luật và khả năng duy trì nỗ lực lâu dài; quá trình trưởng thành thường chậm mà chắc.",
+    jupiter: "Sao Mộc chiếu vào nhà này đem lại sự che chở và khả năng hồi phục sau những lúc khó.",
+  };
+  const a2 = asp.map((id) => ASP[id]).filter(Boolean);
+  if (a2.length) paras.push(a2.join(" "));
+  const sun = F.planets.sun;
+  paras.push(sun.house === 12 ? "Về sức sống theo cách hiểu truyền thống, Mặt Trời là hành tinh tự nhiên của nhà 1, và nó đứng ở vùng thứ mười hai: sức của bạn thường được nạp lại khi bạn rút khỏi đám đông một thời gian, hơn là khi hoạt động liên tục." : sun.grade === "strong" || [1, 10].includes(sun.house ?? 0) ? "Về sức sống theo cách hiểu truyền thống, Mặt Trời, hành tinh tự nhiên của nhà 1, đứng vững, nên sinh lực nền của bạn khá dồi dào." : sun.grade === "weak" || [6, 8].includes(sun.house ?? 0) ? "Về sức sống theo cách hiểu truyền thống, Mặt Trời, hành tinh tự nhiên của nhà 1, ở thế không thuận, nên một nhịp sống đều và đủ nghỉ có ý nghĩa với bạn hơn với nhiều người." : "Về sức sống theo cách hiểu truyền thống, Mặt Trời, hành tinh tự nhiên của nhà 1, ở thế vừa phải: sinh lực của bạn ổn định khi nhịp sống đều.");
+  return { ...base, paragraphs: paras, examples: [], title: rank <= 4 ? "Năng lực tự thân có nền mạnh" : rank >= 9 ? "Năng lực tự thân cần xây dần" : "Năng lực tự thân ở mức khá" };
+}
+
 export function narrateHouse4(ctx: Ctx, F: Facts, hf: HouseFact, recent: HousePathway[]): Narr4 {
+  if (hf.n === 1 && !ctx.noTime) return narrateHouse1(ctx, F, hf, narrateHouseCore(ctx, F, hf, recent));
+  return narrateHouseCore(ctx, F, hf, recent);
+}
+
+function narrateHouseCore(ctx: Ctx, F: Facts, hf: HouseFact, recent: HousePathway[]): Narr4 {
   const ev = evidence(ctx, F, hf);
   const n = hf.n, topic = TOPIC[n - 1], t = area(n);
   const plus = ev.filter((e) => e.w > 0 && e.plus).sort((a, b) => b.w - a.w);

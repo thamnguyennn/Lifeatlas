@@ -9,11 +9,18 @@ import { buildFacts, isGood, HOUSE_SHORT, type Facts, type PlanetFact } from "./
 import { LAGNA_SIGN, MOON_PHASE_AT_BIRTH, NAKSHATRA_TEXT } from "./content/lagna-nakshatra.ts";
 import { SUN_SIGN, MOON_SIGN, MOON_NAK_LEAD, SUN_DIGNITY, ELEMENT_OF, ELEMENT_VI, ELEMENT_LINES, ELEMENT_BALANCED, KEY_LINK, type Element } from "./content/overview.ts";
 import { conjOf } from "./content/conjunctions.ts";
+import { MOON_PORTRAIT, SUN_PORTRAIT, LAGNA_PORTRAIT, TRIAD_LINE, type Portrait } from "./content/portraits.ts";
+import { PAIRS } from "./content/pairs.ts";
+import { LAGNA_LOOK, EL_NB, PLANET_NB, AREA_NB, SUN_NB, MOON_NB } from "./content/overview-nblm.ts";
 import { HOUSE_TAG, AREA_EXAMPLE } from "./content/houses-signs.ts";
+import { NAK } from "./content/nakshatra.ts";
+import { PLANET_IN_HOUSE } from "./content/planet-in-house.ts";
+import { stability } from "./stability.ts";
+import { computeNatal } from "../engine/core.ts";
 import { PLANETS } from "./content/planets.ts";
 import { DIGNITY_VI, planetFlags } from "./shared.ts";
 import { isSeven } from "../engine/shadbala.ts";
-import { nameOf, joinVi, fill, greetName, lowerFirst } from "./util.ts";
+import { nameOf, joinVi, fill, greetName, lowerFirst, firstSentence } from "./util.ts";
 import type { PlanetRow, StrengthRow } from "./types.ts";
 
 export interface OverviewBlock {
@@ -29,16 +36,34 @@ export interface OverviewBlock {
   why: string[];
   /** A short line of numbers, e.g. "Lửa 2 · Đất 3 · Khí 1 · Nước 2". */
   facts?: string;
+  /** For the rising sign, the Sun and the Moon: a named portrait in five beats (content/portraits.ts). */
+  portrait?: { motif: string; beats: { h: string; p: string }[]; why: string };
+  /** The three points read in pairs (content/pairs.ts): a small heading and one paragraph each. */
+  pairs?: { h: string; p: string }[];
 }
 
 export interface Letter {
   greeting: string;
   /** One sentence about the whole chart. */
   line: string;
+  /** The rest of the opening letter: where the chart puts its effort, its main pull, and an invitation to read on. */
+  paras: string[];
+  /** The evidence for the letter, folded under "Vì sao mình nói điều này?". */
+  why: string[];
   chips: { label: string; value: string; role: string }[];
 }
 
+/** Tổng quan v5: from the outside in, then the highlights, the whole picture, and the data underneath. */
+export interface Explore {
+  lead: string;
+  parts: { key: "lagna" | "sun" | "moon"; title: string; role: string; sign: number; paragraphs: string[] }[];
+  highlights: { key: "elements" | "planets" | "areas"; title: string; text: string; elements?: Record<string, number>; planets?: GrahaId[] }[];
+  summary: string;
+  basis: { h: string; lines: string[] }[];
+}
+
 export interface Overview {
+  explore: Explore;
   blocks: OverviewBlock[];
   strength: StrengthRow[] | null;
   /** Share of the chart's weight in each area of life (null without a birth time). */
@@ -116,7 +141,7 @@ const SUN_IN: string[] = [
   "Mặt Trời ở nhà 9, nên ý chí của bạn đứng trên niềm tin và lý tưởng; thầy học và người cha là những hình bóng định hình cách bạn nhìn mình, và bạn sáng nhất khi có điều lớn để theo.",
   "Mặt Trời ở nhà 10, nơi nó mạnh về vị thế, nên bản ngã của bạn gắn với sự nghiệp và trách nhiệm trước xã hội, và bạn muốn việc mình làm được nhìn nhận.",
   "Mặt Trời ở nhà 11, nên bạn tìm thấy mình trong thành quả và trong nhóm người cùng chí hướng; mục tiêu dài hạn và những người bạn có vị thế là chất liệu của lòng tự trọng.",
-  "Mặt Trời ở nhà 12, nên bản ngã của bạn không phô ra ngoài mà lặn vào bên trong; bạn lấy lại sức khi ở một mình, và có khuynh hướng làm nhiều hơn nói.",
+  "Mặt Trời ở nhà 12, nên bản ngã của bạn không phô ra ngoài mà lặn vào bên trong, và bạn có khuynh hướng làm nhiều hơn nói.",
 ];
 const MOON_IN: string[] = [
   "Mặt Trăng ngay trong nhà 1, nên cảm xúc hiện ra trên gương mặt và cách bạn cư xử; người đối diện đọc được tâm trạng của bạn rất nhanh.",
@@ -162,6 +187,7 @@ function traits(ctx: Ctx, f: Facts): Trait[] {
     const p = f.planets[id];
     if (p.grade === "strong" && PILLAR_CLAUSE[id]) { out.push({ key: `p-${id}`, s: 2 + p.score * 0.3, kind: "gift", clause: PILLAR_CLAUSE[id] }); break; }
   }
+  if (!ctx.noTime) for (const id of f.houses[0].occupants) { const p = f.planets[id]; if (isGood(p) && PILLAR_CLAUSE[id] && !out.some((x) => x.key === `p-${id}`)) out.push({ key: `p-${id}`, s: 2.9 + p.score * 0.2, kind: "gift", clause: PILLAR_CLAUSE[id] }); }
   const cnt: Record<Element, number> = { fire: 0, earth: 0, air: 0, water: 0 };
   for (const id of SEVEN) cnt[ELEMENT_OF(n.grahas[id].sign)]++;
   if (!ctx.noTime) cnt[ELEMENT_OF(n.lagna.sign)]++;
@@ -241,10 +267,12 @@ const elRel = (a: Element, b: Element): "same" | "friend" | "tension" => a === b
 function lagnaBlock(ctx: Ctx, f: Facts): OverviewBlock {
   const n = ctx.n;
   const lag = n.lagna.sign;
-  const paras = [LAGNA_SIGN[lag], lagnaLordSentence(f, lag)];
+  const paras = [LAGNA_SIGN[lag]];
   const L = SIGN_LORD[lag];
   const tenant = f.houses[0].occupants.filter((o) => o !== L);
-  if (tenant.length) paras.push(`Trong chính cung mọc có ${joinVi(tenant.map(nameOf))}, nên cách bạn xuất hiện mang thêm ${tenant.map((t) => lowerFirst(GIFT[t])).join(" và ")}.`);
+  if (tenant.length === 1) paras.push(`Trong chính cung mọc có ${nameOf(tenant[0])}, nên cách bạn xuất hiện mang thêm ${lowerFirst(GIFT[tenant[0]])}.`);
+  else if (tenant.length === 2) paras.push(`Trong chính cung mọc có ${joinVi(tenant.map(nameOf))}, nên cách bạn xuất hiện mang thêm ${lowerFirst(GIFT[tenant[0]])}, cùng với ${lowerFirst(GIFT[tenant[1]])}.`);
+  else if (tenant.length > 2) paras.push(`Trong chính cung mọc có tới ${tenant.length} hành tinh (${joinVi(tenant.map(nameOf))}), nên con người bạn hiện ra rất đậm ngay từ lần gặp đầu; mỗi hành tinh góp một nét, và trang Nhà 1 kể kỹ từng nét.`);
   return {
     id: "lagna", title: "Cung mọc", role: "cách bạn tiếp cận cuộc sống và hình ảnh bên ngoài", sign: SIGNS[lag], paragraphs: paras,
     why: [
@@ -301,7 +329,6 @@ function moonBlock(ctx: Ctx, f: Facts): OverviewBlock {
   paras.push(`${fill(MOON_NAK_LEAD, { nak: nakName(moon.g.nak.name) })} ${NAKSHATRA_TEXT[moon.g.nak.index]}`);
   if (moon.house && !ctx.uncertainMoon) paras.push(viaArea(MOON_IN[moon.house - 1]));
   const sm = sunMoonLine(ctx, f);
-  if (sm) paras.push(sm.text);
   const c = conjNote(f, "moon");
   if (c) paras.push(c);
   return {
@@ -316,28 +343,46 @@ function moonBlock(ctx: Ctx, f: Facts): OverviewBlock {
 
 // ------------------------------------------------------------------ the three keystones in one block, read together
 
+const q = (m: string) => `“${m}”`;
+/** One paragraph that names the three portraits, so the reader knows what the next three cards are about. */
+const COUNT_VI = ["", "Bức chân dung", "Hai bức chân dung", "Ba bức chân dung"];
+function motifLine(ctx: Ctx): string {
+  const n = ctx.n, sun = n.grahas.sun.sign, moon = n.grahas.moon.sign;
+  const lag = ctx.noTime ? null : n.lagna.sign;
+  const out: string[] = [];
+  const shown = [lag !== null, true, !ctx.uncertainMoon].filter(Boolean).length;
+  const shared = [lag, sun, ctx.uncertainMoon ? null : moon].filter((x) => x !== null);
+  if (shared.length === 3 && new Set(shared).size === 1) {
+    out.push(`Cung mọc, Mặt Trời và Mặt Trăng của bạn cùng ở ${SIGNS[sun]}: ${q(LAGNA_PORTRAIT[sun].motif)}. Khi ba điểm gốc cùng một cung, chất của cung ấy hiện ra rất đậm, nên ba bức chân dung dưới đây không nhắc lại nhau mà mỗi bức chỉ giữ phần riêng của mình: cách bạn bước vào đời, điều bạn sống vì nó, và điều lòng bạn cần.`);
+    return out.join(" ");
+  }
+  if (lag !== null) out.push(`Người khác gặp bạn trước hết qua cung mọc ${SIGNS[lag]}: ${q(LAGNA_PORTRAIT[lag].motif)}.`);
+  out.push(lag === sun ? `Mặt Trời cũng ở ${SIGNS[sun]}, nên điều bạn sống vì nó đi cùng một chất với cách bạn xuất hiện.` : `Điều bạn sống vì nó nằm ở Mặt Trời ${SIGNS[sun]}: ${q(SUN_PORTRAIT[sun].motif)}.`);
+  if (!ctx.uncertainMoon) out.push(moon === sun || moon === lag ? `Mặt Trăng cũng ở ${SIGNS[moon]}, nên điều lòng bạn cần không xa với điều người khác thấy ở bạn.` : `Còn điều lòng bạn cần nằm ở Mặt Trăng ${SIGNS[moon]}: ${q(MOON_PORTRAIT[moon].motif)}.`);
+  out.push(shown === 1 ? "Bức chân dung dưới đây kể điều ấy." : `${COUNT_VI[shown]} dưới đây kể lần lượt từng điều.`);
+  return out.join(" ");
+}
+/** How the three sit together, by element: agreement or a gap the reader will recognise. */
+function triadLine(ctx: Ctx): string {
+  if (ctx.uncertainMoon) return "";
+  const n = ctx.n, el = (s: number) => ELEMENT_VI[ELEMENT_OF(s)].toLowerCase();
+  const sun = n.grahas.sun.sign, moon = n.grahas.moon.sign;
+  const out = [fill(TRIAD_LINE.sunMoon[elRel(ELEMENT_OF(sun), ELEMENT_OF(moon))], { a: el(sun), b: el(moon) })];
+  return out.join(" ");
+}
+
 function keysBlock(ctx: Ctx, f: Facts): OverviewBlock {
   const n = ctx.n, sun = f.planets.sun, moon = f.planets.moon;
   const paras: string[] = [];
   const self = `nhìn nhận giá trị của mình qua ${SELF[sun.sign]}`;
   const heart = ctx.uncertainMoon ? "" : `bên trong, bạn ${HEART[moon.sign]}`;
-  if (!ctx.noTime) {
-    const lag = n.lagna.sign;
-    paras.push(`Bạn bước vào đời như một người ${FACE[lag]}. Bạn ${self}${heart ? `, còn ${heart}` : ""}.`);
-    const rLS = elRel(ELEMENT_OF(lag), ELEMENT_OF(sun.sign));
-    const sm = sunMoonLine(ctx, f);
-    const link = rLS === "same" ? "Vẻ ngoài và điều bạn muốn khẳng định đi cùng một hướng" : rLS === "friend" ? "Cách bạn bước vào việc thường mở đường cho điều bạn muốn khẳng định" : "Ấn tượng đầu tiên bạn tạo ra có thể khác với điều bạn thật sự muốn được nhận ra";
-    paras.push(`${link}. ${sm ? sm.text : ""}`.trim());
-    const L = SIGN_LORD[lag], p = f.planets[L];
-    const where = p.house === 1 ? "Phần lớn tâm sức của bạn dồn vào chính mình: sức khỏe, hình ảnh và con đường riêng" : `Phần lớn tâm sức của bạn đổ vào chuyện ${area(p.house!)}`;
-    const cond = p.grade === "weak" ? ", dù ở đó kết quả thường đến chậm và cần nhiều công sức" : p.grade === "strong" ? ", và đó cũng là nơi bạn có nhiều điểm tựa nhất" : "";
+  // The effort line and the Sun–Moon lines are said once, in the letter (readLetter); this block only names the portraits.
+  paras.push(motifLine(ctx));
+  if (!ctx.uncertainMoon) {
     const nak = NAKSHATRA_TEXT[moon.g.nak.index].split(": ").slice(1).join(": ");
-    paras.push(`${where}${cond}.${nak ? ` Về cảm xúc, ${nak}` : ""}`);
-  } else {
-    paras.push(`Bạn ${self}${heart ? `, còn ${heart}` : ""}.`);
-    const sm = sunMoonLine(ctx, f);
-    if (sm) paras.push(sm.text);
+    if (nak) paras.push(`Về cảm xúc, ${nak}`);
   }
+  void n;
   const signs = [...(ctx.noTime ? [] : [{ label: "Cung mọc", sign: n.lagna.sign }]), { label: "Mặt Trời", sign: sun.sign }, ...(ctx.uncertainMoon ? [] : [{ label: "Mặt Trăng", sign: moon.sign }])];
   return {
     id: "keys", title: "Cung mọc, Mặt Trời và Mặt Trăng", role: "cách bạn bước vào đời, điều bạn muốn khẳng định và điều lòng bạn cần", paragraphs: paras, meta: { signs },
@@ -373,10 +418,10 @@ function elementsBlock(ctx: Ctx, f: Facts): OverviewBlock {
   const spread = counts[top[0]] - counts[top[3]];
   if (spread <= 1) paras.push("Bốn nguyên tố trong lá số của bạn khá cân, không nguyên tố nào lấn át. Bạn vì thế có thể đổi cách tiếp cận theo hoàn cảnh, và ít bị kéo về một thói quen duy nhất.");
   else {
-    paras.push(EL_MORE[top[0]]);
-    if (counts[top[1]] === counts[top[0]]) paras.push(EL_MORE[top[1]].replace(/ đậm nhất:/, " cũng đậm không kém:"));
+    paras.push(EL_NB[top[0]].more);
+    if (counts[top[1]] === counts[top[0]]) paras.push(EL_NB[top[1]].more);
     const low = top.filter((e) => counts[e] <= Math.max(0, counts[top[0]] - 3)).slice(-1)[0];
-    if (low) paras.push(`${EL_LOW[low]}.`);
+    if (low) paras.push(EL_NB[low].less);
   }
   return {
     id: "elements", title: "Bốn nguyên tố: Lửa, Đất, Khí, Nước", paragraphs: paras, meta: { elements: counts },
@@ -424,16 +469,14 @@ function pillarsBlock(ctx: Ctx, f: Facts): OverviewBlock {
   const paras: string[] = [];
   if (!pillars.length) paras.push("Lá số của bạn không có một điểm tựa nào nổi trội hẳn; sức được chia khá đều, nên điều bạn phát triển được thường đến từ việc chọn và luyện một hướng cụ thể.");
   let saidAmb = 0;
+  void saidAmb;
   pillars.forEach((id, i) => {
-    const p = f.planets[id];
-    const via = p.house ? `, và nó thể hiện rõ nhất qua chuyện ${area(p.house)}` : "";
-    const hard = !ctx.noTime && p.role === "dusthana" && saidAmb++ === 0 ? " Năng lực này thường lộ ra rõ nhất khi bạn phải xử lý việc khó." : "";
-    paras.push(i === 0 ? `Điểm tựa lớn nhất của bạn là ${CAPACITY[id]}${via}.${hard}` : `Kế đó là ${CAPACITY[id]}${via}.${hard}`);
+    const t = PLANET_NB[id];
+    if (i === 0) paras.push(t ? `${nameOf(id)} là hành tinh hoạt động mạnh nhất trong lá số của bạn. ${t}` : `Điểm tựa lớn nhất của bạn là ${CAPACITY[id]}.`);
+    else paras.push(t ? `Kế đó là ${nameOf(id)}. ${t.split(/(?<=[.!?])\s+/).slice(0, 2).join(" ")}` : `Kế đó là ${CAPACITY[id]}.`);
   });
-  const weak = seven.map((id) => f.planets[id]).filter((p) => p.grade === "weak").sort((a, b) => a.score - b.score)[0];
-  if (weak) paras.push(`Điều cần nhiều thời gian hơn để chín là ${CAPACITY[weak.id]}.`);
   return {
-    id: "pillars", title: "Hành tinh trụ cột nâng đỡ", paragraphs: paras, meta: { planets: pillars },
+    id: "pillars", title: "Những hành tinh hoạt động mạnh", paragraphs: paras, meta: { planets: pillars },
     facts: pillars.map((id) => `${nameOf(id)}: ${DIGNITY_VI[f.planets[id].dignity].toLowerCase()}${f.planets[id].sb ? `, sức mạnh ${Math.round(f.planets[id].sb!.ratio * 100)}%` : ""}`).join(" · "),
     why: [
       ...seven.map((id) => { const p = f.planets[id]; return `${nameOf(id)}: ${DIGNITY_VI[p.dignity]}${p.sb ? `, Shadbala ${Math.round(p.sb.ratio * 100)}%` : ""}${p.g.digBala ? ", Dig Bala" : ""}${p.g.vargottama ? ", Vargottama" : ""}${p.g.combust ? ", cháy sáng" : ""}${!ctx.noTime && p.lorded.length ? `, cai quản nhà ${p.lorded.join(", ")}` : ""}.`; }),
@@ -483,7 +526,7 @@ function focusBlock(ctx: Ctx, f: Facts): { block: OverviewBlock; share: Overview
     const ids = planetsIn(s.a.houses);
     const strongHere = ids.filter((id) => isSeven(id) && isGood(f.planets[id]));
     const tail = strongHere.length >= 2 ? ", và đây cũng là nơi bạn có nhiều điểm mạnh" : strongHere.length ? ", và bạn có điểm mạnh ở đây" : ", dù ở đây việc thường nhiều hơn thuận lợi";
-    paras.push(k === 0 ? `Cuộc sống của bạn xoay nhiều nhất quanh ${s.a.says}${tail}.` : `Kế đó là ${s.a.says}.`);
+    paras.push(k === 0 ? (AREA_NB[s.a.id] ? `Lá số của bạn dồn nhiều sức nặng vào ${s.a.says}. ${AREA_NB[s.a.id]}` : `Cuộc sống của bạn xoay nhiều nhất quanh ${s.a.says}${tail}.`) : `Kế đó là ${s.a.says}.`);
   });
   const L = f.planets[SIGN_LORD[f.n.lagna.sign]];
   const ex = f.houses.find((h) => h.lordHouse !== h.n && f.houses[h.lordHouse - 1].lordHouse === h.n && h.n < h.lordHouse);
@@ -491,7 +534,7 @@ function focusBlock(ctx: Ctx, f: Facts): { block: OverviewBlock; share: Overview
   void L;
   return {
     block: {
-      id: "focus", title: "Những lĩnh vực nổi bật trong lá số", paragraphs: paras,
+      id: "focus", title: "Những lĩnh vực nổi trội trong cuộc sống", paragraphs: paras,
       facts: lead.map((x) => `${x.a.title}: ${planetsIn(x.a.houses).map(nameOf).join(", ") || "không có hành tinh"}`).join(" · "),
       why: [
         ...FOCUS_AREAS.map((a, i) => `${a.title} (nhà ${a.houses.join(", ")}): ${Math.round((byArea[i] / total) * 100)}% trọng lượng, ${planetsIn(a.houses).length ? joinVi(planetsIn(a.houses).map(nameOf)) : "không có hành tinh"}.`),
@@ -531,15 +574,348 @@ export function readLetter(ctx: Ctx): Letter {
     { label: "Mặt Trời", value: SIGNS[n.grahas.sun.sign], role: "bản ngã và ý chí" },
     ...(ctx.uncertainMoon ? [] : [{ label: "Mặt Trăng", value: SIGNS[n.grahas.moon.sign], role: "tâm trí và cảm xúc" }]),
   ];
-  return { greeting: `Gửi ${greetName(ctx.name)},`, line: headline(ctx, f), chips };
+  const body = letterBody(ctx, f);
+  return { greeting: `Gửi ${greetName(ctx.name)},`, line: headline(ctx, f), paras: usesPairs(ctx) ? [] : body.paras, why: body.why, chips };
 }
+
+const CLOSE: string[] = [
+  "Các trang sau đi vào từng mảng đời. Bạn có thể đọc theo thứ tự, hoặc bắt đầu từ mảng mình đang băn khoăn nhất.",
+  "Những trang tiếp theo đi chậm hơn, từng mảng một. Không cần đọc hết một lần; chỗ nào chạm vào điều bạn đang nghĩ, hãy dừng lại ở đó.",
+  "Phần còn lại của bài đọc mở từng mảng đời ra. Bạn cứ đọc theo nhịp của mình, và giữ lại những gì thấy đúng với mình.",
+];
+
+/** The letter under the headline: where the chart puts its effort (from the lord of the rising sign), the main pull between
+ *  the Sun and the Moon, and a closing line. Each of these is said only here, not again in the cards below. */
+function letterBody(ctx: Ctx, f: Facts): { paras: string[]; why: string[] } {
+  const n = ctx.n, paras: string[] = [], why: string[] = [];
+  if (!ctx.noTime) {
+    const lag = n.lagna.sign, L = SIGN_LORD[lag], p = f.planets[L];
+    const where = p.house === 1 ? "Phần lớn tâm sức của bạn dồn vào chính con đường riêng của mình" : `Phần lớn tâm sức của bạn đổ vào chuyện ${area(p.house!)}`;
+    const cond = p.grade === "weak" ? ", và ở đó kết quả thường đến chậm, qua nhiều lần tự rèn" : p.grade === "strong" ? ", và đó cũng là nơi bạn có nhiều điểm tựa nhất" : "";
+    paras.push(`${where}${cond}.`);
+    why.push(`${lagnaLordSentence(f, lag)}`, `Chủ cung mọc ${nameOf(L)}: ${SIGNS[p.sign]} ${fmtDeg(p.g.deg)}, nhà ${p.house}, ${DIGNITY_VI[p.dignity].toLowerCase()}${p.sb ? `, Shadbala ${Math.round(p.sb.ratio * 100)}% mức tối thiểu của BPHS` : ""}.`);
+  }
+  if (!ctx.uncertainMoon) {
+    const sm = sunMoonLine(ctx, f), triad = triadLine(ctx);
+    // with the pair reading below, the Sun–Moon relation is told there, so the letter does not say it first
+    const t = usesPairs(ctx) ? "" : [triad, sm ? sm.text : ""].filter(Boolean).join(" ");
+    if (t) paras.push(t);
+    if (sm) why.push(sm.why);
+    why.push(`Nguyên tố: Mặt Trời ${SIGNS[n.grahas.sun.sign]} (${ELEMENT_VI[ELEMENT_OF(n.grahas.sun.sign)]}), Mặt Trăng ${SIGNS[n.grahas.moon.sign]} (${ELEMENT_VI[ELEMENT_OF(n.grahas.moon.sign)]}).`);
+    const md = n.grahas.moon.deg;
+    if (md < 1 || md > 29) why.push(`Mặt Trăng ở ${fmtDeg(md)} trong cung, sát ranh giới cung. Life Atlas dùng ayanamsa Lahiri; một ayanamsa khác (như Raman, lệch khoảng 1,5°) có thể đặt Mặt Trăng sang cung bên cạnh.`);
+  }
+  paras.push(pick(CLOSE, n.lagna.lon * 7 + n.grahas.moon.lon));
+  why.push("Cách chọn: câu đầu lấy hai đặc điểm nổi nhất của lá số; đoạn sau đọc chủ cung mọc và quan hệ Mặt Trời – Mặt Trăng; chỉ nói điều được nhiều yếu tố cùng chỉ về (nhà, chủ nhà và hành tinh chủ quản).");
+  return { paras: paras.map(noPast).filter(Boolean), why };
+}
+
+/** Sentences that tell the reader's past or childhood as fact. The chart cannot see these, so the overview never says them. */
+const PAST = /(tuổi thơ|thời thơ ấu|từ nhỏ|hồi nhỏ|ngày xưa|tuổi trẻ|đã từng|kiếp trước|tiền kiếp|khi còn bé)/i;
+export function noPast(text: string): string {
+  return text.split(/(?<=[.!?])\s+/).filter((x) => !PAST.test(x)).join(" ").trim();
+}
+const keep = (h: string, p: string) => ({ h, p: noPast(p) });
+
+/** A portrait kept to two beats: what this point needs or shows, and one line on what to hold on to. No scenes, no fears read into the person. */
+function trimPortrait(P: Portrait, kind: "lagna" | "sun" | "moon"): Portrait {
+  const b = P.beats, lesson = firstSentence(b[4].p);
+  const beats = kind === "lagna" ? [keep(b[0].h, b[0].p), keep("Điều cần giữ", `${firstSentence(b[3].p)} ${lesson}`)]
+    : [keep(b[0].h, b[0].p), keep("Điều cần giữ", lesson)];
+  return { ...P, beats: beats.filter((x) => x.p) };
+}
+
+/** The rising sign, the Sun and the Moon, each as a short named portrait. A sign already shown is not painted again. */
+function portraitBlocks(ctx: Ctx, f: Facts): OverviewBlock[] {
+  const n = ctx.n, out: OverviewBlock[] = [];
+  const rest = (b: OverviewBlock, drop: string) => b.paragraphs.filter((p) => p && p !== drop).map(noPast).filter(Boolean);
+  const lag = ctx.noTime ? null : n.lagna.sign;
+  if (lag !== null) {
+    const b = lagnaBlock(ctx, f);
+    out.push({ ...b, title: `Cung mọc ${SIGNS[lag]}`, role: "thân thể và cách bạn bước vào đời", paragraphs: rest(b, LAGNA_SIGN[lag]), portrait: trimPortrait(LAGNA_PORTRAIT[lag], "lagna"), meta: { signs: [{ label: "Cung mọc", sign: lag }] } });
+  }
+  const sun = n.grahas.sun.sign, moon = n.grahas.moon.sign;
+  const sb = sunBlock(ctx, f);
+  const sPar = rest(sb, SUN_SIGN[sun]).filter((p) => lag === null || !p.startsWith("Cung mọc và Mặt Trời"));
+  // the same sign as the rising sign: keep the Sun's own beat (what gives meaning), leave out what the rising sign already said
+  const sP = trimPortrait(SUN_PORTRAIT[sun], "sun");
+  out.push({ ...sb, title: `Mặt Trời ${SIGNS[sun]}`, role: "bản ngã và linh hồn", paragraphs: sPar, portrait: lag === sun ? { ...sP, beats: sP.beats.slice(0, 1) } : sP, meta: { signs: [{ label: "Mặt Trời", sign: sun }] } });
+  if (!ctx.uncertainMoon) {
+    const mb = moonBlock(ctx, f), M = MOON_PORTRAIT[moon];
+    const lead = fill(MOON_NAK_LEAD, { nak: nakName(n.grahas.moon.nak.name) });
+    const mP = trimPortrait(M, "moon");
+    out.push({ ...mb, title: `Mặt Trăng ${SIGNS[moon]}`, role: "cảm xúc và tâm trí", paragraphs: rest(mb, MOON_SIGN[moon]).filter((p) => !p.startsWith(lead)), portrait: { ...(moon === sun || moon === lag ? { ...mP, beats: mP.beats.slice(0, 1) } : mP), why: `${M.why} ${lead} ${NAKSHATRA_TEXT[n.grahas.moon.nak.index]}` }, meta: { signs: [{ label: "Mặt Trăng", sign: moon }] } });
+  }
+  return out;
+}
+
+// ------------------------------------------------------------------ the three points read in pairs (v4.2)
+
+/** Whole-sign count from a to b, 1–12. */
+const relOf = (a: number, b: number) => mod(b - a, 12) + 1;
+/** What the count means, in plain words, for the "Vì sao" line. */
+const REL_VI: Record<number, string> = {
+  1: "cùng một cung: hai điểm mang chung một chất",
+  2: "hai cung kề nhau: hai điểm khác nhịp, cần thời gian để quen nhau",
+  12: "hai cung kề nhau: hai điểm khác nhịp, cần thời gian để quen nhau",
+  3: "thế 3–11: hai điểm tiếp sức cho nhau và mạnh dần theo thời gian",
+  11: "thế 3–11: hai điểm tiếp sức cho nhau và mạnh dần theo thời gian",
+  4: "thế 4–10: hai điểm thúc nhau, tạo động lực nhưng cũng tạo sức ép",
+  10: "thế 4–10: hai điểm thúc nhau, tạo động lực nhưng cũng tạo sức ép",
+  5: "thế tam hợp 5–9: hai điểm dễ đỡ nhau",
+  9: "thế tam hợp 5–9: hai điểm dễ đỡ nhau",
+  6: "thế 6–8: hai điểm lệch nhịp, cần chủ động dung hòa",
+  8: "thế 6–8: hai điểm lệch nhịp, cần chủ động dung hòa",
+  7: "thế đối diện 1–7: hai điểm soi vào nhau và bổ khuyết cho nhau",
+};
+const SUN_DIG_VI: Record<number, string> = { 0: "Mặt Trời ở Bạch Dương là vị trí vượng (Uchcha) theo Parashara: ý chí thẳng và chủ động.", 6: "Mặt Trời ở Thiên Bình là vị trí suy (Neecha) theo Parashara: ý chí thiên về dung hòa hơn là áp đặt.", 4: "Mặt Trời ở Sư Tử là cung nhà của chính nó." };
+const MOON_DIG_VI: Record<number, string> = { 1: "Mặt Trăng ở Kim Ngưu là vị trí vượng theo Parashara: cảm xúc có nền vững.", 7: "Mặt Trăng ở Thiên Yết là vị trí suy theo Parashara: cảm xúc đi sâu và chậm, cần thời gian để tin.", 3: "Mặt Trăng ở Cự Giải là cung nhà của chính nó." };
+
+function pairsBlock(ctx: Ctx, f: Facts): OverviewBlock {
+  const n = ctx.n, L = n.lagna.sign, S = n.grahas.sun.sign, M = n.grahas.moon.sign;
+  const pairs: { h: string; p: string }[] = [];
+  pairs.push({ h: `Cung mọc ${SIGNS[L]} và Mặt Trời ${SIGNS[S]}`, p: PAIRS.LS[L][S] });
+  // When the Sun and the Moon share a sign, the rising sign × Moon paragraph would say again what rising sign × Sun said.
+  if (S !== M) pairs.push({ h: `Cung mọc ${SIGNS[L]} và Mặt Trăng ${SIGNS[M]}`, p: PAIRS.LM[L][M] });
+  const paras: string[] = [];
+  if (S === M) paras.push(`Mặt Trời và Mặt Trăng của bạn cùng ở ${SIGNS[S]}, nên đoạn dưới đây nói chung cho cả điều bạn coi trọng lẫn điều lòng bạn cần.`);
+  const rel = (a: string, sa: number, b: string, sb: number) => `${a} ${SIGNS[sa]} → ${b} ${SIGNS[sb]}: ${b} ở cung thứ ${relOf(sa, sb)} tính từ ${a === "Cung mọc" ? "cung mọc" : a} (${REL_VI[relOf(sa, sb)]}).`;
+  const why = [
+    `Cung mọc ${SIGNS[L]} ${fmtDeg(n.lagna.deg)}, Mặt Trời ${SIGNS[S]} ${fmtDeg(n.grahas.sun.deg)}, Mặt Trăng ${SIGNS[M]} ${fmtDeg(n.grahas.moon.deg)} (Lahiri, cung trọn – Whole Sign).`,
+    rel("Cung mọc", L, "Mặt Trời", S),
+    ...(S !== M ? [rel("Cung mọc", L, "Mặt Trăng", M)] : []),
+    rel("Mặt Trời", S, "Mặt Trăng", M),
+    SUN_DIG_VI[S] ?? "", MOON_DIG_VI[M] ?? "",
+    ...moonBlock(ctx, f).why.slice(0, 2),
+    "Văn bản do NotebookLM viết từ các nguồn Jyotish trong sổ “Chiêm tinh học”.",
+  ].filter(Boolean).filter((x, i, a) => a.indexOf(x) === i);
+  return {
+    id: "keys", title: "Cung mọc, Mặt Trời và Mặt Trăng", role: "cách bạn bước vào đời, điều bạn coi trọng và điều lòng bạn cần, đọc cùng nhau",
+    meta: { signs: [{ label: "Cung mọc", sign: L }, { label: "Mặt Trời", sign: S }, { label: "Mặt Trăng", sign: M }] },
+    paragraphs: paras, pairs: pairs.map((x) => ({ h: x.h, p: noPast(x.p) })), why,
+  };
+}
+/** The rising sign alone: body, looks and the air a person carries (NotebookLM). */
+function lagnaLookBlock(ctx: Ctx, f: Facts): OverviewBlock {
+  const L = ctx.n.lagna.sign;
+  return {
+    id: "lagna", title: `Cung mọc ${SIGNS[L]}`, role: "thân thể, diện mạo và khí chất bên ngoài",
+    meta: { signs: [{ label: "Cung mọc", sign: L }] },
+    paragraphs: LAGNA_LOOK[L].split(/\n\n+/).map(noPast).filter(Boolean),
+    why: [...lagnaBlock(ctx, f).why, "Văn bản do NotebookLM viết từ các nguồn Jyotish trong sổ “Chiêm tinh học”."],
+  };
+}
+/** The pair reading needs all three points; without a birth time or with an uncertain Moon, the portraits are used. */
+export const usesPairs = (ctx: Ctx) => !ctx.noTime && !ctx.uncertainMoon;
 
 export function readOverview(ctx: Ctx): Overview {
   const f = buildFacts(ctx);
   const blocks: OverviewBlock[] = [];
-  blocks.push(keysBlock(ctx, f), elementsBlock(ctx, f), moonCycleBlock(ctx, f), pillarsBlock(ctx, f));
+  if (usesPairs(ctx)) blocks.push(lagnaLookBlock(ctx, f), pairsBlock(ctx, f), elementsBlock(ctx, f), pillarsBlock(ctx, f));
+  else blocks.push(keysBlock(ctx, f), ...portraitBlocks(ctx, f), elementsBlock(ctx, f), moonCycleBlock(ctx, f), pillarsBlock(ctx, f));
   let share: Overview["focusShare"] = null;
   if (!ctx.noTime) { const fb = focusBlock(ctx, f); blocks.push(fb.block); share = fb.share; }
   const strength: StrengthRow[] | null = ctx.sb ? ctx.sb.order.map((id) => { const p = ctx.sb!.planets[id]; return { id, name: nameOf(id), pct: Math.round(p.ratio * 100), band: p.band, rank: p.rank }; }) : null;
-  return { blocks, strength, focusShare: share, planets: readPlanets(ctx) };
+  return { explore: readExplore(ctx, f), blocks, strength, focusShare: share, planets: readPlanets(ctx) };
+}
+
+// ------------------------------------------------------------------ Tổng quan v5
+
+const sentences = (t: string) => t.split(/(?<=[.!?])\s+/).filter(Boolean);
+const lowFirst = (t: string) => (/^(Bạn|Người|Cuộc)/.test(t) ? t.charAt(0).toLowerCase() + t.slice(1) : t);
+/** The first sentence of a passage, without an opening "Khi …," clause, ready to follow a colon. */
+const leadSentence = (t: string) => lowFirst((sentences(t.replace(/\n+/g, " "))[0] ?? "").replace(/^Khi [^,]{3,90}, /, "").replace(/[.!?]$/, ""));
+const noHealth = (t: string) => sentences(t).filter((x) => !/sức khỏe|bệnh/.test(x)).join(" ");
+const paras = (t: string) => t.split(/\n\n+/).map((x) => noHealth(x.trim())).filter(Boolean);
+/** A passage of one long paragraph is split in two, at its middle sentence. */
+function twoParas(t: string): string[] {
+  const ps = paras(t);
+  if (ps.length !== 1) return ps;
+  const ss = sentences(ps[0]);
+  if (ss.length < 4) return ps;
+  void 0;
+  const k = Math.max(2, ss.findIndex((x, i) => i >= 2 && /^(Khí chất|Phong thái|Về khí chất|Bạn mang|Bạn tiếp xúc|Bạn bước|Điểm mạnh|Thế mạnh|Về điểm mạnh)/.test(x)));
+  const cut = k > 1 && k < ss.length ? k : Math.ceil(ss.length / 2);
+  return [ss.slice(0, cut).join(" "), ss.slice(cut).join(" ")];
+}
+
+// ------------------------------------------------------------------ v4.2: the three keystones as one portrait
+// Each keystone starts from the notebook's passage for its sign, then is modified by what makes this chart different:
+// the nakshatra and its lord, the lord of the sign, planets sitting with it and planets looking at it, strength and the Moon's light.
+// Definite claims about the body are dropped (the brief forbids them), and so are the harshest labels.
+
+const BODY = /(vóc dáng|thân hình|khung xương|khung người|cánh tay|sống mũi|đôi mắt|ánh mắt|gương mặt|khuôn mặt|làn da|mái tóc|diện mạo|vầng trán|bờ vai|dáng người|cơ thể|chiều cao|cằm|gò má|lông mày)/i;
+const HARSH = /(lười biếng|cực kỳ|rất thiếu|cáu gắt|hoang phí|ích kỷ|độc đoán|thô lỗ|tàn nhẫn)/i;
+const keepSoft = (t: string) => sentences(t.replace(/\n+/g, " ")).filter((x) => !BODY.test(x) && !HARSH.test(x) && !/sức khỏe|bệnh/.test(x)).join(" ");
+const stripLead = (t: string) => t.replace(/^Khi (có )?(cung Mọc|Mặt Trời|Mặt Trăng)[^,]{0,40}, /, "").replace(/^./, (c) => c.toUpperCase());
+const condWord = (p: PlanetFact) => (["exalted", "own", "moolatrikona"].includes(p.dignity) ? "đang ở vị trí mạnh" : p.dignity === "debilitated" ? "đang ở thế suy" : p.grade === "strong" || p.grade === "good" ? "đứng khá vững" : p.grade === "weak" ? "đang ở thế yếu" : "ở thế vừa phải");
+/** The rising nakshatra, or null when the birth-time window lets it change. */
+function lagnaNak(ctx: Ctx): { index: number; name: string; pada: number; lord: GrahaId } | null {
+  const n = ctx.n, w = Math.max(1, ctx.windowMin);
+  const a = computeNatal(n.utcMs - w * 60_000, n.lat, n.lon).lagna.nak, b = computeNatal(n.utcMs + w * 60_000, n.lat, n.lon).lagna.nak;
+  if (a.index !== n.lagna.nak.index || b.index !== n.lagna.nak.index) return null;
+  return { index: n.lagna.nak.index, name: n.lagna.nak.name, pada: n.lagna.nak.pada, lord: n.lagna.nak.lord };
+}
+const FACE_OF: Record<string, string> = {
+  sun: "một vẻ tự tin, rõ ràng", moon: "một vẻ mềm mại, dễ gần", mars: "một độ quyết liệt khi đã có việc phải làm", mercury: "sự lanh lợi trong lời nói",
+  jupiter: "một vẻ điềm đạm, đáng tin", venus: "sự duyên dáng và hòa nhã", saturn: "vẻ nghiêm, dè dặt và chín chắn", rahu: "một nét khác thường, khó đoán", ketu: "vẻ xa cách, sống nhiều bên trong",
+};
+
+function lagnaPart(ctx: Ctx, f: Facts): string[] {
+  const n = ctx.n, L = n.lagna.sign, out: string[] = [];
+  const base = keepSoft(LAGNA_LOOK[L]);
+  out.push(stripLead(base || LAGNA_SIGN[L]));
+  const nk = lagnaNak(ctx), mod2: string[] = [];
+  if (nk) {
+    const NL = f.planets[nk.lord];
+    const face = NAK[nk.index].face.replace(/^Người ta thấy ở bạn /, "");
+    const where = NL.house === 1 ? `và chính ${nameOf(nk.lord)}, hành tinh dẫn dắt chòm sao này, đang đứng ngay trên cung mọc, nên nét ấy hiện ra rất rõ` : `${nameOf(nk.lord)}, hành tinh dẫn dắt chòm sao này, ${condWord(NL)}, nên nét ấy ${["exalted", "own", "moolatrikona"].includes(NL.dignity) || NL.grade === "strong" ? "có sức nặng" : NL.grade === "weak" || NL.dignity === "debilitated" ? "thường kín đáo hơn" : "hiện ra vừa phải"}`;
+    mod2.push(`Điều làm bạn khác với nhiều người cùng cung mọc là chòm sao ${nakName(nk.name)}: người ta thường thấy ở bạn ${face.replace(/\.$/, "")}; ${where}.`);
+  } else mod2.push(`Trong khoảng sai số giờ sinh, cung mọc của bạn có thể rơi vào hai chòm sao khác nhau, nên mình chỉ đọc theo cung, không dựa vào chi tiết chòm sao.`);
+  const occ = f.houses[0]?.occupants.filter((id) => id !== nk?.lord) ?? [];
+  const asp = (f.houses[0]?.aspects ?? []).filter((id) => !occ.includes(id) && id !== nk?.lord && ["mars", "saturn", "jupiter"].includes(id));
+  if (occ.length) mod2.push(`${joinVi(occ.map(nameOf))} ${occ.length > 1 ? "cùng đứng" : "đứng"} trên cung mọc, thêm vào phong thái của bạn ${joinVi(occ.map((id) => FACE_OF[id]))}.`);
+  if (asp.length) mod2.push(`${joinVi(asp.map(nameOf))} chiếu thẳng vào cung mọc, nên trong phong thái ấy còn có ${joinVi(asp.map((id) => FACE_OF[id]))}.`);
+  out.push(mod2.join(" "));
+  return out.map(noPast).filter(Boolean);
+}
+
+function sunPart(ctx: Ctx, f: Facts): string[] {
+  const n = ctx.n, S = n.grahas.sun.sign, sun = f.planets.sun, out: string[] = [];
+  const nb = SUN_NB[S] && SUN_NB[S] !== "Đang cập nhật." ? paras(SUN_NB[S])[0] : SUN_SIGN[S];
+  const sameAsLagna = !ctx.noTime && n.lagna.sign === S;
+  // when the Sun shares the rising sign, the sign has been described already: keep only its first sentence
+  out.push(sameAsLagna ? `Mặt Trời cũng ở ${SIGNS[S]}, nên chất của cung này đi từ vẻ ngoài vào tận bản ngã. ${sentences(stripLead(keepSoft(nb)))[0] ?? ""}` : stripLead(keepSoft(nb)));
+  const m: string[] = [];
+  const nk = sun.g.nak, NL = f.planets[nk.lord];
+  m.push(nk.lord === "sun" ? `Mặt Trời còn nằm trong chòm sao ${nakName(nk.name)} do chính nó dẫn dắt, nên chuẩn mực riêng của bạn rất rõ: ${lowerFirst(NAKSHATRA_TEXT[nk.index].split(": ").slice(1).join(": "))}` : `Chòm sao ${nakName(nk.name)} của Mặt Trời thêm một sắc thái: ${lowerFirst(NAKSHATRA_TEXT[nk.index].split(": ").slice(1).join(": "))}${nk.lord !== "rahu" && nk.lord !== "ketu" ? ` Hành tinh dẫn dắt chòm sao này, ${nameOf(nk.lord)}, ${condWord(NL)}.` : ""}`);
+  if (!ctx.noTime && sun.house) m.push(viaArea(SUN_IN[sun.house - 1]));
+  if ((sun.dignity === "enemy" || sun.dignity === "debilitated") && sun.house === 12) m.push("Cung Kim Ngưu không thật hợp với Mặt Trời, nhưng sức của nó không yếu: nó chỉ chọn cách làm việc lặng lẽ.".replace("Kim Ngưu", SIGNS[S]));
+  else if (sun.dignity === "enemy" || sun.dignity === "debilitated") m.push(sun.conj.length || sun.aspectedBy.length ? "Mặt Trời đứng trong một cung không thật hợp với nó, nên ý chí thường cần thời gian mới hiện rõ." : "Mặt Trời đứng trong một cung không thật hợp với nó và không có hành tinh nào đi cùng hay chiếu vào, nên ý chí của bạn ít phô ra; sức của nó không yếu, chỉ là được dùng một cách âm thầm.");
+  else if (["exalted", "own", "moolatrikona"].includes(sun.dignity)) m.push("Mặt Trời đứng ở vị trí mạnh, nên điều bạn muốn khẳng định thường hiện ra rõ và đứng vững.");
+  const c = conjNote(f, "sun"); if (c) m.push(c);
+  out.push(m.join(" "));
+  const L = ctx.noTime ? null : n.lagna.sign;
+  if (L !== null && L !== S) out.push(PAIRS.LS[L][S]);
+  return out.map(noPast).filter(Boolean);
+}
+
+function moonPart(ctx: Ctx, f: Facts): string[] {
+  const n = ctx.n, M = n.grahas.moon.sign, moon = f.planets.moon, out: string[] = [];
+  const nb = MOON_NB[M] && MOON_NB[M] !== "Đang cập nhật." ? paras(MOON_NB[M])[0] : MOON_SIGN[M];
+  const shared = M === n.grahas.sun.sign || (!ctx.noTime && M === n.lagna.sign);
+  out.push(shared ? `Mặt Trăng cũng ở ${SIGNS[M]}, nên cảm xúc của bạn nói cùng một tiếng nói với ${M === n.grahas.sun.sign ? "ý chí" : "vẻ ngoài"}. ${sentences(stripLead(keepSoft(nb))).slice(1, 3).join(" ")}`.trim() : stripLead(keepSoft(nb)));
+  const m: string[] = [];
+  const nk = moon.g.nak;
+  if (nk.index === n.grahas.sun.nak.index) m.push(`Mặt Trăng còn ở cùng chòm sao ${nakName(nk.name)} với Mặt Trời, nên điều bạn tin và điều bạn cảm gần như là một; sức mạnh ở đây là sự nhất quán, còn điều cần giữ là chừa chỗ cho một góc nhìn khác.`);
+  const soul = sentences(NAK[nk.index].soul).filter((x) => !/thuộc (về )?[A-Z]|là (sao|thầy|ngọn|lửa)|Điều cần tập/.test(x)).slice(0, 2).join(" ");
+  if (nk.index !== n.grahas.sun.nak.index) m.push(`Chòm sao ${nakName(nk.name)} làm nhịp ấy có thêm chiều sâu: ${lowerFirst(soul)}`);
+  if (nk.lord !== "rahu" && nk.lord !== "ketu") { const NL = f.planets[nk.lord]; if (["exalted", "own", "moolatrikona"].includes(NL.dignity) || NL.grade === "strong") m.push(`Hành tinh dẫn dắt chòm sao này, ${nameOf(nk.lord)}, đang ở vị trí mạnh, nên đây là một chỗ dựa thật cho đời sống cảm xúc.`); }
+  const LL = ctx.noTime ? null : SIGN_LORD[n.lagna.sign];
+  if (LL && moon.conj.includes(LL)) m.push(`Mặt Trăng đứng cùng ${nameOf(LL)}, hành tinh cai quản cung mọc, nên điều bạn cảm và điều bạn nghĩ đi rất sát nhau.`);
+  else { const cc = conjNote(f, "moon"); if (cc) m.push(cc); }
+  out.push(m.join(" "));
+  // strength and light
+  const e = mod(n.grahas.moon.lon - n.grahas.sun.lon, 360), gap = Math.min(e, 360 - e);
+  const weakest = moon.sb && moon.sb.rank === 7;
+  const disp = f.planets[SIGN_LORD[M]];
+  if (gap < 72 || weakest) {
+    const why = gap < 72 && weakest ? `Mặt Trăng là hành tinh có sức mạnh thấp nhất lá số, và bạn sinh khi trăng chỉ còn cách Mặt Trời khoảng ${Math.round(gap)} độ` : gap < 72 ? `Bạn sinh khi trăng chỉ còn cách Mặt Trời khoảng ${Math.round(gap)} độ, lúc trăng còn mỏng` : "Mặt Trăng là hành tinh có sức mạnh thấp nhất lá số";
+    const help = isGood(disp) ? ` Điều bù lại là ${nameOf(disp.id)}, hành tinh cai quản cung của Mặt Trăng, ${condWord(disp)}, nên cảm xúc có chỗ để hồi lại.` : "";
+    out.push(`${why}. Vì vậy nguồn năng lượng cảm xúc của bạn mỏng hơn những gì người khác thấy, và cần được giữ bằng giấc ngủ, nhịp nghỉ và những người làm bạn thấy an toàn.${help}`);
+  }
+  return out.map(noPast).filter(Boolean);
+}
+
+function readExplore(ctx: Ctx, f: Facts): Explore {
+  const n = ctx.n, S = n.grahas.sun.sign, M = n.grahas.moon.sign, L = ctx.noTime ? null : n.lagna.sign;
+  const parts: Explore["parts"] = [];
+  if (L !== null) parts.push({ key: "lagna", title: `Cung Mọc ${SIGNS[L]}`, role: "Thân thể & Khí chất", sign: L, paragraphs: lagnaPart(ctx, f) });
+  parts.push({ key: "sun", title: `Mặt Trời ${SIGNS[S]}`, role: "Bản ngã & Linh hồn", sign: S, paragraphs: sunPart(ctx, f) });
+  if (!ctx.uncertainMoon) parts.push({ key: "moon", title: `Mặt Trăng ${SIGNS[M]}`, role: "Tâm trí & Cảm xúc", sign: M, paragraphs: moonPart(ctx, f) });
+
+  // ---- highlights, one or two sentences each
+  const highlights: Explore["highlights"] = [];
+  const by: Record<Element, GrahaId[]> = { fire: [], earth: [], air: [], water: [] };
+  for (const id of SEVEN) by[ELEMENT_OF(n.grahas[id].sign)].push(id);
+  const counts: Record<Element, number> = { fire: by.fire.length, earth: by.earth.length, air: by.air.length, water: by.water.length };
+  if (L !== null) counts[ELEMENT_OF(L)]++;
+  const order = ["fire", "earth", "air", "water"] as Element[];
+  const top = [...order].sort((a, b) => counts[b] - counts[a] || order.indexOf(a) - order.indexOf(b));
+  let elText: string;
+  if (counts[top[0]] - counts[top[3]] <= 1) elText = "Bốn nguyên tố trong lá số của bạn khá cân, không nguyên tố nào lấn át, nên bạn dễ đổi cách tiếp cận theo hoàn cảnh.";
+  else {
+    const more = EL_NB[top[0]].more.replace(/^Nguyên tố [^.]+\.\s*/, "");
+    elText = `Nguyên tố ${ELEMENT_VI[top[0]]} chiếm nhiều nhất: ${leadSentence(more)}.`;
+    const low = order.find((e) => counts[e] === 0);
+    if (low) elText += ` Nguyên tố ${ELEMENT_VI[low]} ít được nhấn mạnh; điều đó không có nghĩa bạn thiếu phẩm chất ấy, chỉ là nó ít khi là phản xạ đầu tiên của bạn.`;
+  }
+  highlights.push({ key: "elements", title: "Nguyên tố nổi bật", text: elText, elements: counts });
+  const seven = f.order.filter((id) => id !== "rahu" && id !== "ketu");
+  const weight = (id: GrahaId) => { const p = f.planets[id]; let w = p.score; if (p.role === "yogakaraka") w += 0.8; if (p.role === "lagna") w += 0.5; if (f.n.yogas.some((y) => y.grahas.includes(id) && y.strength !== "weak" && y.tone === "good")) w += 0.4; return w; };
+  const pillars = seven.filter((id) => isGood(f.planets[id])).sort((a, b) => weight(b) - weight(a)).slice(0, 2);
+  let plText = "Không có hành tinh nào nổi trội hẳn; sức được chia khá đều giữa các hành tinh.";
+  if (pillars.length) {
+    plText = `${nameOf(pillars[0])} hoạt động mạnh nhất: ${leadSentence(PLANET_NB[pillars[0]] ?? GIFT[pillars[0]])}.`;
+    if (pillars[1]) plText += ` Kế đó là ${nameOf(pillars[1])}, nâng đỡ ${GIFT[pillars[1]]}.`;
+  }
+  highlights.push({ key: "planets", title: "Hành tinh nổi bật", text: plText, planets: pillars });
+  let areaTitle = "";
+  if (L !== null) {
+    const { total, byArea } = focusWeights(f);
+    const scored = FOCUS_AREAS.map((a, i) => ({ a, excess: byArea[i] / total - a.houses.length / 12 })).sort((x, y) => y.excess - x.excess);
+    const lead = scored.filter((x) => x.excess >= 0.08).slice(0, 2);
+    let t = "Lá số trải khá đều qua nhiều mảng đời sống, không dồn về một vùng nào; trọng tâm thường đổi theo từng giai đoạn.";
+    if (lead.length) {
+      const a = lead[0].a; areaTitle = a.title;
+      t = `Lá số dồn nhiều sức nặng vào ${a.says}; đây là nơi các giai đoạn quan trọng của đời bạn thường diễn ra.`;
+      if (lead[1]) t += ` Kế đó là ${lead[1].a.says}.`;
+    }
+    highlights.push({ key: "areas", title: "Lĩnh vực được nhấn mạnh", text: t });
+  }
+
+  // ---- the whole picture, from the rule-based traits (not from the passages above)
+  const tr = traits(ctx, f);
+  const pic: string[] = [headline(ctx, f)];
+  const used = new Set<string>();
+  const gifts = tr.filter((x) => x.kind !== "tension"), tens = tr.filter((x) => x.kind === "tension");
+  [gifts[0], gifts.find((x) => x !== gifts[0]), tens[0]].forEach((x) => x && used.add(x.key));
+  const rest = tr.filter((x) => !used.has(x.key)).slice(0, 2);
+  const LEAD_GIFT = ["Bên cạnh đó, bạn", "Ở bạn cũng có nét"];
+  rest.slice(0, 1).forEach((x, i) => {
+    if (x.kind === "tension") pic.push(`Có điều, ${x.clause}.`);
+    else if (x.key === "ll") pic.push(`Khi ${x.clause.replace(" thì ", ", bạn ")}.`);
+    else pic.push(i === 0 ? `${LEAD_GIFT[0]} ${x.clause}.` : `${LEAD_GIFT[1]} ${x.clause}.`);
+  });
+  const SHAPE = L === null ? "" : L === S && S === M ? `Cả ba điểm gốc cùng ở ${SIGNS[S]}, nên vẻ ngoài, điều bạn coi trọng và điều lòng bạn cần nói chung một tiếng nói; điều cần học là đừng để một chất ấy lấn hết chỗ của những chất khác.`
+    : relOf(L, M) === 8 || relOf(L, M) === 6 || relOf(L, M) === 12 ? "Vẻ ngoài và đời sống bên trong của bạn đi theo hai nhịp khác nhau, nên người mới gặp thường chỉ thấy một nửa con người bạn."
+    : relOf(L, S) === 5 || relOf(L, S) === 9 || relOf(L, S) === 1 ? "Cách bạn bước vào đời và điều bạn coi trọng dễ đi cùng một hướng, nên khi đã chọn đúng việc, bạn ít phải gồng mình." : "";
+  if (SHAPE) pic.push(SHAPE);
+  const summary = pic.join(" ");
+
+  // ---- the data underneath, shown once, folded
+  const basis: Explore["basis"] = [];
+  const pos = (id: GrahaId) => { const p = f.planets[id]; return `${nameOf(id)}: ${SIGNS[p.sign]} ${fmtDeg(p.g.deg)}${p.house ? `, nhà ${p.house}` : ""}, ${DIGNITY_VI[p.dignity].toLowerCase()}${p.sb ? `, Shadbala ${Math.round(p.sb.ratio * 100)}%` : ""}${p.g.retro ? ", nghịch hành" : ""}${p.g.combust ? ", cháy sáng" : ""}${p.g.vargottama ? ", vargottama" : ""}.`; };
+  const three: string[] = [];
+  if (L !== null) { const LL = SIGN_LORD[L]; three.push(`Cung Mọc: ${SIGNS[L]} ${fmtDeg(n.lagna.deg)}, chòm sao ${nakName(n.lagna.nak.name)} pada ${n.lagna.nak.pada}; chủ cung mọc ${nameOf(LL)} ở ${SIGNS[f.planets[LL].sign]}, nhà ${f.planets[LL].house}.`); }
+  three.push(pos("sun"));
+  if (!ctx.uncertainMoon) three.push(`${pos("moon")} Chòm sao ${nakName(n.grahas.moon.nak.name)} pada ${n.grahas.moon.nak.pada}, chủ chòm sao ${nameOf(n.grahas.moon.nak.lord)}.`);
+  const e = mod(n.grahas.moon.lon - n.grahas.sun.lon, 360), tithi = Math.floor(e / 12) + 1;
+  three.push(`Mặt Trăng cách Mặt Trời ${e.toFixed(1).replace(".", ",")}°, tithi ${tithi}/30 (${tithi <= 15 ? "Shukla Paksha" : "Krishna Paksha"}).`);
+  basis.push({ h: "Ba điểm gốc", lines: three });
+  const rel = (a: string, sa: number, b: string, sb: number) => `${a} ${SIGNS[sa]} → ${b} ${SIGNS[sb]}: cung thứ ${relOf(sa, sb)} (${REL_VI[relOf(sa, sb)].split(":")[0]}).`;
+  basis.push({ h: "Quan hệ giữa các điểm (cung trọn – Whole Sign)", lines: [
+    ...(L !== null ? [rel("Cung Mọc", L, "Mặt Trời", S)] : []),
+    ...(L !== null && !ctx.uncertainMoon ? [rel("Cung Mọc", L, "Mặt Trăng", M)] : []),
+    ...(!ctx.uncertainMoon ? [rel("Mặt Trời", S, "Mặt Trăng", M)] : []),
+  ] });
+  basis.push({ h: "Nguyên tố", lines: [order.map((x) => `${ELEMENT_VI[x]} ${counts[x]}`).join(" · ") + (L !== null ? " (bảy hành tinh và cung mọc)" : " (bảy hành tinh)"),
+    ...order.map((x) => `${ELEMENT_VI[x]}: ${by[x].length ? joinVi(by[x].map(nameOf)) : "không có hành tinh"}${L !== null && ELEMENT_OF(L) === x ? ", cung mọc" : ""}.`)] });
+  basis.push({ h: "Bảy hành tinh", lines: [...seven.map(pos), ...(["rahu", "ketu"] as GrahaId[]).map((id) => `${nameOf(id)}: ${SIGNS[f.planets[id].sign]} ${fmtDeg(f.planets[id].g.deg)}${f.planets[id].house ? `, nhà ${f.planets[id].house}` : ""}.`),
+    ...(pillars.length ? [`Hành tinh nổi bật được chọn theo phẩm vị, Shadbala và vai trò chức năng: ${joinVi(pillars.map(nameOf))}.`] : [])] });
+  if (L !== null) {
+    const { total, byArea } = focusWeights(f);
+    basis.push({ h: "Trọng lượng các lĩnh vực", lines: FOCUS_AREAS.map((a, i) => `${a.title} (nhà ${a.houses.join(", ")}): ${Math.round((byArea[i] / total) * 100)}%.`).concat(areaTitle ? [`Nhấn mạnh nhất: ${areaTitle}.`] : []) });
+  }
+  return { lead: "Để hiểu chính mình, hãy bắt đầu từ những gì thể hiện ra bên ngoài — thân thể và khí chất; đi sâu vào bản ngã và linh hồn; rồi chạm đến thế giới tâm trí và cảm xúc bên trong.", parts, highlights, summary, basis };
 }

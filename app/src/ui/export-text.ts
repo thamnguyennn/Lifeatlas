@@ -19,9 +19,12 @@ export function readingToText(p: Prepared): string {
   out.push(values.name ? `LÁ SỐ JYOTISH CỦA ${values.name.toUpperCase()}` : "LÁ SỐ JYOTISH");
   out.push(birthSubtitle(p));
   title("Tổng quan");
-  out.push(r.letter.greeting, "");
-  para(r.letter.line);
-  for (const b of r.overview.blocks) { sub(b.title); paras(b.paragraphs); }
+  const X = r.overview.explore;
+  sub("Khám phá bản thân từ ngoài vào trong"); para(X.lead);
+  for (const p of X.parts) { out.push(`${p.title} · ${p.role}`, ""); paras(p.paragraphs); }
+  sub("Những đặc điểm nổi bật");
+  for (const h of X.highlights) { out.push(h.title, ""); para(h.text); }
+  sub("Bức tranh tổng thể"); para(X.summary);
 
   if (!noTime && r.houseMap) {
     title("12 khía cạnh của cuộc sống");

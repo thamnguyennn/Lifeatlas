@@ -1,11 +1,14 @@
 // Run with:  npm test
+import { PAIRS } from "../src/reading/content/pairs.ts";
 import assert from "node:assert/strict";
 import { resolveCivilTime } from "../src/engine/vn-time.ts";
 import { computeNatal } from "../src/engine/core.ts";
 import { solarToLunar, lunarToSolar } from "../src/engine/lunar-vn.ts";
 import { SIGNS } from "../src/engine/constants.ts";
 import { vargaSign, vargaChart, charaKarakas, karakamsa, horaSplit } from "../src/engine/vargas.ts";
-import { compose, composeDay, makeCtx } from "../src/reading/compose.ts";
+import { compose, composeDay, composeFrom, makeCtx } from "../src/reading/compose.ts";
+import { greetName } from "../src/reading/util.ts";
+import { noPast } from "../src/reading/overview3.ts";
 import { shadbala, drikBala, beneficSet, SEVEN_IDS, REQUIRED_RUPAS } from "../src/engine/shadbala.ts";
 import { dashaOrigin, dashaMahas, dashaChildren, dashaChain, dashaReliability, levelTrust, LEVEL_NAME, TIME_WINDOW_MIN, type DNode } from "../src/engine/dasha5.ts";
 import { transitAt, taraOf, stayIn } from "../src/engine/transit.ts";
@@ -167,7 +170,7 @@ test("Mở lá số uses one complete sentence and no technical numbers", () => 
 });
 test("Tổng quan has the agreed blocks and respects missing birth time", () => {
   const ids = full.overview.blocks.map((b) => b.id);
-  for (const id of ["keys", "elements", "moonCycle", "pillars", "focus"]) assert.ok(ids.includes(id as never), `block ${id}`);
+  assert.deepEqual(ids, ["lagna", "keys", "elements", "pillars", "focus"]);
   assert.equal(full.overview.strength?.rows?.length ?? full.overview.strength?.length, 7);
   assert.equal(full.overview.planets.length, 9);
   assert.ok(!blind.overview.blocks.some((b) => b.id === "focus" && b.paragraphs.join(" ").match(/\bnhà \d+/i)), "no house numbers without birth time");
@@ -212,7 +215,7 @@ test("Đại vận: Mahadasha has four synthesised layers; Antardasha is read th
   assert.ok(T.mahas.length >= 5 && T.mahas.length <= 9);
   for (const m of T.mahas) {
     assert.equal(m.antars.length, 9);
-    assert.equal(m.read.layers?.length, 6);
+    assert.equal(m.read.layers?.length, 8);
     assert.doesNotMatch(m.read.layers!.map((l) => l.text).join(" "), /\bnhà \d+\b/i, "no house numbers in the Mahadasha prose");
     for (const a of m.antars) assert.ok(!a.layers && a.paragraphs.length >= 2);
   }
@@ -284,6 +287,111 @@ test("sidereal ingresses match published Lahiri dates: Saturn into Pisces 29 Mar
 });
 test("Vedha: the Sun and Saturn never obstruct each other (Phaladeepika exception)", () => {
   for (let k = 0; k < 40; k++) { const t = transitAt(n, Date.UTC(2027, 0, 1) + k * 9 * 86_400_000); const v = vedhaBy(t, "sun"); assert.notEqual(v, "saturn"); }
+});
+
+console.log("Overview letter (v4.1)");
+test("greeting drops test labels and dashes", () => {
+  assert.equal(greetName("Minh An – Test"), "Minh An");
+  assert.equal(greetName("TC-03 Test"), "bạn");
+  assert.equal(greetName("Nguyễn Thị Mai"), "Mai");
+  assert.equal(greetName("Minh Anh (mẫu)"), "Minh Anh");
+  assert.equal(greetName(""), "bạn");
+});
+test("noPast drops sentences that tell the reader's past", () => {
+  assert.equal(noPast("Bạn cần nền móng chắc. Những niềm vui tuổi trẻ bị bỏ qua vì phải gánh việc quá sớm. Bạn gắn bó lâu."), "Bạn cần nền móng chắc. Bạn gắn bó lâu.");
+});
+const tcLetter = (y: number, mo: number, d: number, hh: number, mm: number, opts = {}) =>
+  compose(computeNatal(resolveCivilTime(y, mo, d, hh, mm, SG).utcMs, SG.lat, SG.lon), Date.UTC(2026, 10, 20), { name: "Minh An – Test", ...opts });
+test("TC-01 letter: greeting and one sentence only, evidence kept, no past", () => {
+  const r = tcLetter(1993, 2, 18, 14, 35, { windowMin: 5 });
+  assert.equal(r.letter.greeting, "Gửi Minh An,");
+  assert.equal(r.letter.paras.length, 0);
+  assert.ok(r.letter.why.length >= 3);
+  assert.ok(r.letter.why.some((w) => w.includes("sát ranh giới cung")), "Moon at 0°25′ should carry the boundary note");
+  const all = [r.letter.line, ...r.letter.paras, ...r.overview.blocks.flatMap((b) => [...b.paragraphs, ...(b.pairs?.map((x) => x.p) ?? []), ...(b.portrait?.beats.map((x) => x.p) ?? [])])].join(" ");
+  assert.ok(!/tuổi trẻ|kiếp trước|Một cảnh quen/.test(all));
+});
+test("TC-03 (Lagna, Sun, Moon all Capricorn): rising sign × Moon skipped, shared sign said once, no portraits", () => {
+  const r = tcLetter(1993, 1, 23, 5, 50, { windowMin: 5 });
+  const keys = r.overview.blocks.find((b) => b.id === "keys")!;
+  assert.ok(keys.paragraphs[0].startsWith("Mặt Trời và Mặt Trăng của bạn cùng ở Ma Kết"));
+  assert.deepEqual(keys.pairs!.map((x) => x.h), ["Cung mọc Ma Kết và Mặt Trời Ma Kết"]);
+  assert.equal(r.overview.blocks.filter((b) => b.portrait).length, 0);
+});
+test("TC-01: rising sign block, then rising sign × Sun and × Moon; evidence names each relation", () => {
+  const r = tcLetter(1993, 2, 18, 14, 35, { windowMin: 5 });
+  assert.equal(r.overview.blocks[0].title, "Cung mọc Song Tử");
+  const keys = r.overview.blocks.find((b) => b.id === "keys")!;
+  assert.deepEqual(keys.pairs!.map((x) => x.h), ["Cung mọc Song Tử và Mặt Trời Bảo Bình", "Cung mọc Song Tử và Mặt Trăng Ma Kết"]);
+  assert.ok(keys.why.some((w) => w.includes("cung thứ 9")) && keys.why.some((w) => w.includes("cung thứ 8")) && keys.why.some((w) => w.includes("cung thứ 12")));
+});
+test("Tổng quan v5: outside in (3 parts, 2–3 paragraphs), highlights in 1–2 sentences, one summary, data folded once, no tool names", () => {
+  const r = tcLetter(1993, 2, 18, 14, 35, { windowMin: 5 });
+  const X = r.overview.explore;
+  assert.deepEqual(X.parts.map((p) => p.key), ["lagna", "sun", "moon"]);
+  assert.deepEqual(X.parts.map((p) => p.role), ["Thân thể & Khí chất", "Bản ngã & Linh hồn", "Tâm trí & Cảm xúc"]);
+  for (const p of X.parts) assert.ok(p.paragraphs.length >= 2 && p.paragraphs.length <= 3, `${p.key}: ${p.paragraphs.length}`);
+  assert.deepEqual(X.highlights.map((h) => h.key), ["elements", "planets", "areas"]);
+  for (const h of X.highlights) assert.ok((h.text.match(/[.!?](\s|$)/g) ?? []).length <= 2, h.text);
+  assert.ok(X.summary.length > 60);
+  assert.ok(X.basis.length >= 4 && X.basis[0].lines.some((l) => l.includes("Song Tử")));
+  const all = JSON.stringify(X);
+  assert.ok(!/NotebookLM|Vì sao mình nói/.test(all));
+  const body = X.parts.flatMap((p) => p.paragraphs).join(" ");
+  const prose = X.parts.flatMap((p) => p.paragraphs).join(" ").split(/\s+/).length;
+  assert.ok(prose / (prose + [...X.highlights.map((h) => h.text), X.summary].join(" ").split(/\s+/).length) >= 0.65, "outside-in part is about 70%");
+  void body;
+});
+test("Tổng quan v5 without birth time: no rising sign part, no house areas", () => {
+  const X = blind.overview.explore;
+  assert.deepEqual(X.parts.map((p) => p.key).includes("lagna"), false);
+  assert.ok(!X.highlights.some((h) => h.key === "areas"));
+});
+test("pairs data: 432 paragraphs, no numbers or jargon in the prose, no house topics, no 'luôn'", () => {
+  let k = 0;
+  for (const p of ["LS", "LM", "SM"] as const) for (const row of PAIRS[p]) for (const t of row) {
+    k++; assert.ok(t.length > 200, `${p} short`);
+    assert.ok(!/\d|Kendra|Trikona|Shadashtaka|Uchcha|Neecha|\bluôn\b|gia đình|tiền bạc|hôn nhân|tuổi thơ|cha mẹ|sợ bị tổn thương/.test(t), t.slice(0, 80));
+  }
+  assert.equal(k, 432);
+});
+test("TC-04 (no time, Moon changes sign that day): one portrait, counted right", () => {
+  const n = computeNatal(resolveCivilTime(1993, 2, 18, 12, 0, SG).utcMs, SG.lat, SG.lon);
+  const ctx = makeCtx(n, Date.UTC(2026, 10, 20), { noTime: true, name: "TC-04 Test" }); ctx.uncertainMoon = true;
+  const r = composeFrom(ctx);
+  const keys = r.overview.blocks.find((b) => b.id === "keys")!;
+  assert.ok(keys.paragraphs[0].includes("Bức chân dung dưới đây"), keys.paragraphs[0]);
+  assert.equal(r.overview.blocks.filter((b) => b.portrait).length, 1);
+  assert.equal(r.letter.greeting, "Gửi bạn,");
+});
+
+console.log("v4.2: overview portrait and house 1 ownership");
+test("the rising nakshatra is used only when it holds across the birth-time window (23/05/1990 01:40 sits on a boundary)", () => {
+  const edge = compose(computeNatal(Date.UTC(1990, 4, 22, 18, 40), 16.46, 107.59), NOW, { name: "A", windowMin: 5 });
+  const lag = edge.overview.explore.parts.find((p) => p.key === "lagna")!.paragraphs.join(" ");
+  assert.match(lag, /hai chòm sao khác nhau/);
+  const firm = compose(computeNatal(Date.UTC(1990, 4, 23, 1, 40), 16.46, 107.59), NOW, { name: "A", windowMin: 5 });
+  assert.match(firm.overview.explore.parts.find((p) => p.key === "lagna")!.paragraphs.join(" "), /chòm sao Punarvasu/);
+});
+test("overview and house 1 never share a sentence, and house 1 keeps the sign and the tenants out (Overview owns temperament)", () => {
+  for (const ms of [Date.UTC(1990, 4, 23, 1, 40), Date.UTC(1985, 8, 2, 23, 30), Date.UTC(1972, 11, 25, 7, 5), Date.UTC(2000, 1, 14, 15, 10)]) {
+    const r = compose(computeNatal(ms, 16.46, 107.59), NOW, { name: "A", windowMin: 5 });
+    const ov = new Set(r.overview.explore.parts.flatMap((p) => p.paragraphs).flatMap((t) => t.split(/(?<=[.!?])\s+/)).filter((x) => x.length > 30));
+    const h1 = r.houses[0].sections.flatMap((x) => [...x.paragraphs, ...(x.blocks ?? []).flatMap((b) => b.paragraphs)]).flatMap((t) => t.split(/(?<=[.!?])\s+/));
+    for (const x of h1) assert.ok(!ov.has(x), `shared: ${x}`);
+    assert.doesNotMatch(h1.join(" "), /ở nhà 1:|Có (Sao|Mặt) [^ ]+ ngồi ở đây/);
+  }
+});
+test("no definite claims about the body in the overview", () => {
+  for (const ms of [Date.UTC(1990, 4, 23, 1, 40), Date.UTC(1985, 8, 2, 23, 30), Date.UTC(1964, 6, 7, 21, 15)]) {
+    const r = compose(computeNatal(ms, 16.46, 107.59), NOW, { name: "A", windowMin: 5 });
+    assert.doesNotMatch(r.overview.explore.parts.flatMap((p) => p.paragraphs).join(" "), /vóc dáng|sống mũi|khung xương|làn da|vầng trán/);
+  }
+});
+test("without a birth time the overview has no rising-sign part and still reads", () => {
+  const r = compose(computeNatal(Date.UTC(1990, 4, 23, 1, 40), 16.46, 107.59), NOW, { name: "A", noTime: true });
+  assert.ok(!r.overview.explore.parts.some((p) => p.key === "lagna"));
+  assert.ok(r.overview.explore.parts.every((p) => p.paragraphs.length >= 2));
 });
 
 console.log(`\n${passed} passed, ${failed} failed`);

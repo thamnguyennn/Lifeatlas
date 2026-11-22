@@ -45,9 +45,12 @@ export function spanLabel(ms: number): string {
   return `khoảng ${Math.max(1, Math.round(days * 24))} giờ`;
 }
 
-/** "Nguyễn Thị Mai" -> "Mai", "Minh Anh (mẫu)" -> "Minh Anh". Used in the greeting. */
+/** Labels people add to a name that are not part of it: "Minh An – Test", "TC-03 Test", "Lan (thử)". */
+const NOT_A_NAME = /^(test|thử|mẫu|demo|sample|tc)$/i;
+/** "Nguyễn Thị Mai" -> "Mai", "Minh Anh (mẫu)" -> "Minh Anh", "Minh An – Test" -> "Minh An". Used in the greeting. */
 export function greetName(name?: string): string {
-  const w = (name ?? "").replace(/\(.*?\)/g, " ").trim().split(/\s+/).filter(Boolean);
+  const w = (name ?? "").replace(/\(.*?\)/g, " ").replace(/[–—\-_,.;:!?"“”/\\|]+/g, " ")
+    .trim().split(/\s+/).filter((x) => x && !NOT_A_NAME.test(x) && /\p{L}/u.test(x));
   if (!w.length) return "bạn";
   if (w.length <= 2) return w.join(" ");
   const last = w[w.length - 1], prev = w[w.length - 2];

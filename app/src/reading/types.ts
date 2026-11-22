@@ -48,7 +48,7 @@ export type HousePathway = "strength" | "contrast" | "bridge" | "care" | "life" 
 export type ExpressiveLevel = "sôi động" | "vừa phải" | "yên tĩnh";
 export type SupportLevel = "thuận lợi" | "có thuận có khó" | "cần rèn giũa";
 
-export interface SectionBlock { label: string; paragraphs: string[] }
+export interface SectionBlock { label: string; paragraphs: string[]; /** Shown as paragraphs instead of a list. */ prose?: boolean }
 
 export interface Section {
   id: "open" | "summary" | "sign" | "lord" | "inside" | "aspects" | "support" | "yoga";
